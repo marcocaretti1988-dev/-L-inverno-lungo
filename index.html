@@ -225,6 +225,7 @@
     <button class="vhs ch" data-ch="1">I · IL CORTILE<small>il risveglio</small></button>
     <button class="vhs ch" data-ch="2">II · LA FERMATA DEL FILOBUS<small>il silenzio della città</small></button>
     <button class="vhs ch" data-ch="3">III · IL POSTO DI BLOCCO<small>chi non respira</small></button>
+    <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
   </div>
   <div class="menu-row"><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
   <div class="credits">ЗАТО-42, Urali · consigliate le cuffie</div>
@@ -2033,6 +2034,7 @@ const flatMat = o => new THREE.MeshStandardMaterial(Object.assign({ flatShading:
   mesh(new THREE.CircleGeometry(0.037, 8), R.lensMat, tor, 0, -0.166, 0).rotation.x = Math.PI / 2;
   R.shoulderSnow = mesh(new RoundedBoxGeometry(0.28, 0.03, 0.17, 2, 0.012), M.snow, R.torso, 0, 0.56, -0.03);
   R.fill = new THREE.PointLight(0xb8c8e0, 1.6, 3.2, 1.6);       // luce di riempimento: personaggio leggibile anche in ombra
+  R.lantern = new THREE.PointLight(0xffa850, 0, 5.5, 1.7); R.lantern.position.set(0.3, 0.95, 0.15); g.add(R.lantern);   // la lanterna di Nina, quando ce l'hai
   shadowAll(g);
   [R.hatSnow, R.shoulderSnow, ...R.arms.map(a => a.snowCap)].forEach(m => { m.castShadow = false; });
   ink(g);
@@ -2505,7 +2507,7 @@ function makeFigure(mode, opts = {}) {
    C. SISTEMI DI GIOCO
    ##################################################################### */
 const state = { chapter: 1, started: false, ended: false, gap: false, paused: false, cans: 0, clues: new Set(), items: new Set(['fiammiferi']), flags: {},
-  heat: 100, battery: 60, torch: false, foodWarm: 0, attention: 0, checkpoint: { x: 0, z: 0 }, told: {} };
+  heat: 100, battery: 60, torch: false, foodWarm: 0, attention: 0, checkpoint: { x: 0, z: 0 }, told: {}, gear: new Set() };   // gear: cappotto e lanterna restano da un capitolo all'altro
 let C = null;                      // capitolo corrente
 let interactables = [];
 
@@ -2680,7 +2682,7 @@ function updateSurvival(dt, t) {
   if (!state.started || state.ended || state.gap || state.paused) return;
   // il freddo: più veloce da fermi, più lento correndo, quasi nullo leggendo; vicino al fuoco ci si scalda
   const k = hero.speed > 2.5 ? 0.55 : hero.speed > 0.15 ? 1 : 1.5;
-  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1);
+  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1);
   let warm = 0;
   for (const f of fires) if (f.lit) { const d = Math.hypot(f.x - hero.x, f.z - hero.z); if (d < 3.4) warm += 10 * (1 - d / 3.4) + 2; }
   if (state.foodWarm > 0) { state.foodWarm -= dt; warm += 2.5; }
@@ -2707,7 +2709,20 @@ function updateSurvival(dt, t) {
   }
 }
 const _tv = new THREE.Vector3(), _tv2 = new THREE.Vector3();
+let lanternMesh = null;
+function updateLantern(t) {
+  const on = state.gear.has('lanterna') && state.started && !state.gap;
+  hero.R.lantern.intensity = on ? 6 + Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.3 : 0;
+  if (on && !lanternMesh && DM.ready) {
+    const g = new THREE.Group(), metal = flatMat({ color: 0x2a2c30, metalness: 0.5, roughness: 0.5 }), gl = new THREE.MeshStandardMaterial({ color: 0x553311, emissive: 0xffb45a, emissiveIntensity: 2.2 });
+    const m = (geo, mat, y) => { const o = new THREE.Mesh(geo, mat); o.position.y = y; g.add(o); };
+    m(new THREE.TorusGeometry(0.05, 0.006, 4, 10, Math.PI), metal, 0); m(new THREE.ConeGeometry(0.07, 0.06, 6), metal, -0.05); m(new THREE.CylinderGeometry(0.048, 0.048, 0.12, 8), gl, -0.14); m(new THREE.CylinderGeometry(0.07, 0.075, 0.035, 8), metal, -0.215);
+    g.scale.setScalar(1 / DM.S); g.position.set(0, -0.06 / DM.S, 0); DM.B.L_Wrist.add(g); lanternMesh = g;
+  }
+  if (lanternMesh) lanternMesh.visible = on;
+}
 function updateTorch(dt, t) {
+  updateLantern(t);
   const on = state.torch && state.battery > 0 && !state.gap;
   let k = on ? 1 : 0;
   if (on && state.battery < 15) k *= Math.random() < 0.12 ? 0.15 : 0.85 + Math.random() * 0.15;  // sfarfalla quando è quasi scarica
@@ -2742,6 +2757,13 @@ const paperIcon = (() => { const c = document.createElement('canvas'); c.width =
 const keyIcon = (() => { const c = document.createElement('canvas'); c.width = c.height = 112; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 112, 112);
   x.translate(56, 56); x.rotate(-0.6); x.strokeStyle = '#9a8a6a'; x.lineWidth = 8; x.beginPath(); x.arc(-26, 0, 14, 0, Math.PI * 2); x.stroke();
   x.fillStyle = '#9a8a6a'; x.fillRect(-12, -4, 52, 8); x.fillRect(26, 4, 6, 12); x.fillRect(36, 4, 6, 9); return c.toDataURL(); })();
+const drawIcon = fn => { const c = document.createElement('canvas'); c.width = c.height = 112; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 112, 112); x.translate(56, 56); fn(x); return c.toDataURL(); };
+const coatIcon = drawIcon(x => { x.fillStyle = '#2e3a4c'; x.beginPath(); x.moveTo(-18, -40); x.lineTo(18, -40); x.lineTo(40, -26); x.lineTo(34, 38); x.lineTo(-34, 38); x.lineTo(-40, -26); x.fill();
+  x.fillStyle = '#1c242e'; x.fillRect(-2, -38, 4, 74); x.fillStyle = '#b8b2a0'; x.fillRect(10, -12, 20, 11); x.fillStyle = '#111'; x.font = 'bold 10px monospace'; x.fillText('417', 11, -3); });
+const lanternIcon = drawIcon(x => { x.strokeStyle = '#555'; x.lineWidth = 4; x.beginPath(); x.arc(0, -30, 14, Math.PI, 0); x.stroke(); x.fillStyle = '#333'; x.fillRect(-20, -30, 40, 8); x.fillRect(-22, 26, 44, 10);
+  const g = x.createRadialGradient(0, 0, 2, 0, 0, 30); g.addColorStop(0, '#fff2c0'); g.addColorStop(0.5, '#ffb050'); g.addColorStop(1, '#7a3a10'); x.fillStyle = g; x.fillRect(-15, -22, 30, 48); });
+const castIcon = drawIcon(x => { x.fillStyle = '#e8e4da'; x.beginPath(); x.ellipse(0, -10, 18, 26, 0, 0, 7); x.fill(); x.beginPath(); x.ellipse(0, 26, 13, 14, 0, 0, 7); x.fill();
+  x.strokeStyle = '#b8b2a4'; x.lineWidth = 2; for (let k = -18; k < 10; k += 7) { x.beginPath(); x.moveTo(-12, k); x.lineTo(12, k + 4); x.stroke(); } x.strokeStyle = '#8a8478'; x.beginPath(); x.moveTo(-10, 18); x.lineTo(10, 34); x.stroke(); });
 const ITEMS = {
   torcia: { icon: 'i_torcia', name: 'Torcia', desc: () => `Torcia militare a pila quadrata. Batteria al ${Math.round(state.battery)}%. Tasto T o pulsante TORCIA.`, have: () => true },
   coltello: { icon: 'i_coltello', name: 'Coltello', desc: 'Il mio coltello da lavoro. Serve ad aprire le scatolette.', have: () => true },
@@ -2751,6 +2773,11 @@ const ITEMS = {
   mappa: { icon: 'i_mappa', name: 'Mappa', desc: 'Mappa dello ЗАТО-42, trovata nell\'auto. Qualcuno ha cerchiato in rosso la centrale termoelettrica.' },
   chiave: { icon: 'i_chiave', name: 'Chiave ТП-4', desc: 'Una chiave arrugginita con l\'etichetta di cartone «ТП-4».' },
   asta: { icon: null, img: astaIcon, name: 'Asta isolante', desc: 'Dal camion di pronto intervento. Serve ad aprire il sezionatore della linea.' },
+  cappotto: { icon: null, img: coatIcon, name: 'Cappotto 417', desc: 'Il mio cappotto pesante, dal gancio 417 del guardaroba. Con questo addosso il freddo mi entra molto più piano.', have: () => state.gear.has('cappotto') },
+  lanterna: { icon: null, img: lanternIcon, name: 'Lanterna di Nina', desc: 'Lanterna a petrolio di Nina Petrovna. Poca luce, ma non si spegne mai e scalda un poco le mani. Le figure lontane non la temono: per quelle serve la torcia.', have: () => state.gear.has('lanterna') },
+  calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
+  chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
+  chiaveUscita: { icon: null, img: keyIcon, name: 'Chiavi dell\'uscita', desc: 'Mazzo di chiavi trovato accanto al proiettore. Una è segnata «СЛУЖЕБНЫЙ ВЫХОД».' },
   botola: { icon: null, img: keyIcon, name: 'Chiave della botola', desc: 'Dalla tasca di Semënov. Apre la botola della теплотрасса, sotto il reticolato.' },
 };
 let bagSel = 'torcia';
@@ -4210,10 +4237,373 @@ const CH3 = {
   },
   ending() {
     return { text: 'Mi volto un\'ultima volta verso il posto di blocco. Le maschere antigas sono tutte girate verso di me, anche quella della ronda, che si è fermata a metà passo.<br><br>Poi, una alla volta, tornano a guardare a ovest. Ad aspettare il prossimo che torna.<br><br>Davanti, la cupola del Дом культуры. Le impronte ci vanno dritte.',
-      next: 0, nextLabel: 'CAPITOLO IV · IL DOM KULTURY — in arrivo' };
+      next: 4, nextLabel: 'CAPITOLO IV · IL ДОМ КУЛЬТУРЫ' };
   },
 };
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3 };
+
+/* =====================================================================
+   CAPITOLO IV · IL ДОМ КУЛЬТУРЫ — «il guardaroba»
+   La Casa della Cultura «Энергетик». Nina Petrovna al guardaroba, il cappotto 417, il calco in gesso,
+   la sala del cinema al buio con le figure sedute, il proiettore che mostra Dmitri al «giro 14».
+   ===================================================================== */
+const L4 = { FAC_X: 12, HALL_X: -8, STAGE_Z: -7.55, BARREL: { x: 14.4, z: -4.0 }, NINA: { x: 2.5, z: -6.9 }, GATE: [7.6, 8.4], COUNTER_Z: -6.0,
+  BOOTH: { x0: -30, x1: -26, z0: 6.3, z1: 10.5 }, PROJ: { x: -28.4, z: 8.4 }, EXIT: { x: -27.6, z: -9.6 }, HOOK: { x: -5.5, z: -9.1 },
+  ROWS_Z0: -4.8, ROW_DZ: 1.05, ROWS: 9, START: { x: 27, z: 7.4 } };
+function ground4(x, z) {
+  if (x < L4.FAC_X + 0.3) {
+    let h = 0.45;
+    if (x < -8 && x > -29.8 && z < L4.STAGE_Z) h = 1.45;                                   // palco
+    if (x > -11.2 && x < -8.3 && z < -6.0 && z > -7.6) h = 0.45 + smooth01((-6.0 - z) / 1.55);   // rampa del palco
+    return h;
+  }
+  let h = 0.06 * Math.sin(x * 0.21 + z * 0.13) + 0.04 * Math.sin(x * 0.47 - z * 0.31);
+  const steps = smooth01((14.8 - x) / 2.4) * smooth01((4.6 - Math.abs(z)) / 0.6);
+  h = lerp(h, 0.45, steps);
+  h += Math.exp(-((x - 12.6) ** 2) / 0.4) * 0.3 * smooth01((Math.abs(z) - 4.8) / 0.8);   // neve contro la facciata
+  if (z < -10.2) h += smooth01((-z - 10.3) / 1.0) * 0.4; if (z > 10.0) h += smooth01((z - 10.1) / 1.0) * 0.45;
+  return h;
+}
+const TRAIL4 = [[27, 7], [24, 5.4], [20, 3.0], [16.6, 1.0], [13, 0.2], [10, -1.6], [6, -4.4], [3.2, -5.25], [0, -5.4], [-4, -5.5], [-7.4, -6.0], [-10.5, -6.1], [-13.5, -5.7], [-16.5, -5.6], [-18.8, -4.9], [-18.8, -2.6], [-18.8, -0.4]];
+function screenTex(near) {
+  const W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = mulberry32(near ? 9 : 4);
+  const g = x.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.6); g.addColorStop(0, '#d8d8d0'); g.addColorStop(1, '#55554f'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = 'rgba(40,40,38,0.5)'; for (let k = 0; k < 9; k++) x.fillRect(40 + k * 50, 150 - k * 3, 30, 60);   // file di poltrone sfocate
+  const s = near ? 1.9 : 1, cx = W / 2, by = near ? H + 20 : 205;            // un uomo col colbacco e il cappotto, al centro della sala
+  x.fillStyle = '#121210'; x.beginPath(); x.ellipse(cx, by - 120 * s, 16 * s, 18 * s, 0, 0, 7); x.fill();
+  x.fillRect(cx - 21 * s, by - 142 * s, 42 * s, 14 * s);
+  x.beginPath(); x.moveTo(cx - 38 * s, by - 98 * s); x.lineTo(cx + 38 * s, by - 98 * s); x.lineTo(cx + 46 * s, by); x.lineTo(cx - 46 * s, by); x.fill();
+  if (near) { x.fillStyle = 'rgba(230,230,220,0.85)'; x.fillRect(cx - 9, by - 126 * s, 5, 3); x.fillRect(cx + 4, by - 126 * s, 5, 3); }   // gli occhi che guardano fuori
+  for (let k = 0; k < 2500; k++) { x.fillStyle = `rgba(${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},0.08)`.replace(/\d+,\d+,\d+/, r() < 0.5 ? '0,0,0' : '255,255,255'); x.fillRect(r() * W, r() * H, 1.5, 1.5); }
+  for (let k = 0; k < 7; k++) { x.strokeStyle = 'rgba(20,20,20,0.35)'; x.lineWidth = 1; const px = r() * W; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + (r() - 0.5) * 6, H); x.stroke(); }
+  x.fillStyle = '#060606';                                                   // strappi nello schermo
+  for (let k = 0; k < 4; k++) { const tx = r() * W, ty = r() * H; x.beginPath(); x.moveTo(tx, ty); for (let i = 0; i < 6; i++) x.lineTo(tx + (r() - 0.5) * 70, ty + (r() - 0.5) * 50); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function marbleTex(base, vein) {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), r = mulberry32(31);
+  x.fillStyle = base; x.fillRect(0, 0, S, S);
+  for (let k = 0; k < 14; k++) { x.strokeStyle = vein; x.lineWidth = 0.6 + r() * 1.4; x.beginPath(); let px = r() * S, py = 0; x.moveTo(px, py); while (py < S) { py += 6; px += (r() - 0.5) * 10; x.lineTo(px, py); } x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const CH4 = {
+  id: 4, roman: 'IV', name: 'Il Дом культуры', clueCount: 3, cold: 0.3, attention: true, ground: ground4,
+  docs: { biglietto: 'Biglietto del cinema · Fila 4, posto 17, ore 23:40 · «Non guardare lo schermo. È già successo. — V.»',
+    calco: 'Calco in gesso · «Impronta n. 1 — loro seguono le mie impronte, io seguo le mie» · Voronin 0417',
+    proiettore: 'Bobina d\'archivio · «Registrazione del ciclo. Giro 14.» · «La pellicola gira da sola.»' },
+  start: { x: L4.START.x, z: L4.START.z, heading: -Math.PI / 2 - 0.4 }, bounds: [-29.6, 30.5, -10.1, 10.0],
+  env() { setSun(12, -0.6, 0.8); scene.fog.density = 0.013; hemi.intensity = 0.5; this.hemiB = 0.5; },
+  shelter(x, z) { return x < L4.FAC_X; },
+  inHall() { return hero.x < L4.HALL_X; },
+  snow() {
+    snowBase();
+    // pavimenti: marmo a scacchi nell'atrio, moquette scura nella sala; neve portata dal vento all'ingresso
+    const [hx0, hz0] = toH(-30, -10.6), [hx1, hz1] = toH(L4.FAC_X, 10.6);
+    hCtx.fillStyle = gray(150); hCtx.fillRect(hx0, hz0, hx1 - hx0, hz1 - hz0);
+    for (let x = -8; x < L4.FAC_X; x += 0.8) for (let z = -10.4; z < 10.6; z += 0.8) {
+      const [a, b] = toC(x, z), dark = (Math.round((x + 8) / 0.8) + Math.round((z + 10.4) / 0.8)) % 2;
+      cCtx.fillStyle = dark ? '#3a3d44' : '#bdb9ae'; cCtx.fillRect(a, b, 0.8 * CPPU + 0.5, 0.8 * CPPU + 0.5);
+    }
+    { const [a, b] = toC(-30, -10.6), [c2, d2] = toC(-8, 10.6); cCtx.fillStyle = '#2c2426'; cCtx.fillRect(a, b, c2 - a, d2 - b);
+      const [e, f] = toC(-20.0, -7.5), [g2, h2] = toC(-17.6, 6.0); cCtx.fillStyle = '#4a2020'; cCtx.fillRect(e, f, g2 - e, h2 - f); }
+    { const [cx, cz] = toC(11.2, 0), g = cCtx.createRadialGradient(cx, cz, 2, cx, cz, 4.5 * CPPU); g.addColorStop(0, 'rgba(240,244,250,0.95)'); g.addColorStop(1, 'rgba(240,244,250,0)');
+      cCtx.fillStyle = g; cCtx.fillRect(cx - 5 * CPPU, cz - 5 * CPPU, 10 * CPPU, 10 * CPPU); blob(11.4, 0, 2.2, 205, 0.6); }
+    bandZ(9.6, 12, L4.FAC_X, HX, 205, 0.65, 0.6); bandZ(-12.4, -10.2, L4.FAC_X, HX, 205, 0.35, 0.6);
+    carTrack(x => -6 + 0.2 * Math.sin(0.1 * x), 16, HX, 0.4);
+    const trnd = mulberry32(44);
+    walkTrail(polyPath(TRAIL4), 1.0, 0.82, 0.0, trnd);
+  },
+  build() {
+    const self = this;
+    this.fade = [];
+    const fadeMat = (color, extra = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.92, transparent: true, opacity: 1 }, extra));
+    const wallMat = fadeMat(0x8d867b), plaster = new THREE.MeshStandardMaterial({ color: 0x6c675f, roughness: 0.95 });
+    const box = (mat, x0, x1, y0, y1, z0, z1, parent = world) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+    const F = L4.FAC_X, H0 = 0.45;
+    // --- facciata (diventa trasparente quando Dmitri entra) con colonnato e insegna al neon spenta
+    const fac = new THREE.Group(); world.add(fac);
+    box(wallMat, F - 0.2, F + 0.2, 0, 7.5, -10.6, -1.7, fac); box(wallMat, F - 0.2, F + 0.2, 0, 7.5, 1.7, 10.6, fac); box(wallMat, F - 0.2, F + 0.2, 3.4, 7.5, -1.7, 1.7, fac);
+    const colMat = fadeMat(0xa49d90), neonMat = new THREE.MeshStandardMaterial({ map: textTex(['ДОМ КУЛЬТУРЫ «ЭНЕРГЕТИК»'], 1024, 96, 'rgba(0,0,0,0)', '#c94a3a', 'bold 64px monospace'), transparent: true, emissive: 0xff4a30, emissiveIntensity: 0, roughness: 0.5 });
+    for (const z of [-5.4, -2.6, 2.6, 5.4]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 6.2, 14), colMat); c.position.set(F + 1.3, 3.1, z); c.castShadow = true; fac.add(c);
+      box(colMat, F + 0.85, F + 1.75, 6.2, 6.5, z - 0.45, z + 0.45, fac); CIRCLES.push([F + 1.3, z, 0.42]);
+      const s = new THREE.Mesh(pillow(0.85, 0.12, 0.85, 7 + z | 0, 8), plainSnowMat); s.position.set(F + 1.3, 6.5, z); fac.add(s); }
+    box(colMat, F + 0.6, F + 2.0, 6.5, 7.2, -6.2, 6.2, fac);
+    const neon = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 0.7), neonMat); neon.rotation.y = Math.PI / 2; neon.position.set(F + 2.02, 6.85, 0); fac.add(neon); this.neon = neonMat;
+    for (let k = 0; k < 3; k++) box(colMat, F + 1.6 - k * 0.6, F + 2.6 - k * 0.6, 0, 0.15 + k * 0.15, -4.4, 4.4, fac);   // gradinata
+    this.fade.push({ mats: [wallMat, colMat, neonMat], test: () => hero.x < F - 0.3 });
+    addBox(F - 0.25, F + 0.25, -10.6, -1.7); addBox(F - 0.25, F + 0.25, 1.7, 10.6);
+    // --- atrio: muro nord col mosaico, muretto sud, colonne di marmo scuro, guardaroba
+    box(plaster, -8, F, 0, 7, -10.9, -10.5); box(plaster, -30, -8, 0, 8, -10.9, -10.5); box(plaster, -30.4, -30, 0, 8, -10.9, 10.9);
+    box(plaster, -30, F, 0, 1.0, 10.5, 10.9); addBox(-30, F, 10.4, 11); addBox(-30, F, -11, -10.4);
+    { const mc = document.createElement('canvas'); mc.width = 512; mc.height = 192; const mm = mc.getContext('2d'), r = mulberry32(12);
+      for (let y = 0; y < 192; y += 8) for (let x = 0; x < 512; x += 8) {
+        let col = [150, 70, 50]; const dx = x - 256, dy = y - 70;
+        if (Math.hypot(dx, dy) < 40 || Math.abs(Math.hypot(dx * 0.5, dy * 1.4) - 40) < 4 || Math.abs(Math.hypot(dx * 1.4, dy * 0.5) - 40) < 4) col = [220, 190, 90];   // atomo
+        if (Math.abs(x - 110) < 26 && y > 70) col = [60, 80, 120]; if (Math.hypot(x - 110, y - 58) < 15) col = [220, 180, 150];   // operaio
+        if (Math.abs(x - 400) < 26 && y > 70) col = [60, 90, 70]; if (Math.hypot(x - 400, y - 58) < 15) col = [220, 180, 150];    // operaia
+        if (y > 150) col = [235, 220, 190];
+        const j = (r() - 0.5) * 30; mm.fillStyle = `rgb(${col[0] + j},${col[1] + j},${col[2] + j})`; mm.fillRect(x + 1, y + 1, 7, 7);
+        if (r() < 0.05) { mm.fillStyle = '#4a4744'; mm.fillRect(x, y, 8, 8); } }
+      mm.fillStyle = '#b02a1e'; mm.font = 'bold 30px monospace'; mm.textAlign = 'center'; mm.fillText('СЛАВА ТРУДУ!', 256, 182);
+      const mt = new THREE.CanvasTexture(mc); mt.colorSpace = THREE.SRGBColorSpace;
+      const mp = new THREE.Mesh(new THREE.PlaneGeometry(14, 5.2), new THREE.MeshStandardMaterial({ map: mt, roughness: 0.6 })); mp.position.set(2, 4.4, -10.48); world.add(mp); }
+    const darkMarble = new THREE.MeshStandardMaterial({ map: marbleTex('#26262b', 'rgba(200,200,210,0.35)'), roughness: 0.25, metalness: 0.1 });
+    for (const x of [-4, 1.5, 7]) for (const z of [-3.6, 4.2]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 6.6, 16), darkMarble); c.position.set(x, H0 + 3.3, z); c.castShadow = true; c.receiveShadow = true; world.add(c); CIRCLES.push([x, z, 0.45]); }
+    // bancone del guardaroba con cancelletto, cartello ГАРДЕРОБ
+    const wood = new THREE.MeshStandardMaterial({ map: woodTex('#4a3326', 'rgba(20,12,8,A)', 7), roughness: 0.7 });
+    box(wood, -8, L4.GATE[0], H0, H0 + 1.1, L4.COUNTER_Z - 0.3, L4.COUNTER_Z + 0.3); box(darkMarble, -8, L4.GATE[0], H0 + 1.1, H0 + 1.16, L4.COUNTER_Z - 0.35, L4.COUNTER_Z + 0.35);
+    addBox(-8, L4.GATE[0], L4.COUNTER_Z - 0.3, L4.COUNTER_Z + 0.3);
+    this.gate = box(wood, L4.GATE[0], L4.GATE[1], H0, H0 + 1.0, L4.COUNTER_Z - 0.06, L4.COUNTER_Z + 0.06); this.gateBox = addBox(L4.GATE[0], L4.GATE[1], L4.COUNTER_Z - 0.2, L4.COUNTER_Z + 0.2);
+    box(wood, L4.GATE[1], F - 0.2, H0, H0 + 1.1, L4.COUNTER_Z - 0.3, L4.COUNTER_Z + 0.3); addBox(L4.GATE[1], F, L4.COUNTER_Z - 0.3, L4.COUNTER_Z + 0.3);
+    { const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['ГАРДЕРОБ'], 512, 96, '#1c2a3a', '#e8dcc0', 'bold 64px monospace'), roughness: 0.6, emissive: 0x101820 }));
+      sg.position.set(1, 3.3, -10.46); world.add(sg); }
+    // rastrelliere con centinaia di cappotti uguali (instanced)
+    const coatGeo = (() => { const parts = [];
+      const body = new THREE.CylinderGeometry(0.2, 0.27, 1.05, 8); body.scale(1, 1, 0.42); body.translate(0, -0.6, 0); parts.push(body);
+      const sh = new THREE.CylinderGeometry(0.06, 0.06, 0.48, 6); sh.rotateZ(Math.PI / 2); sh.translate(0, -0.1, 0); parts.push(sh);
+      const col = new THREE.CylinderGeometry(0.09, 0.12, 0.12, 8); col.translate(0, -0.06, 0); parts.push(col);
+      for (const s of [-1, 1]) { const sl = new THREE.CylinderGeometry(0.06, 0.07, 0.75, 6); sl.translate(s * 0.22, -0.48, 0); parts.push(sl); }
+      return mergeGeometries(parts.map(p => { p.deleteAttribute('uv'); return p.toNonIndexed(); }), false); })();
+    coatGeo.rotateY(Math.PI / 2);                                             // spalle perpendicolari alla barra (che corre lungo z)
+    const racksX = [-6.5, -4.5, -2.5, -0.5, 1.5, 3.5, 5.5], perRack = 22, coatMat = new THREE.MeshStandardMaterial({ roughness: 0.95, color: 0xffffff });
+    const coats = new THREE.InstancedMesh(coatGeo, coatMat, racksX.length * perRack); coats.castShadow = true; coats.receiveShadow = true;
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), cc = new THREE.Color(), r = mulberry32(417);
+    const palette = [0x3a3d42, 0x2e3440, 0x463a30, 0x353530, 0x2b2f36];
+    let ci = 0;
+    for (const rx of racksX) {
+      box(ironMat, rx - 0.03, rx + 0.03, H0 + 1.95, H0 + 2.0, -10.0, -7.4); for (const z of [-9.95, -7.45]) box(ironMat, rx - 0.025, rx + 0.025, H0, H0 + 2.0, z - 0.025, z + 0.025);
+      addBox(rx - 0.3, rx + 0.3, -10.2, -7.3);
+      for (let k = 0; k < perRack; k++) { const z = -9.85 + k * 0.115 + (r() - 0.5) * 0.02;
+        Q.setFromEuler(new THREE.Euler(0, (r() - 0.5) * 0.25, (r() - 0.5) * 0.05)); P.set(rx, H0 + 1.95, z); M.compose(P, Q, S); coats.setMatrixAt(ci, M);
+        cc.setHex(palette[Math.floor(r() * palette.length)]).multiplyScalar(0.8 + r() * 0.4); coats.setColorAt(ci, cc); ci++; }
+    }
+    coats.frustumCulled = false; world.add(coats); this.coats = coats;
+    this.coat417i = racksX.indexOf(-6.5) * perRack + 17;                       // il cappotto al gancio 417 (sul fondo)
+    { const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.08), new THREE.MeshStandardMaterial({ map: textTex(['417'], 128, 64, '#b8b2a0', '#1a1a1a', 'bold 44px monospace'), roughness: 0.4, metalness: 0.4 }));
+      tag.position.set(-6.5 + 0.04, H0 + 1.85, -9.85 + 17 * 0.115); tag.rotation.y = Math.PI / 2; world.add(tag); this.tag417 = tag; }
+    // Nina dietro il bancone, con la lanterna accesa
+    this.nina = makeNina(L4.NINA.x, L4.NINA.z); this.nina.heading = 0; this.nina.group.rotation.y = 0; this.nina.group.position.y = H0;
+    this.ninaFire = { x: L4.NINA.x, z: L4.NINA.z, lit: true, lantern: true, update() {} }; fires.push(this.ninaFire);
+    // busto di Lenin ghiacciato, bacheca, scorte nascoste
+    { const st = new THREE.MeshStandardMaterial({ color: 0x5c5f63, roughness: 0.6, metalness: 0.3 }), g = new THREE.Group(); g.position.set(2, H0, 3.4);
+      const ped = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.3, 0.8), darkMarble); ped.position.y = 0.65; g.add(ped);
+      const tor = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 0.6, 12), st); tor.position.y = 1.6; g.add(tor);
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), st); hd.position.y = 2.08; hd.scale.set(0.9, 1.05, 0.95); g.add(hd);
+      const fr = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), plainSnowMat); fr.position.y = 2.15; g.add(fr);
+      shadowAll(g); ink(g); world.add(g); CIRCLES.push([2, 3.4, 0.5]); }
+    { const g = new THREE.Group(); g.position.set(9.6, H0, -4.0); g.rotation.y = -0.3;
+      for (const dx of [-0.75, 0.75]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.9, 0.08), woodMat); p.position.set(dx, 0.95, 0); g.add(p); }
+      const bt = textTex(['ПРОГРАММА · 12.02.1991', '18:00  — — — —', '20:00  — — — —', '21:30  — — — —', '23:40  «СЕАНС»'], 256, 192, '#d6cfbc', '#2a2622', 'bold 18px monospace');
+      const bd = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 0.05), [woodMat, woodMat, woodMat, woodMat, new THREE.MeshStandardMaterial({ map: bt, roughness: 0.8 }), woodMat]); bd.position.y = 1.35; g.add(bd);
+      shadowAll(g); ink(g); world.add(g); addBox(8.8, 10.4, -4.3, -3.7); }
+    { const g = new THREE.Group(); g.position.set(-4.7, H0, 5.0); const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0x5a6048, roughness: 0.9 })); b.position.y = 0.2; g.add(b);
+      const l = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.42), new THREE.MeshStandardMaterial({ color: 0x4a503c })); l.position.set(0, 0.42, 0.06); l.rotation.x = -0.4; g.add(l);
+      shadowAll(g); world.add(g); this.supply = g; }
+    // --- parete tra atrio e sala (trasparente quando sei in sala), doppia porta e cartello КИНОЗАЛ
+    const hallWall = fadeMat(0x6c675f);
+    box(hallWall, -8.2, -7.8, 0, 6.5, -10.5, -6.8); box(hallWall, -8.2, -7.8, 0, 6.5, -5.2, 10.5); box(hallWall, -8.2, -7.8, 3.2, 6.5, -6.8, -5.2);
+    addBox(-8.25, -7.75, -10.5, -6.8); addBox(-8.25, -7.75, -5.2, 10.5);
+    { const km = new THREE.MeshStandardMaterial({ map: textTex(['КИНОЗАЛ'], 512, 96, '#1c1c22', '#e8c070', 'bold 64px monospace'), roughness: 0.6, emissive: 0x201408, transparent: true });
+      const k = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.36), km); k.rotation.y = Math.PI / 2; k.position.set(-7.78, 3.55, -6); world.add(k); this.fade.push({ mats: [hallWall, km], test: () => hero.x < -8.3 }); }
+    for (const s of [-1, 1]) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.7, 0.8), new THREE.MeshStandardMaterial({ color: 0x5a2a20, roughness: 0.6 })); d.position.set(-8.5, H0 + 1.35, -6 + s * 1.1); d.rotation.y = s * 1.2; world.add(d); }
+    // --- sala: palco, schermo strappato col film, sipario, file di poltrone rosse
+    const stageMat = new THREE.MeshStandardMaterial({ map: woodTex('#3a2a20', 'rgba(15,9,6,A)', 21), roughness: 0.8 });
+    box(stageMat, -29.8, -8.3, 0, 1.45, -10.5, L4.STAGE_Z); addBox(-29.8, -11.2, L4.STAGE_Z - 0.1, L4.STAGE_Z + 0.08);
+    this.scrTex = [screenTex(false), screenTex(true)];
+    this.screenMat = new THREE.MeshBasicMaterial({ map: this.scrTex[0], color: 0x111111 });
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), this.screenMat); scr.position.set(-19, 4.3, -10.42); world.add(scr);
+    const velvet = new THREE.MeshStandardMaterial({ color: 0x5a1416, roughness: 0.9, side: THREE.DoubleSide });
+    for (const [x0, x1] of [[-29.6, -25.6], [-12.4, -8.4]]) { const g = new THREE.PlaneGeometry(x1 - x0, 6.6, 40, 1), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 7) * 0.12); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, velvet); m.position.set((x0 + x1) / 2, 1.45 + 3.3, -9.9); m.castShadow = true; world.add(m); }
+    { const seat = (down) => { const parts = [];
+        const back = new THREE.BoxGeometry(0.5, 0.62, 0.08); back.translate(0, 0.72, 0.22); back.rotateX(0); parts.push(back);
+        const cush = new THREE.BoxGeometry(0.46, 0.08, 0.42); if (down) { cush.translate(0, 0.42, -0.02); } else { cush.rotateX(-1.35); cush.translate(0, 0.55, 0.12); } parts.push(cush);
+        for (const s of [-1, 1]) { const a = new THREE.BoxGeometry(0.05, 0.55, 0.45); a.translate(s * 0.27, 0.3, 0.02); parts.push(a); }
+        return mergeGeometries(parts.map(p => p.toNonIndexed()), false); };
+      const red = new THREE.MeshStandardMaterial({ color: 0x6a1a1c, roughness: 0.85 });
+      const xs = []; for (let x = -28.6; x <= -20.1; x += 0.6) xs.push(x); for (let x = -17.6; x <= -9.2; x += 0.6) xs.push(x);
+      const total = xs.length * L4.ROWS, up = new THREE.InstancedMesh(seat(false), red, total), dn = new THREE.InstancedMesh(seat(true), red, total);
+      let iu = 0, id = 0; const rr = mulberry32(77); this.seats = [];
+      for (let ri = 0; ri < L4.ROWS; ri++) { const z = L4.ROWS_Z0 + ri * L4.ROW_DZ;
+        xs.forEach((x, si) => { const down = rr() < 0.16; M.makeTranslation(x, H0, z); if (down) dn.setMatrixAt(id++, M); else up.setMatrixAt(iu++, M); this.seats.push({ x, z, ri, si }); });
+        addBox(-28.9, -19.85, z - 0.3, z + 0.32); addBox(-17.85, -8.9, z - 0.3, z + 0.32); }
+      up.count = iu; dn.count = id; up.frustumCulled = dn.frustumCulled = false; up.castShadow = dn.castShadow = true; up.receiveShadow = dn.receiveShadow = true; world.add(up, dn); }
+    // --- cabina di proiezione (in fondo alla sala) con proiettore 35 mm e fascio di luce
+    const B = L4.BOOTH, boothMat = fadeMat(0x5e5a54);
+    box(boothMat, B.x0, B.x1, 0, 3.4, B.z0 - 0.1, B.z0 + 0.1); box(boothMat, B.x1 - 0.1, B.x1 + 0.1, 0, 3.4, B.z0, 7.6); box(boothMat, B.x1 - 0.1, B.x1 + 0.1, 0, 3.4, 8.8, B.z1); box(boothMat, B.x1 - 0.1, B.x1 + 0.1, 2.6, 3.4, 7.6, 8.8);
+    this.fade.push({ mats: [boothMat], test: () => hero.x < B.x1 + 0.3 && hero.z > B.z0 - 0.3 });
+    addBox(B.x0, B.x1, B.z0 - 0.15, B.z0 + 0.15); addBox(B.x1 - 0.15, B.x1 + 0.15, B.z0, 7.6); addBox(B.x1 - 0.15, B.x1 + 0.15, 8.8, B.z1);
+    this.boothDoor = box(new THREE.MeshStandardMaterial({ color: 0x3a3e44, roughness: 0.6, metalness: 0.4 }), B.x1 - 0.05, B.x1 + 0.05, H0, H0 + 2.2, 7.6, 8.8); this.boothDoorBox = addBox(B.x1 - 0.2, B.x1 + 0.2, 7.6, 8.8);
+    { const g = new THREE.Group(); g.position.set(L4.PROJ.x, H0, L4.PROJ.z);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.6), darkMetal); base.position.y = 0.55; g.add(base);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.8), new THREE.MeshStandardMaterial({ color: 0x3e4a44, roughness: 0.5, metalness: 0.5 })); body.position.y = 1.35; g.add(body);
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.3, 12), darkMetal); lens.rotation.x = Math.PI / 2; lens.position.set(0, 1.4, -0.52); g.add(lens);
+      this.reels = [];
+      for (const [y, z] of [[1.95, 0.15], [1.25, 0.55]]) { const rl = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.05, 20), new THREE.MeshStandardMaterial({ color: 0x8a8e92, metalness: 0.6, roughness: 0.4 })); rl.rotation.z = Math.PI / 2; rl.position.set(0, y, z); g.add(rl); this.reels.push(rl); }
+      this.keyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.04), new THREE.MeshStandardMaterial({ color: 0xb09050, metalness: 0.8, roughness: 0.3 })); this.keyMesh.position.set(0.3, 1.6, 0.2); g.add(this.keyMesh);
+      shadowAll(g); ink(g); world.add(g); addBox(L4.PROJ.x - 0.35, L4.PROJ.x + 0.35, L4.PROJ.z - 0.45, L4.PROJ.z + 0.45); }
+    this.beamFrom = new THREE.Vector3(L4.PROJ.x, H0 + 1.4, B.z0 - 0.2); this.beamTo = new THREE.Vector3(-19, 4.3, -10.4);
+    { const len = this.beamFrom.distanceTo(this.beamTo), cg = new THREE.ConeGeometry(3.4, len, 24, 1, true); cg.rotateX(-Math.PI / 2); cg.translate(0, 0, len / 2);
+      this.beamMat = coneMat(0xe8ecf0); this.beam = new THREE.Mesh(cg, this.beamMat); this.beam.position.copy(this.beamFrom); this.beam.lookAt(this.beamTo); world.add(this.beam);
+      this.screenGlow = new THREE.PointLight(0xc8d4e4, 0, 24, 1.0); this.screenGlow.position.set(-19, 3.2, -6.5); world.add(this.screenGlow);   // il riverbero dello schermo sulla platea
+      for (const [x, y, z] of [[-8.6, 3.0, -4.6], [L4.EXIT.x, 4.3, -9.9], [-26.6, 3.0, 8.2]]) { const el = new THREE.PointLight(0xff3020, 3.5, 6, 1.6); el.position.set(x, y, z); world.add(el);
+        const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.2), new THREE.MeshBasicMaterial({ map: textTex(['ВЫХОД'], 128, 40, '#2a0604', '#ff4a30', 'bold 30px monospace') })); sg.position.set(x, y + 0.1, z); sg.lookAt(x + 5, y + 0.1, z + 5); world.add(sg); }
+      this.projLight = new THREE.SpotLight(0xdfe6ee, 0, 30, 0.2, 0.4, 1.2); this.projLight.position.copy(this.beamFrom); this.projLight.target.position.copy(this.beamTo); world.add(this.projLight, this.projLight.target); }
+    // uscita di servizio dietro il palco
+    { const dm = new THREE.MeshStandardMaterial({ color: 0x2e3238, roughness: 0.6, metalness: 0.4 }); this.exitDoor = box(dm, L4.EXIT.x - 0.6, L4.EXIT.x + 0.6, 1.45, 3.65, -10.5, -10.42);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.42), new THREE.MeshStandardMaterial({ map: textTex(['СЛУЖЕБНЫЙ ВЫХОД', 'БОЛЬНИЦА № 3'], 512, 112, '#2a2a2a', '#d84a3a', 'bold 38px monospace'), roughness: 0.6, emissive: 0x2a0806 }));
+      sg.position.set(L4.EXIT.x, 3.95, -10.4); world.add(sg); }
+    // --- piazzale: botola fumante, Volga nera sepolta, lampione che sfarfalla, bidone, alberi, cassonetto
+    { const ch = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 1.7), concreteMat); ch.position.set(28.6, groundH(28.6, 8.8) + 0.25, 8.8); shadowAll(ch); ink(ch); world.add(ch); addBox(27.7, 29.5, 7.95, 9.65);
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 16), ironMat); lid.position.set(27.6, groundH(27.6, 8.0) + 0.2, 8.0); lid.rotation.z = 0.5; world.add(lid);
+      const steam = radialTex([[0, 'rgba(210,215,222,0.5)'], [1, 'rgba(210,215,222,0)']], 64); this.vapor = [];
+      for (let k = 0; k < 3; k++) { const v = new THREE.Sprite(new THREE.SpriteMaterial({ map: steam, transparent: true, depthWrite: false, opacity: 0 })); v.userData.ph = k / 3; world.add(v); this.vapor.push(v); } }
+    makeCar({ x: 21.5, z: -5.6, rot: 0.3, color: 0x15171b, buried: 1, kind: 'volga', state: 'ok' });
+    this.lamp = makeLamp(17, 6.2, -1, -0.5, true);
+    this.barrel = makeFireBarrel(L4.BARREL.x, L4.BARREL.z);
+    [[19.5, 9.2, 131, 0.95], [29, -8.6, 133, 0.85], [24.5, 9.6, 137, 0.8]].forEach(([x, z, sd, k]) => makeTree(x, z, sd, k));
+    makeDumpster(26, -9.0, 0.1, { open: true }); makeBench(18.5, -9.2, 0);
+    // --- figure: cinque sedute in platea, l'inseguitore sulle tue impronte, due sentinelle sul piazzale
+    const fm = () => new THREE.MeshBasicMaterial({ color: 0x07090c, transparent: true, opacity: 0.92, depthWrite: true });
+    this.seated = [];
+    const rs = mulberry32(5), pick = this.seats.filter(s => s.ri >= 1 && s.ri <= 7 && Math.abs(s.x + 18.8) > 1.6 && Math.abs(s.x + 18.8) < 6);
+    for (let k = 0; k < 5; k++) { const s = pick[Math.floor(rs() * pick.length)], g = new THREE.Group(), m = fm();
+      const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.2, 4, 10), m); b.position.y = 0.85; b.scale.set(1, 1, 0.75); const h = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), m); h.position.y = 1.75;
+      g.add(b, h); world.add(g); this.seated.push({ g, m, home: s, x: s.x, z: s.z, stand: 0, state: 'sit', burn: 0, t: 0 }); }
+    [[29, -2], [16, -9]].forEach(([x, z], i) => makeFigure('watcher', { x, z, timer: 8 + i * 10 }));
+    makeFigure('stalker', { cool: 35 });
+    this.songT = 3; this.tickT = 0; this.projOn = true; this.lampT = 0;
+  },
+  items() {
+    const S = state, self = this, G = state.gear;
+    return [
+      { id: 'fuoco', x: L4.BARREL.x + 0.7, z: L4.BARREL.z + 0.8, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit,
+        use() { if (self.barrel.lit) { say('Il fuoco crepita contro la colonna. Il marmo si scalda appena.'); return; }
+          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L4.BARREL.x + 0.9, z: L4.BARREL.z + 1.0 }; say('Ancora brace sul fondo. Mi basta un fiammifero.'); } },
+      { id: 'volga', x: 21.5 + 1.3, z: -5.6 + 1.4, r: 1.7, marker: false, label: 'Guarda la Volga',
+        use() { say('Una Volga nera, sepolta fino ai finestrini. Il motore è freddo da mesi.'); } },
+      { id: 'impronte', x: 16.4, z: 1.4, r: 1.3, marker: false, kneel: true, label: 'Esamina le impronte',
+        use() { say(S.items.has('calco') ? ['Appoggio il calco in gesso sopra un\'impronta. Il taglio obliquo sul tacco, la suola a spina, la taglia 43.', 'Coincide. Al millimetro.'] : ['Le impronte salgono i gradini senza esitare. Stessa suola, stesso passo lungo e rigido.']); } },
+      { id: 'bacheca', x: 9.4, z: -3.3, r: 1.5, marker: false, label: 'Leggi la bacheca',
+        use() { say(['Programmazione del 12 febbraio 1991. Tutto cancellato a penna.', 'Tranne la proiezione delle 23:40.'], 'BACHECA'); } },
+      { id: 'scorte', x: -4.7, z: 5.8, r: 1.4, my: 0.6, pick: true, label: 'Guarda dietro la colonna', gone: () => S.flags.supply,
+        use() { S.flags.supply = true; S.cans += 1; addBattery(35); self.supply.visible = false; say('Qualcuno ha nascosto delle scorte qui dietro: una scatoletta e una pila quadrata.'); } },
+      { id: 'lenin', x: 2, z: 4.6, r: 1.4, marker: false, label: 'Esamina il busto',
+        use() { say('Il busto ha gli occhi coperti di brina. Sul piedistallo, una «В» incisa col cacciavite.'); } },
+      { id: 'nina', x: L4.NINA.x, z: L4.COUNTER_Z + 0.75, r: 1.8, my: 1.8, label: 'Parla con Nina Petrovna', done: () => S.flags.nina, gone: () => S.flags.ninaGone,
+        use() { if (S.flags.nina) { say(S.flags.coat ? 'Nina mi guarda senza dire nulla. Le mani giunte, il respiro che non si vede.' : 'Il tuo cappotto è sul fondo, Dimočka. Gancio quattrocentodiciassette.', S.flags.coat ? '' : 'NINA PETROVNA'); return; } self.talkNina(); } },
+      { id: 'gancio', x: L4.HOOK.x, z: L4.HOOK.z, r: 1.3, my: 1.7, pick: true, label: 'Gancio 417', done: () => S.flags.coat, gone: () => S.flags.coat,
+        use() { self.takeCoat(); } },
+      { id: 'poltrona', x: -18.8, z: L4.ROWS_Z0 + 3 * L4.ROW_DZ, r: 1.2, marker: false, label: 'Fila 4, posto 17',
+        use() { say(['Velluto rosso ghiacciato. Fila 4, posto 17: il mio biglietto.', 'Il sedile è abbassato, come se qualcuno si fosse appena alzato.']); } },
+      { id: 'cabina', x: L4.BOOTH.x1 + 0.7, z: 8.2, r: 1.5, my: 1.6, label: () => S.flags.boothOpen ? 'Cabina di proiezione' : 'Porta della cabina', done: () => S.flags.boothOpen,
+        use() { if (S.flags.boothOpen) return;
+          if (!S.items.has('chiaveCabina')) { say(['La porta della cabina di proiezione. Chiusa. Dentro, il ticchettio del proiettore.', 'Mi serve una chiave.']); return; }
+          S.flags.boothOpen = true; self.boothDoorBox.off = true; self.boothDoor.position.z += 1.0; self.boothDoor.rotation.y = 1.3; Sound.clunk();
+          say('La chiavetta trovata nel cappotto gira al primo colpo. La cabina sa di pellicola bruciata.'); } },
+      { id: 'proiettore', x: L4.PROJ.x + 0.9, z: L4.PROJ.z - 0.2, r: 1.4, my: 1.7, clue: true, label: 'Ferma il proiettore', done: () => S.flags.projOff,
+        use() { self.stopProjector(); } },
+      { id: 'uscita', x: L4.EXIT.x, z: L4.EXIT.z + 0.6, r: 1.6, my: 2.6, label: 'Uscita di servizio',
+        use() { if (!S.items.has('chiaveUscita')) { say(['СЛУЖЕБНЫЙ ВЫХОД — БОЛЬНИЦА № 3.', 'Chiusa a doppia mandata. Porta sul retro, verso l\'ospedale.']); return; }
+          Sound.clunk(); self.exitDoor.position.x += 0.9; self.exitDoor.rotation.y = 1.2; setTimeout(() => endChapter(), 900); } },
+    ];
+  },
+  talkNina() {
+    const S = state;
+    say('Eccoti, Dimočka. Ti aspettavo. Hai le mani viola per il freddo.', 'NINA PETROVNA');
+    say('«Nina Petrovna? Cosa ci fa qui al buio? La città è vuota… hanno evacuato tutti.»', 'DMITRI');
+    say('Io resto al guardaroba. Finché c\'è anche un solo cappotto appeso, non posso chiudere. E il tuo è sempre al gancio quattrocentodiciassette.', 'NINA PETROVNA');
+    say('«Io… non ricordo di averlo lasciato qui.»', 'DMITRI');
+    say('Me lo dici ogni volta. Ogni volta entri, guardi quel pavimento come se vedessi i fantasmi, mi fai la stessa domanda e poi vai di là, nel buio della sala.', 'NINA PETROVNA');
+    say('«Ogni volta? Quante volte sono venuto qui?»', 'DMITRI');
+    say(['Ho smesso di contarle quando è finita la legna per la stufa. Prendi il tuo cappotto, è sul fondo.', 'E tieni la mia lanterna: fa poca luce, ma non ti lascerà a piedi come quella tua pila.'], 'NINA PETROVNA');
+    say('Apre il cancelletto del bancone. Posa la lanterna davanti a me. Il suo respiro non fa fumo.', '');
+    S.flags.nina = true; this.gateBox.off = true; this.gate.rotation.y = 1.3; this.gate.position.x -= 0.3; this.gate.position.z -= 0.35;
+    S.gear.add('lanterna'); this.nina.lantern.visible = false; this.nina.light.intensity = 0; this.ninaFire.lit = false;
+  },
+  takeCoat() {
+    const S = state;
+    S.flags.coat = true; S.gear.add('cappotto'); ['calco', 'chiaveCabina'].forEach(i => S.items.add(i)); S.clues.add('biglietto'); S.clues.add('calco');
+    const M = new THREE.Matrix4(); this.coats.getMatrixAt(this.coat417i, M); M.scale(new THREE.Vector3(0, 0, 0)); this.coats.setMatrixAt(this.coat417i, M); this.coats.instanceMatrix.needsUpdate = true; this.tag417.visible = false;
+    say(['Il mio cappotto pesante. Lo indosso: è ancora tiepido, come se me lo fossi tolto un minuto fa.', 'Nelle tasche c\'è qualcosa di duro e pesante.'], '');
+    say(['Un biglietto del cinema: ' + RU('ДОМ КУЛЬТУРЫ «ЭНЕРГЕТИК» — 12.02.1991. Ряд 4, Место 17. Сеанс: 23:40.'), 'Sul retro, con la mia calligrafia: ' + Q('«Не смотри на экран. Это уже было. — В.»') + ' Non guardare lo schermo. È già successo.'], 'BIGLIETTO');
+    say(['Nella tasca interna, un blocco di gesso: il calco di un\'impronta di stivale, taglia 43, con un taglio obliquo sul tacco.', 'Sotto, inciso con un chiodo: ' + Q('«СЛЕД №1 — 12.02.1991. ОНИ ИДУТ ПО МОИМ СЛЕДАМ. Я ИДУ ПО СВОИМ. — ВОРОНИН 0417»'), 'Loro seguono le mie impronte. Io seguo le mie.'], 'CALCO IN GESSO');
+    say('E una chiavetta con l\'etichetta: «КИНОАППАРАТНАЯ» — la cabina di proiezione.', '');
+  },
+  stopProjector() {
+    const S = state;
+    if (S.flags.projOff) return;
+    S.flags.projOff = true; this.projOn = false; S.items.add('chiaveUscita'); this.keyMesh.visible = false; Sound.clunk(); Sound.setHum(0);
+    say(['Il proiettore gira a vuoto. Sullo schermo, in fondo alla sala, ci sono io: col mio cappotto, al centro della platea.', 'Abbasso la leva. La bobina rallenta e si ferma. Accanto al rullo, un mazzo di chiavi.'], '');
+    say(['Etichetta sulla bobina: ' + RU('АРХИВ ЗАТО-42. ЗАПИСЬ ЦИКЛА. ДУБЛЬ 14.') + ' — Archivio ZATO-42. Registrazione del ciclo. Giro 14.',
+      'Nota dell\'operatore: ' + Q('«Он снова зашёл в зал в 23:40. Сел на место 17, положил гипсовый слепок в пальто и ушёл через сцену. Плёнка крутится сама.»'),
+      'È entrato di nuovo in sala alle 23:40. Si è seduto al posto 17, ha messo il calco nel cappotto ed è uscito dal palco. La pellicola gira da sola.'], 'REGISTRO');
+    setTimeout(() => { this.lastFrame = true; dreadSpike = 1; Sound.glitch(); }, 1800);
+  },
+  phase() { const f = state.flags; return !this.barrel.lit ? 1 : !f.nina ? 2 : !f.coat ? 3 : !f.projOff ? 4 : 5; },
+  objective() { return ['', 'Accendi un fuoco davanti al Дом культуры', 'Segui le impronte dentro l\'atrio', 'Cerca il cappotto n. 417 nel guardaroba', 'Raggiungi la cabina di proiezione nella sala cinema', 'Apri l\'uscita di servizio dietro il palco'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase(); return p === 1 ? by('fuoco') : p === 2 ? by('nina') : p === 3 ? by('gancio') : p === 4 ? (state.flags.boothOpen ? by('proiettore') : by('cabina')) : by('uscita'); },
+  thought() { return ['', 'Sto congelando. Prima di entrare devo accendere quel bidone vicino alle colonne.', 'C\'è una luce debole dentro l\'atrio, verso il guardaroba. Nina Petrovna aveva detto il numero 417.',
+    'Il mio cappotto deve essere appeso sul fondo, al gancio 417.', 'La porta dietro il palco è chiusa, ma dalla cabina di proiezione arriva un rumore. Devo attraversare la platea facendo attenzione alle poltrone.', 'Ho la chiave. L\'uscita di servizio è dietro il sipario, sul palco.'][this.phase()]; },
+  hint() { return ['', 'Avvicinati al bidone ai piedi della scalinata e accendilo per salvare e scaldarti.', 'Entra nell\'atrio e parla con Nina Petrovna dietro il bancone del guardaroba.',
+    'Entra nel guardaroba dal cancelletto a destra ed esamina il gancio 417, sul fondo a sinistra, tra le rastrelliere.', 'Entra nella sala cinema. Usa brevi colpi di torcia per scacciare le figure sedute, raggiungi la cabina di proiezione in fondo alla sala (angolo in basso a sinistra), aprila e ferma il proiettore.',
+    'Sali sul palco dalla rampa vicino alla porta della sala e apri l\'uscita di servizio in fondo a sinistra.'][this.phase()]; },
+  coldTip() { return this.barrel.lit ? 'Il freddo mi entra nelle ossa. Torno al bidone davanti alla scalinata.' : 'Il gelo morde. Ai piedi della scalinata c\'è un bidone: si può accendere.'; },
+  intro() { return ['L\'aria puzza di polvere bagnata e pellicola bruciata.', 'Le impronte salgono i gradini del Дом культуры senza fermarsi.', 'Anche qui, qualcuno mi ha preceduto con i miei stessi stivali.']; },
+  heroHook(dt) { return true; },
+  update(dt, t) {
+    const S = state, live = S.started && !S.ended, inside = smooth01((L4.FAC_X - hero.x) / 2), hall = this.inHall();
+    // dentro è buio: la luce del cielo non entra
+    hemi.intensity = lerp(this.hemiB, 0.36, inside); sun.intensity = lerp(3.3, 1.1, inside);
+    for (const fd of this.fade) { const want = fd.test() ? 0.12 : 1; for (const m of fd.mats) { m.opacity = lerp(m.opacity, want, damp(5, dt)); m.depthWrite = m.opacity > 0.9; } }
+    // vapore della botola, lampione e neon che sfarfallano
+    this.vapor.forEach((v, k) => { const q = (t * 0.12 + v.userData.ph) % 1; v.position.set(27.6 + q * 0.5, 0.6 + q * 2.4, 8.0); v.scale.setScalar(0.8 + q * 2.2); v.material.opacity = Math.sin(q * Math.PI) * 0.35; });
+    this.lampT -= dt; if (this.lampT <= 0) { this.lampT = 0.05 + Math.random() * 0.4; this.lamp.setLevel(Math.random() < 0.7 ? 0.9 : 0.1); }
+    this.neon.emissiveIntensity = Math.random() < 0.004 ? 2.5 : this.neon.emissiveIntensity * 0.9;
+    // proiettore: fascio a 24 fotogrammi, bobine che girano, il film
+    const on = this.projOn;
+    const fl = on ? 0.75 + 0.25 * (Math.floor(t * 24) % 3 === 0 ? Math.random() : 1) : 0;
+    this.beamMat.uniforms.uOpacity.value = 0.11 * fl; this.beam.visible = on; this.projLight.intensity = 140 * fl; this.screenGlow.intensity = (on ? 10 : this.lastFrame ? 4 : 0) * (0.7 + 0.3 * fl);
+    this.screenMat.color.setScalar(on ? 0.75 + 0.25 * fl : (this.lastFrame ? 0.5 + 0.15 * Math.random() : 0.04));
+    if (this.lastFrame && this.screenMat.map !== this.scrTex[1]) { this.screenMat.map = this.scrTex[1]; this.screenMat.needsUpdate = true; }
+    if (on) this.reels.forEach((r, k) => r.rotation.x += dt * (k ? 3 : 2.4));
+    if (live && on && hall) { this.tickT -= dt; if (this.tickT <= 0) { this.tickT = 1 / 8; const d = Math.hypot(hero.x - L4.PROJ.x, hero.z - L4.PROJ.z); Sound.nb(Sound.master, 1700, 3, 0.03, 0.05 * clamp(1 - d / 26, 0.2, 1), 'bandpass'); } }
+    if (Sound.ctx) Sound.setHum(live && on && hall ? 0.015 : 0);
+    // nell'atrio, una vecchia canzone ovattata che viene dai muri
+    if (live && hero.x < L4.FAC_X && !hall) { this.songT -= dt; if (this.songT <= 0 && Sound.ctx) { this.songT = 20; const o = Sound.pan(-0.3);
+      [440, 523, 494, 440, 392, 440, 330, 0, 349, 392, 440, 392, 330].forEach((f, i) => { if (f) Sound.glide(o, 'triangle', f * 0.5, f * 0.495, 0.9, 0.014, 520, i * 0.75); }); } }
+    // Nina sparisce quando entri in sala
+    if (S.flags.coat && hall && !S.flags.ninaGone) { S.flags.ninaGone = true; this.nina.group.visible = false; setTimeout(() => tell('ninaGone', 'Mi volto verso l\'atrio. Dietro il bancone non c\'è più nessuno.'), 1200); }
+    if (S.torch && hall && live) S.battery = Math.max(0, S.battery - dt * 0.9);            // il gelo della sala scarica la pila
+    if (hall) tell('hall', ['La sala è un pozzo nero. Il fascio del proiettore taglia il buio sopra le poltrone.', 'Alcune poltrone sono occupate. Non si muovono finché le guardo.']);
+    // le figure sedute: si alzano e avanzano quando non le guardi o sono fuori dalla luce
+    const lantern = S.gear.has('lanterna');
+    for (const Fg of this.seated) {
+      if (Fg.state === 'gone') { Fg.t -= dt; if (Fg.t <= 0 && Math.hypot(hero.x - Fg.home.x, hero.z - Fg.home.z) > 7) { Fg.state = 'sit'; Fg.x = Fg.home.x; Fg.z = Fg.home.z; Fg.stand = 0; Fg.burn = 0; } Fg.g.visible = false; continue; }
+      Fg.g.visible = true;
+      const d = Math.hypot(hero.x - Fg.x, hero.z - Fg.z);
+      const lit = live && torchHits(Fg.x, Fg.z);
+      if (lit) { Fg.burn += dt; if (Fg.burn > 0.35) { Fg.state = 'gone'; Fg.t = 22; Sound.glitch(); continue; } } else Fg.burn = Math.max(0, Fg.burn - dt);
+      let a = Math.atan2(Fg.x - hero.x, Fg.z - hero.z) - hero.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
+      const watched = lit || (Math.abs(a) < 1.3 && (d < (lantern ? 2.9 : 1.6) || (S.torch && d < 9 && Math.abs(a) < 0.5)));
+      const active = live && hall && !S.gap && !downed() && !reading();
+      if (active && !watched) {
+        Fg.stand = Math.min(1, Fg.stand + dt * 1.2);
+        if (Fg.stand > 0.85) { const sp = 0.55, dx = hero.x - Fg.x, dz = hero.z - Fg.z, dd = Math.hypot(dx, dz) || 1; Fg.x += dx / dd * sp * dt; Fg.z += dz / dd * sp * dt;
+          if (Math.random() < dt * 0.6 && d < 10) Sound.creak(); }
+      }
+      if (active && Fg.stand > 0.6 && d < 0.85) { this.seated.forEach(o => { o.state = 'sit'; o.x = o.home.x; o.z = o.home.z; o.stand = 0; }); memoryGap('figura'); break; }
+      if (active && Fg.stand > 0.5 && d < 4) dreadSpike = Math.max(dreadSpike, 0.5);
+      Fg.g.position.set(Fg.x, groundH(Fg.x, Fg.z) + lerp(-0.42, 0, Fg.stand), Fg.z);
+      Fg.g.scale.y = lerp(0.72, 1, Fg.stand); Fg.g.rotation.y = Math.atan2(hero.x - Fg.x, hero.z - Fg.z);
+    }
+  },
+  ending() {
+    return { text: 'Sullo schermo lacerato, un uomo con il mio stesso cappotto si ferma al centro della sala e guarda dritto verso di me. La pellicola porta la data del 12 febbraio, ma io sono entrato qui solo cinque minuti fa.<br><br>Quando spalanco la porta sul retro, l\'odore di disinfettante taglia il gelo: davanti a me ci sono i padiglioni dell\'Ospedale n. 3.',
+      next: 0, nextLabel: 'CAPITOLO V · L\'OSPEDALE N. 3 — in arrivo' };
+  },
+};
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
@@ -4233,7 +4623,7 @@ function loadChapter(n, fromPrev = false) {
   BOXES = []; CIRCLES = []; lamps = []; blocks = []; fires = []; figures = []; interactables = [];
   stepCells.clear();
   BOUNDS = C.bounds; groundH = C.ground || (n === 1 ? ground1 : ground2); npcs.length = 0;
-  C.env();
+  sun.intensity = 3.3; C.env();
   C.snow(); hTex.needsUpdate = true; cTex.needsUpdate = true; dirty.h = dirty.c = null;
   buildTerrain();
   C.build();
@@ -4528,7 +4918,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
