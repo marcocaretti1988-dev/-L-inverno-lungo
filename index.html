@@ -241,7 +241,7 @@
     <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
     <button class="vhs ch" data-ch="5">V · L'OSPEDALE N. 3<small>le provette</small></button>
     <button class="vhs ch" data-ch="6">VI · LA STAZIONE RADIO<small>il walkie-talkie</small></button>
-    <button class="vhs ch soon" data-ch="7" disabled>VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne · in arrivo</small></button>
+    <button class="vhs ch" data-ch="7">VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne</small></button>
     <button class="vhs ch soon" data-ch="8" disabled>VIII · LA ТЭЦ<small>la ciminiera · in arrivo</small></button>
     <button class="vhs ch soon" data-ch="9" disabled>IX · I LABORATORI SOTTERRANEI<small>il ciclo termico · in arrivo</small></button>
     <button class="vhs ch soon" data-ch="10" disabled>X · LA VALVOLA<small>fine del ciclo · in arrivo</small></button>
@@ -2842,6 +2842,7 @@ const ITEMS = {
   walkie: { icon: null, img: drawIcon(x => { x.fillStyle = '#3f4a35'; x.fillRect(-18, -30, 36, 64); x.fillStyle = '#1a1e18'; x.fillRect(-12, -22, 24, 18); x.fillStyle = '#5a5e62'; x.fillRect(8, -48, 4, 20); x.fillStyle = '#d8d4c4'; x.font = 'bold 18px serif'; x.fillText('В', -6, 26); }), name: 'Walkie-talkie P-105', desc: 'Dalla stazione radio. Sul retro, una «В» graffiata. Gracchia quando qualcosa si avvicina.', have: () => state.gear.has('walkie') },
   colbacco: { icon: null, img: drawIcon(x => { x.fillStyle = '#3a342c'; x.beginPath(); x.ellipse(0, -4, 34, 26, 0, Math.PI, 0); x.fill(); x.fillRect(-34, -6, 68, 14); x.fillRect(-36, 4, 12, 26); x.fillRect(24, 4, 12, 26); }), name: 'Colbacco foderato', desc: 'Dalla Niva della stazione radio. Il vento morde un po\' meno.', have: () => state.gear.has('colbacco') },
   rompighiaccio: { icon: null, img: drawIcon(x => { x.fillStyle = '#7a7e82'; x.save(); x.rotate(0.6); x.fillRect(-5, -40, 10, 70); x.fillRect(-18, -44, 36, 12); x.restore(); }), name: 'Chiave rompighiaccio', desc: 'Per liberare i tiranti ghiacciati dell\'antenna.' },
+  volantino: { icon: null, img: drawIcon(x => { x.strokeStyle = '#5a5a54'; x.lineWidth = 8; x.beginPath(); x.arc(0, 0, 30, 0, 7); x.stroke(); x.beginPath(); x.moveTo(-30, 0); x.lineTo(30, 0); x.moveTo(0, -30); x.lineTo(0, 30); x.stroke(); }), name: 'Volantino di ghisa', desc: 'Dal tubo dismesso della fogna. Compatibile con la valvola В-3.' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -6229,11 +6230,253 @@ const CH6 = {
   },
   ending() {
     return { text: 'Scendo nel pozzo della теплотрасса. Sopra di me la porta si chiude.<br><br>Sul crinale, sette figure col mio cappotto restano ferme nella neve. Il walkie-talkie gracchia, poi tace.<br><br>«Non farmi aspettare ancora.»',
-      next: 0, nextLabel: 'CAPITOLO VII · SOTTO LA CITTÀ — in arrivo' };
+      next: 7, nextLabel: 'CAPITOLO VII · SOTTO LA CITTÀ' };
   },
 };
 
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6 };
+/* =====================================================================
+   CAPITOLO VII · SOTTO LA CITTÀ — «il teleriscaldamento e le fogne»
+   Il collettore n. 4: le 312 tacche, il vapore a 130°C, tre valvole da chiudere nell'ordine giusto,
+   l'Inseguitore nell'acqua nera, l'accampamento dei sopravvissuti. Il tecnico col 0417 sono io.
+   ===================================================================== */
+const L7 = { X: 60, START: { x: -23, z: 0 }, TALLY: { x: -16, z: -1.9 }, SUPPLY: { x: -11, z: 1.6 }, TABLE: { x: -7.6, z: -1.6 },
+  VALVES: [{ id: 'А-1', x: -3, z: -3.8 }, { id: 'Б-2', x: 0, z: -3.8 }, { id: 'В-3', x: 3, z: -3.8 }], STAIR: { x: 1.5, z: 4.4 }, WHEEL: { x: -10.5, z: 11.4 },
+  CAMP: { x0: 7, x1: 21 }, BARREL: { x: 13, z: 0.4 }, SURV: { x: 17.8, z: -2.6 }, DOOR: { x: 21.2, z: 0 } };
+function ground7(x, z) { return 0.05; }
+const CH7 = {
+  id: 7, roman: 'VII', name: 'Sotto la città', clueCount: 3, cold: 0.0, attention: false, ground: ground7,
+  docs: { tacche: 'Contatore dei passaggi · «Ho smesso di contare dopo la trecentesima volta… Б-2, poi А-1, infine В-3.» · sul muro: 312 tacche',
+    tavolo: 'Protocollo d\'emergenza della rete termica · 12.02.1991 · «apertura forzata della valvola principale della ТЭЦ»',
+    diario: 'Diario del collettore · «Ogni poche ore scende il tecnico col cappotto blu e il numero 0417… Dopo di lui la neve ricomincia.»' },
+  start: { x: L7.X + L7.START.x, z: L7.START.z, heading: Math.PI / 2 }, bounds: [L7.X - 23.6, L7.X + 21.0, -3.6, 13.0],
+  env() { setSun(10, -0.7, 0.7); scene.fog.density = 0.006; hemi.intensity = 0.42; },
+  shelter() { return true; },
+  snow() { snowBase(); },
+  build() {
+    const X = x => L7.X + x, F = 0.05, mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o));
+    this.walls = []; const wall = CH3.wallKit.call(this);
+    if (!state.gear.has('guanti')) state.gear.add('guanti');
+    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(90, 60), new THREE.MeshBasicMaterial({ color: 0x050607 })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(L7.X, -0.6, 4); world.add(voidM);
+    const cc = document.createElement('canvas'); cc.width = cc.height = 128; const cm = cc.getContext('2d'); cm.fillStyle = '#5c5e58'; cm.fillRect(0, 0, 128, 128);
+    for (let k = 0; k < 600; k++) { cm.fillStyle = `rgba(${Math.random() < 0.6 ? '25,24,20' : '140,150,140'},${Math.random() * 0.15})`; cm.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+    const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace; ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.repeat.set(4, 1); const conc = new THREE.MeshStandardMaterial({ map: ct, roughness: 0.95 });
+    const floor = (x0, x1, z0, z1, c = 0x6a6a62, y = F) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshStandardMaterial({ map: ct, color: c, roughness: 0.8 })); p.rotation.x = -Math.PI / 2; p.position.set(X((x0 + x1) / 2), y, (z0 + z1) / 2); p.receiveShadow = true; world.add(p); };
+    floor(-24, 7, -2, 2); floor(-6, 7, -4, 4); floor(7, 21.5, -4, 4, 0x7a7266); floor(-14.5, 10, 5, 7.6, 0x4a4c48); floor(-14.5, 10, 10.4, 12.8, 0x4a4c48); floor(5.2, 7.4, 7.6, 10.4, 0x4a4c48);
+    floor(0.6, 2.6, 4, 5, 0x5a5c58);
+    // l'acqua nera del canale
+    this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0c1012, roughness: 0.15, metalness: 0.4 }); const w = new THREE.Mesh(new THREE.PlaneGeometry(25, 2.8), this.waterMat); w.rotation.x = -Math.PI / 2; w.position.set(X(-2.2), -0.25, 9); world.add(w);
+    addBox(X(-14.5), X(5.2), 7.6, 10.4); addBox(X(7.4), X(10), 7.6, 10.4);
+    // muri: galleria, camera di compensazione, accampamento, fogna
+    wall(conc, X(-24), -2, X(-6), -2, 2.8); wall(conc, X(-24), 2, X(-6), 2, 2.8); wall(conc, X(-24), -2, X(-24), 2, 2.8);
+    wall(conc, X(-6), -4, X(7), -4, 3.2); wall(conc, X(-6), -4, X(-6), -2, 3.2); wall(conc, X(-6), 2, X(-6), 4, 3.2); wall(conc, X(-6), 4, X(7), 4, 3.2, [[6.6, 8.6]]);
+    wall(conc, X(7), -4, X(21.5), -4, 3.0); wall(conc, X(7), 4, X(21.5), 4, 3.0); wall(conc, X(21.5), -4, X(21.5), 4, 3.0, [[3.2, 4.8]]);
+    wall(conc, X(-14.5), 4.9, X(10), 4.9, 2.2, [[15.1, 17.1]]); wall(conc, X(-14.5), 12.9, X(10), 12.9, 2.2); wall(conc, X(-14.5), 4.9, X(-14.5), 12.9, 2.2); wall(conc, X(10), 4.9, X(10), 12.9, 2.2);
+    this.chamberGate = addBox(X(6.9), X(7.1), -4, 4);                  // il vapore sbarra il passaggio verso l'accampamento
+    this.doorBox = addBox(X(21.4), X(21.6), -0.8, 0.8);
+    // le tubazioni lungo le pareti
+    const pm = mt(0xa8a49a, { roughness: 0.7 });
+    for (const [x0, x1, z, y, r] of [[-24, -6, -1.6, 0.6, 0.3], [-24, -6, -1.6, 1.4, 0.24], [-6, 7, -3.6, 2.3, 0.35], [7, 21.5, -3.6, 0.7, 0.32], [7, 21.5, -3.6, 1.5, 0.24], [-14.5, 10, 12.5, 1.6, 0.2]]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, x1 - x0, 12), pm); p.rotation.z = Math.PI / 2; p.position.set(X((x0 + x1) / 2), F + y, z); p.castShadow = true; world.add(p); }
+    addBox(X(-24), X(-6), -2, -1.2); addBox(X(7), X(21.5), -4, -3.2);
+    { const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['МАГИСТРАЛЬНАЯ ТЕПЛОТРАССА — КОЛЛЕКТОР № 4'], 512, 80, '#d8d4c4', '#1a1a1a', 'bold 22px monospace') })); pl.position.set(X(-22.6), F + 2.1, -1.92); world.add(pl); }
+    for (let k = 0; k < 8; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.04), mt(0x5a5e62, { metalness: 0.6 })); r.position.set(X(-23.7), F + 0.3 + k * 0.3, 0); r.rotation.y = Math.PI / 2; world.add(r); }
+    // le impronte nere nel fango, dalla scala in avanti
+    const pr = new THREE.MeshStandardMaterial({ color: 0x0c0b0a, roughness: 0.9, transparent: true, opacity: 0.75 });
+    for (let k = 0; k < 30; k++) { const p = new THREE.Mesh(new THREE.CircleGeometry(0.1, 10), pr); p.scale.set(1.4, 0.6, 1); p.rotation.x = -Math.PI / 2; p.position.set(X(-22.4 + k * 0.62), F + 0.004, (k % 2 ? 0.14 : -0.14) + 0.2); world.add(p); }
+    // il muro delle 312 tacche
+    { const c = document.createElement('canvas'); c.width = 1024; c.height = 256; const m = c.getContext('2d');
+      let n = 0; for (let row = 0; row < 6 && n < 312; row++) for (let g = 0; n < 312 && g < 11; g++) { const x0 = 14 + g * 92, y0 = 18 + row * 38, fresh = n > 296; m.strokeStyle = fresh ? 'rgba(235,240,240,0.95)' : `rgba(225,230,228,${0.35 + Math.random() * 0.45})`; m.lineWidth = 2;
+        for (let k = 0; k < 4 && n < 312; k++, n++) { m.beginPath(); m.moveTo(x0 + k * 9, y0); m.lineTo(x0 + k * 9 + 1, y0 + 26); m.stroke(); } if (n < 312) { m.beginPath(); m.moveTo(x0 - 4, y0 + 22); m.lineTo(x0 + 32, y0 + 4); m.stroke(); n++; } }
+      m.fillStyle = 'rgba(235,240,240,0.9)'; m.font = 'bold 30px serif'; m.fillText('В.', 960, 240);
+      const t = new THREE.CanvasTexture(c); const tm = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), new THREE.MeshBasicMaterial({ map: t, transparent: true })); tm.position.set(X(L7.TALLY.x), F + 1.3, -1.9); world.add(tm); }
+    // nicchia con la cassetta delle scorte
+    { const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 0.4), mt(0x4a5a3a, { metalness: 0.4 })); b.position.set(X(L7.SUPPLY.x), F + 0.18, L7.SUPPLY.z); world.add(b); this.supplyBox = b;
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['ОСТОРОЖНО! ГОРЯЧИЙ ПАР (130°C)'], 512, 80, '#e6c84a', '#a01a12', 'bold 30px monospace') })); s.position.set(X(-9.5), F + 1.95, -1.75); world.add(s); }
+    // il tavolo tecnico, i manometri
+    { const tb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.6), mt(0x5a5e62, { metalness: 0.5 })); tb.position.set(X(L7.TABLE.x), F + 0.4, -1.2); world.add(tb); addBox(X(-8.3), X(-6.9), -1.6, -0.9).low = true;
+      const sch = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['А ——', 'Б ══ ⚠', 'В ——'], 128, 72, '#d8d0b8', '#2a3a6a', 'bold 18px monospace') })); sch.position.set(X(L7.TABLE.x), F + 1.4, -1.9); world.add(sch); }
+    this.gauges = [-3, 0, 3].map(x => { const g = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), new THREE.MeshBasicMaterial({ map: textTex(['◷'], 64, 64, '#e8e4d8', '#b0221c', 'bold 54px monospace') })); g.position.set(X(x), F + 1.75, -3.9); world.add(g); return g; });
+    // le tre valvole
+    this.wheels = L7.VALVES.map((V, i) => { const g = new THREE.Group(); g.position.set(X(V.x), F + 1.0, -3.7); world.add(g);
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8), mt(0x3a3a3a, { metalness: 0.6 })); pin.rotation.x = Math.PI / 2; g.add(pin);
+      const wh = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 8, 20), mt(0x8a2a20, { metalness: 0.5 })); wh.position.z = 0.15; g.add(wh); wh.visible = i !== 2;
+      const lb = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshStandardMaterial({ map: textTex(['ВЕНТИЛЬ ' + V.id], 128, 48, '#d8d4c4', '#1a1a1a', 'bold 22px monospace') })); lb.position.set(X(V.x), F + 1.55, -3.86); world.add(lb);
+      const vp = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.2, 10), mt(0x9a9488)); vp.position.set(X(V.x), F + 1.1, -3.45); world.add(vp); addBox(X(V.x - 0.3), X(V.x + 0.3), -4, -3.2);
+      return { g, wh }; });
+    // getti di vapore: in galleria, nella camera, in fogna
+    const steamTex = radialTex([[0, 'rgba(232,236,240,0.9)'], [1, 'rgba(232,236,240,0)']], 64);
+    this.jets = [[-9.2, 0.4, 0, 0], [-4.4, 0.6, 1.2, 1], [1.4, -0.8, 2.4, 1], [4.6, 1.2, 0.6, 1], [-6, 6.3, 1.8, 2], [3, 11.6, 3.0, 2]].map(([x, z, ph, zone]) => {
+      const sp = []; for (let k = 0; k < 6; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 })); world.add(s); sp.push(s); }
+      return { x: X(x), z, ph, zone, sp, on: 0, period: 4.5 + (ph % 1.5) }; });
+    this.jets[0].off = true;                                       // il getto in galleria parte quando chiudi la cassetta
+    // tre Sentinelle ferme nelle nuvole di vapore
+    const fm = new THREE.MeshBasicMaterial({ color: 0x0a0c0f, transparent: true, opacity: 0 });
+    this.steamFigs = [[-4.5, 2.6], [5.6, -2.4], [-1.5, 3.0]].map(([x, z]) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.25, 4, 10), fm.clone()); b.position.y = 0.9; const h = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), b.material); h.position.y = 1.83; g.add(b, h); g.position.set(X(x), F, z); world.add(g); return { g, m: b.material }; });
+    // la scala verso la fogna, il tubo dismesso col volantino, l'Inseguitore nell'acqua
+    for (let k = 0; k < 4; k++) { const st = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.3), mt(0x5a5e62, { metalness: 0.6 })); st.position.set(X(L7.STAIR.x + 0.1), F - k * 0.05, 4.1 + k * 0.28); world.add(st); }
+    { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3, 10), mt(0x5a4a3a, { metalness: 0.4 })); p.rotation.z = Math.PI / 2; p.position.set(X(L7.WHEEL.x), F + 0.6, 12.3); world.add(p);
+      this.spareWheel = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.045, 8, 20), mt(0x4a4a46, { metalness: 0.6 })); this.spareWheel.position.set(X(L7.WHEEL.x), F + 0.6, 11.9); world.add(this.spareWheel); }
+    this.lurk = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0x020304, transparent: true, opacity: 0.0 })); this.lurk.scale.set(1.6, 0.25, 0.7); this.lurk.position.set(X(-14), -0.2, 9); world.add(this.lurk); this.lurkX = -14;
+    // l'accampamento: materassi, coperte, pentolini, casse, scarpe, la scritta sul muro, il superstite
+    for (const [x, z, r] of [[9, 2.6, 0.1], [11.2, 2.8, -0.05], [15.5, 2.7, 0.08], [19.5, 2.4, 0.2], [10.2, -2.6, 0]]) { const m = new THREE.Mesh(new RoundedBoxGeometry(1.9, 0.2, 0.9, 2, 0.06), mt(0x6a6250, { roughness: 1 })); m.position.set(X(x), F + 0.1, z); m.rotation.y = r; world.add(m);
+      const bl = new THREE.Mesh(new RoundedBoxGeometry(1.2, 0.08, 0.9, 2, 0.03), mt(0x4a5040, { roughness: 1 })); bl.position.set(X(x + 0.3), F + 0.25, z); bl.rotation.y = r + 0.1; world.add(bl); }
+    for (const [x, z] of [[12.2, -2.9], [14, -3.1], [16.4, -1.0]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.5), mt(0x6a5236)); c.position.set(X(x), F + 0.25, z); world.add(c); addBox(X(x - 0.35), X(x + 0.35), z - 0.25, z + 0.25).low = true; }
+    this.diaryMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.15), mt(0x2a2420)); this.diaryMesh.position.set(X(16.4), F + 0.52, -1.0); world.add(this.diaryMesh);
+    for (let k = 0; k < 4; k++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.12, 10), mt(0x5a5a54, { metalness: 0.6 })); p.position.set(X(12 + k * 0.4), F + 0.06, 1.2 + (k % 2) * 0.3); world.add(p); }
+    { const t = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.5), new THREE.MeshBasicMaterial({ map: textTex(['ЗДЕСЬ ТЕПЛО. НЕ ВЫХОДИТЕ НАВЕРХ.'], 512, 80, 'rgba(0,0,0,0)', '#d8d0c0', 'bold 30px monospace'), transparent: true })); t.position.set(X(13.5), F + 2.2, -3.18); world.add(t); }
+    this.barrel = makeFireBarrel(L7.X + L7.BARREL.x, L7.BARREL.z);
+    this.surv = makeNPC({ x: X(L7.SURV.x), z: L7.SURV.z, heading: -Math.PI / 2 - 0.3, tint: { key: 'oldman', fn: recolor(110, 108, 100, 1.0, 0.5) }, pose: POSE.sit, dim: 0.7 });
+    { const bl = new THREE.Mesh(new RoundedBoxGeometry(0.9, 0.7, 0.7, 2, 0.15), mt(0x6a6a62, { roughness: 1 })); bl.position.set(X(L7.SURV.x), F + 0.45, L7.SURV.z); world.add(bl); CIRCLES.push([X(L7.SURV.x), L7.SURV.z, 0.5]); }
+    { const d = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.0, 1.4), mt(0x5a6268, { metalness: 0.6 })); d.position.set(X(21.45), F + 1.0, 0); world.add(d); this.tecDoor = d;
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 6, 16), mt(0x8a2a20)); wheel.rotation.y = Math.PI / 2; wheel.position.set(X(21.36), F + 1.1, 0); world.add(wheel); this.doorWheel = wheel;
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.26), new THREE.MeshStandardMaterial({ map: textTex(['ТЭЦ — ТЕХНИЧЕСКИЙ ВВОД'], 256, 48, '#d8d4c4', '#1a1a1a', 'bold 22px monospace') })); pl.rotation.y = -Math.PI / 2; pl.position.set(X(21.36), F + 2.25, 0); world.add(pl); }
+    // luci in gabbia
+    for (const [x, z] of [[-20, 0], [-12, 0], [-4, 0], [3, 0], [-8, 9], [3, 9], [17, 0]]) { const l = new THREE.PointLight(0xffc070, 6, 9, 1.4); l.position.set(X(x), F + 2.2, z); world.add(l); const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd090 })); b.position.copy(l.position); world.add(b); }
+    makeFigure('stalker', { cool: 1e9 });
+    this.hits = 0; this.hitCool = 0; this.valveSeq = [];
+  },
+  items() {
+    const S = state, self = this, X = x => L7.X + x, have = k => state.items.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    const valveItem = (V, i) => ({ id: 'v' + i, x: X(V.x), z: V.z + 0.9, r: 1.0, label: 'Valvola ' + V.id, done: () => f.valves, use() { self.turnValve(i); } });
+    return [
+      { id: 'impronte', x: X(-21.5), z: 0.3, r: 1.3, kneel: true, marker: false, label: 'Le impronte nel fango', use() { say('Impronte nere, impresse nel fango e nella fuliggine. I miei stivali.'); say('«Ma io… Sono già passato di qui?»', 'DMITRI'); } },
+      { id: 'tacche', x: X(L7.TALLY.x), z: -0.9, r: 1.6, my: 1.5, clue: true, label: 'Il muro delle tacche', use() {
+          say(['Centinaia di incisioni nel cemento, raggruppate in file irregolari. Alcune profonde, altre appena accennate. In basso, una lettera: В.', 'Passo le dita sulle incisioni.']);
+          say('«Le ho fatte io.»', 'DMITRI'); say(['Riconosco il modo in cui sono tracciate. La pressione dello strumento. L\'inclinazione della mia mano. Le ho fatte con la punta del mio cacciavite… una per ogni passaggio.', 'Ma non ricordo nessuno di quei passaggi.']);
+          say(['Tra le incisioni è incastrato un foglietto piegato più volte.', Q('«СЧЁТЧИК ПРОХОДОВ — ВОРОНИН 0417.»'), '«Ho smesso di contare dopo la trecentesima volta. Il vapore esce sempre dal terzo tubo. Ordine di chiusura: prima Б-2, poi А-1, infine В-3. Non dimenticare di smontare il volantino di sotto. — В.»'], 'CONTATORE');
+          say('«Trecento volte…» Guardo di nuovo il muro. Ci sono 312 tacche. La mano si ferma sull\'ultima.', 'DMITRI'); say('«Chi ha continuato a contare?»', 'DMITRI'); } },
+      { id: 'scorte', x: X(L7.SUPPLY.x), z: 0.9, r: 1.2, pick: true, label: 'Cassetta delle scorte', gone: () => f.supply, use() {
+          f.supply = true; S.cans += 1; addBattery(40); say('Lasciata qui dalla squadra di manutenzione del turno di notte. Una scatoletta, una pila.');
+          act(() => { self.jets[0].off = false; self.jets[0].burst = 2; Sound.burst(3000, 0.4, 1.2, 0.35, 'highpass'); }); say(['TAC. Dalla tubazione sopra la testa, un colpo secco. Una nuvola di vapore attraversa la galleria; mi copro la faccia col braccio.', 'Il cartello: ' + Q('«ОСТОРОЖНО! ГОРЯЧИЙ ПАР (130°C)»') + '. Qui il gelo non arriva. Ma non è un posto sicuro.']); } },
+      { id: 'tavolo', x: X(L7.TABLE.x), z: -0.4, r: 1.3, clue: true, label: 'Tavolo tecnico', use() {
+          say(['Il registro delle pressioni. Qualcuno ha segnato a matita l\'ordine di chiusura per non far esplodere le giunture.', Q('«ТЕПЛОСЕТЬ ЗАТО-42 — АВАРИЙНЫЙ ПРОТОКОЛ ОТ 12.02.1991.»'),
+            '«Alle ore 23:40 la pressione nel circuito Б ha superato di quattro volte il valore normale a causa dell\'apertura forzata della valvola principale della centrale ТЭЦ. Lo sfiato del vapore confluisce nel collettore n. 4.»'], 'PROTOCOLLO');
+          say('«Apertura forzata della valvola principale… Dodici febbraio.»', 'DMITRI'); } },
+      ...L7.VALVES.map(valveItem),
+      { id: 'volantino', x: X(L7.WHEEL.x), z: 11.2, r: 1.2, pick: true, label: 'Tubo dismesso', gone: () => have('volantino') || f.wheelOn, use() {
+          if (!f.missing) { say('Un vecchio tubo fuori servizio, con un volantino di ghisa ancora montato sulla flangia.'); }
+          S.items.add('volantino'); self.spareWheel.visible = false; Sound.clunk(); say('«È della stessa misura.» Lo svito con la chiave di manutenzione e lo metto nello zaino.', 'DMITRI');
+          act(() => { self.lurkHunt = true; Sound.burst(900, 1, 0.2, 0.2, 'bandpass'); }); say('CIAK… CIAK… CIAK… Passi nell\'acqua, dietro di me. Molto più vicini.'); } },
+      { id: 'fuoco', x: L7.X + L7.BARREL.x + 0.7, z: L7.BARREL.z + 0.8, r: 1.6, my: 1.3, label: () => self.barrel.lit ? 'Il fuoco' : 'Accendi il bidone', done: () => self.barrel.lit, use() {
+          if (self.barrel.lit) { say('Il fuoco illumina i materassi.'); return; } self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L7.X + L7.BARREL.x + 0.9, z: L7.BARREL.z + 1.0 };
+          say('C\'è della legna asciutta accatastata. Anche se qui non fa freddo, la luce del fuoco terrà lontane le ombre.'); } },
+      { id: 'diario', x: X(16.4), z: -0.2, r: 1.2, clue: true, label: 'Materassi e coperte', needs: () => self.barrel.lit, use() {
+          self.diaryMesh.visible = false;
+          say(['Erano in tanti qui sotto. I piatti sono ancora sporchi, ma non c\'è più nessuno. Solo un quaderno bruciacchiato.', Q('«ДНЕВНИК КОЛЛЕКТОРА — ЗАПИСЬ БЕЗ ДАТЫ.»'),
+            '«Ci siamo nascosti vicino ai tubi caldi. Eravamo in dodici, siamo rimasti in tre. Ogni poche ore da sopra scende il tecnico col cappotto blu e il numero 0417. Non ci vede, guarda solo per terra e chiude il vapore.»',
+            '«E ogni volta che se ne va verso la centrale, i tubi si raffreddano per un minuto, di sopra il cielo si spegne, e tutto ricomincia da capo. Il tecnico torna sempre. Dopo di lui la neve ricomincia.»'], 'DIARIO');
+          say('Rileggo il numero. 0417. Il mio.'); say('«Il tecnico… sono io.»', 'DMITRI'); act(() => { Sound.burst(300, 1, 0.3, 0.2, 'lowpass'); f.cough = true; }); say('Dall\'altro lato dell\'accampamento, qualcuno tossisce.'); } },
+      { id: 'superstite', x: X(L7.SURV.x - 1.1), z: L7.SURV.z + 0.6, r: 1.5, label: 'L\'uomo nella coperta', gone: () => !f.cough || f.survDone, use() { self.talkSurv(); } },
+      { id: 'porta', x: X(20.2), z: 0, r: 1.4, label: 'Porta stagna della ТЭЦ', use() {
+          if (!f.survDone) { say('Dietro il metallo, un tremore profondo: le turbine della centrale.'); return; }
+          if (f.leaving) return; f.leaving = true; interactables = [];
+          say(['Appoggio la mano sulla maniglia. Guardo il diario. Le parole del vecchio tornano: «È quello che dici ogni volta che passi di qui».', 'Abbasso lo sguardo sulle mie mani.']);
+          say('«Non sto andando alla centrale per salvarli…»', 'DMITRI'); say('«Sono io quello che fa ricominciare la nevicata ogni volta.»', 'DMITRI');
+          act(() => { Sound.clunk(); self.doorOpen = 0.001; }); say(['Giro il volantino della porta. Il meccanismo si sblocca. Un getto d\'aria fredda investe il corridoio.', 'Dall\'altra parte, il piazzale della centrale. La ciminiera bianca e rossa contro il cielo spento. Da lontano, il rumore dei nastri del carbone.']);
+          self.endPending = true; } },
+    ];
+  },
+  turnValve(i) {
+    const S = state, f = S.flags;
+    if (f.valves) return;
+    if (i === 2 && !f.wheelOn) {
+      if (!S.items.has('volantino')) { f.missing = true; say('Della terza valvola resta solo il perno: manca il volantino.'); say('«Manca un pezzo.»', 'DMITRI'); say('«Non dimenticare di smontare il volantino di sotto.» La diramazione fognaria, giù dalla scala.'); refreshObjective(); return; }
+      f.wheelOn = true; S.items.delete('volantino'); this.wheels[2].wh.visible = true; Sound.clunk(); say('Monto il volantino di ghisa sul perno della В-3. Ora tutte e tre le valvole sono utilizzabili.'); refreshObjective(); return;
+    }
+    if (!f.wheelOn) { say(['I volantini sono roventi. Con i guanti pesanti dell\'ospedale riesco a toccarli.', 'Ma la terza valvola non ha il volantino: prima devo trovarlo.']); return; }
+    const want = [1, 0, 2][this.valveSeq.length];
+    if (i !== want) { this.valveSeq = []; this.wheels.forEach(w => w.g.rotation.z = 0); this.blast(); say('La pressione sale di colpo. Un getto di vapore investe la camera. Ordine sbagliato: devo ricominciare.'); return; }
+    this.valveSeq.push(i); this.wheels[i].g.rotation.z = -Math.PI * 1.5; Sound.clunk(); shake = 0.2;
+    if (this.valveSeq.length === 1) say('CLANG! «Prima lo sfiato centrale…»', 'DMITRI');
+    else if (this.valveSeq.length === 2) say('CLANG! «…poi l\'ingresso…»', 'DMITRI');
+    else { f.valves = true; this.chamberGate.off = true; Sound.thud(); refreshObjective();
+      say('CLANG! «…infine il ritorno.»', 'DMITRI'); say(['Il vapore cala. I manometri scendono dal rosso. Un ultimo colpo d\'ariete attraversa le tubazioni.', 'Poi silenzio. La nebbia si dirada.']);
+      say('«Ecco…» Mi tolgo un guanto e guardo il palmo. La cicatrice circolare è ancora lì.', 'DMITRI'); }
+  },
+  blast() { const S = state; Sound.burst(3000, 0.4, 1.4, 0.4, 'highpass'); flash = 0.5; shake = 0.5; this.jets.forEach(j => { if (j.zone === 1) j.burst = 2.5; }); },
+  talkSurv() {
+    const S = state; S.flags.survDone = true;
+    say('Dietro una grossa tubazione, rannicchiato contro il tubo maestro, un uomo anziano avvolto in una coperta militare grigia. Pallido. Respira appena.');
+    say('…Non guardare i nostri letti, Voronin. Gli altri non ci sono più. Si sono stancati di aspettare che finisse il 12 febbraio.', 'SUPERSTITE');
+    say('«Chi è lei? Come fa a sapere il mio nome?»', 'DMITRI');
+    say('Abitavo al terzo piano, sopra il tuo appartamento. Ti sentivo inchiodare le assi alle finestre, quella notte. E poi ti abbiamo visto passare in questo tunnel… centinaia di volte.', 'SUPERSTITE');
+    say('«Io sto andando alla centrale per fermare tutto questo. Per spegnere l\'esperimento.»', 'DMITRI');
+    say('È quello che dici ogni volta che passi di qui. Ma quando arrivi là sotto, davanti a quella valvola… non la chiudi mai. La apri ancora di più.', 'SUPERSTITE');
+    say('«Perché dovrei farlo?!»', 'DMITRI');
+    say('Chiedilo a te stesso quando entrerai nella sala controllo. Loro ti stanno aspettando ai quadri di comando.', 'SUPERSTITE');
+    say('«Chi mi sta aspettando?»', 'DMITRI');
+    say('Chiude gli occhi. E stavolta… per favore, Dima… lascia che i tubi si raffreddino. Lasciaci andare.', 'SUPERSTITE');
+    act(() => { this.survQuiet = true; refreshObjective(); });
+    say('Non rispondo. Il vecchio sembra addormentarsi. Il suo respiro diventa sempre più debole.');
+  },
+  phase() { const f = state.flags, c = state.clues;
+    if (!c.has('tacche')) return 1; if (!c.has('tavolo')) return 2; if (!f.missing && !f.wheelOn) return 3; if (!f.wheelOn) return state.items.has('volantino') ? 5 : 4; if (!f.valves) return 6;
+    if (!this.barrel.lit) return 7; if (!c.has('diario')) return 8; if (!f.survDone) return 9; return 10; },
+  objective() { return ['', 'Esplora il collettore della теплотрасса', 'Esplora il collettore della теплотрасса', 'Raggiungi la camera di compensazione', 'Trova un volantino per la valvola mancante', 'Torna alla camera e monta il volantino', 'Chiudi le valvole nell\'ordine corretto per fermare il vapore',
+    'Accendi il bidone dell\'accampamento', 'Esamina l\'accampamento', 'Chi ha tossito?', 'Apri la porta della centrale'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase();
+    return [null, by('tacche'), by('tavolo'), by('v2'), by('volantino'), by('v2'), by(['v1', 'v0', 'v2'][this.valveSeq.length] || 'v1'), by('fuoco'), by('diario'), by('superstite'), by('porta')][p]; },
+  thought() { return ['', 'Sul muro della galleria, a destra… qualcosa è inciso.', 'Una postazione tecnica, più avanti.', 'La camera delle valvole. Il vapore esce dalle giunture.', 'Il volantino di sotto: la diramazione fognaria, giù dalla scala.', 'Ho il volantino. Torno alla valvola В-3.', 'Б-2, poi А-1, infine В-3.', 'Oltre la camera, un accampamento. Un bidone.', 'Materassi, coperte, pentolini. Qualcuno viveva qui.', 'Qualcuno, dietro i tubi.', 'La porta stagna. La centrale.'][this.phase()]; },
+  hint() { return ['', 'Il muro delle tacche è sulla parete nord della galleria.', 'Il tavolo tecnico è in fondo alla galleria, prima della camera.', 'Esamina la valvola di destra (В-3) nella camera di compensazione.',
+    'Scendi la scala sul lato sud della camera. Il tubo dismesso col volantino è in fondo alla passerella nord, a ovest. Tieni lontano l\'Inseguitore puntando la torcia sull\'acqua.', 'Torna su e monta il volantino sulla valvola В-3.',
+    'Gira le valvole in quest\'ordine: Б-2 (centro), А-1 (sinistra), В-3 (destra). Evita i getti di vapore.', 'Il bidone è al centro dell\'accampamento, a est.', 'Il quaderno è sulla cassa accanto ai materassi.', 'L\'uomo è rannicchiato contro il tubo, sul lato nord dell\'accampamento.', 'La porta stagna è in fondo, a est.'][this.phase()]; },
+  coldTip() { return 'Qui sotto il gelo non arriva.'; },
+  intro() {
+    setTimeout(() => act(() => { for (let k = 0; k < 3; k++) setTimeout(() => Sound.tone(90, 0.3, 0.2, 'square'), k * 700); }), 0);
+    return ['La scaletta scende in un pozzo verticale. Sopra di me il vento ulula; ogni gradino mi allontana dalla tormenta. Poi il vento sparisce.', 'Resta un suono profondo, continuo. CLANG… CLANG… CLANG…',
+      'Una galleria di cemento, enormi tubi coibentati, vapore dalle giunture, lampadine gialle in gabbia. L\'aria è calda e umida. Mi tolgo il colbacco.', '«Finalmente un posto dove non si congela.»'];
+  },
+  heroHook() { return false; },
+  update(dt, t) {
+    const S = state, f = S.flags, live = S.started && !S.ended && !S.gap;
+    snowLayers.forEach(L => L.pts.material.opacity = 0);
+    if (!this.zoomed) { this.zoomed = true; zoomTarget = Math.max(zoomTarget, 2.0); }
+    const cxa = Math.sin(camAz), cza = Math.cos(camAz);
+    for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
+      const want = vx * cxa + vz * cza > 0.2 && Math.hypot(vx, vz) < 8 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+    S.heat = Math.min(100, S.heat + dt * (hero.x > L7.X + L7.CAMP.x0 ? 8 : 1.2));
+    // i getti di vapore: cicli, sentinelle nella nebbia, ustioni
+    this.hitCool = Math.max(0, this.hitCool - dt);
+    let steamNear = 0;
+    for (const J of this.jets) {
+      const closed = (J.zone === 1 && f.valves) || J.off;
+      const cyc = ((t + J.ph) % J.period) / J.period, on = closed ? 0 : Math.max(J.burst > 0 ? 1 : 0, cyc < 0.32 ? 1 : 0); if (J.burst > 0) J.burst -= dt;
+      J.on = lerp(J.on, on, damp(8, dt));
+      J.sp.forEach((s, k) => { const q = (t * 1.3 + k / 6) % 1; s.position.set(J.x + (q - 0.5) * 0.4, 0.4 + q * 1.8, J.z + Math.sin(k) * 0.3); s.scale.setScalar(0.5 + q * 1.6); s.material.opacity = J.on * 0.7 * Math.sin(q * Math.PI); });
+      const d = Math.hypot(hero.x - J.x, hero.z - J.z); if (J.on > 0.6 && d < 3) steamNear = Math.max(steamNear, J.on);
+      if (live && J.on > 0.7 && d < 0.9 && this.hitCool <= 0 && !downed()) { this.hitCool = 1.5; this.hits++; S.heat = Math.max(1, S.heat - 20); flash = 0.5; shake = 0.4; Sound.burst(3200, 0.4, 0.6, 0.35, 'highpass'); hero.kvx = (hero.x - J.x) * 4; hero.kvz = (hero.z - J.z) * 4;
+        if (this.hits >= 2) { this.hits = 0; memoryGap('vapore'); } else showMsg('Il vapore mi ustiona!<br>Aspetta che il getto si fermi.'); }
+    }
+    this.steamFigs.forEach((Fg, i) => { const want = !f.valves && steamNear > 0.5 && Math.sin(t * 0.7 + i * 2) > 0.3 ? 0.85 : 0; Fg.m.opacity = lerp(Fg.m.opacity, want, damp(3, dt)); });
+    if (steamNear > 0.5 && !f.valves) tell('sentS', 'Nelle nuvole di vapore, sagome immobili. Tre. Non si avvicinano.');
+    this.gauges.forEach((g, i) => g.rotation.z = f.valves ? 0 : Math.sin(t * (i === 1 ? 23 : 7)) * (i === 1 ? 0.25 : 0.05));
+    // l'Inseguitore nell'acqua nera
+    const inSewer = hero.z > 4.9;
+    if (inSewer) { tell('sewer', ['Una scala scende verso una diramazione laterale. Il soffitto si abbassa. Acqua nera scorre piano sotto le passerelle.', 'Il rumore del vapore si allontana. Ora c\'è solo l\'acqua. GLOP… GLOP…']);
+      const sp = this.lurkHunt ? 1.4 : 0.6, tx = hero.x - L7.X; if (Math.abs(this.lurkX - tx) > 0.3) this.lurkX += Math.sign(tx - this.lurkX) * sp * dt;
+      if (Math.random() < dt * 2) Sound.burst(1400, 2, 0.06, 0.06, 'bandpass');
+      tell('lurk', ['A metà percorso, qualcosa si muove nell\'acqua. Piccoli schizzi, dietro di me. CIAK… CIAK… CIAK…', 'Non si vede il corpo. Solo una sagoma deformata sotto la superficie. La torcia…']);
+      const lx = L7.X + this.lurkX, d = Math.hypot(hero.x - lx, hero.z - 9);
+      if (S.torch && torchHits(lx, 9)) { this.lurkX += Math.sign(this.lurkX - (hero.x - L7.X)) * 4 * dt; this.lurkOp = Math.max(0.15, (this.lurkOp || 0.6) - dt); } else this.lurkOp = Math.min(0.75, (this.lurkOp || 0) + dt * 0.5);
+      if (live && d < 1.6 && !downed()) { this.lurkX = (hero.x - L7.X) > 0 ? -14 : 9; memoryGap('figura'); }
+    } else this.lurkOp = Math.max(0, (this.lurkOp || 0) - dt);
+    this.lurk.position.set(L7.X + this.lurkX, -0.2 + Math.sin(t * 3) * 0.02, 9 + Math.sin(t * 0.8) * 0.4); this.lurk.material.opacity = this.lurkOp || 0;
+    this.waterMat.color.setScalar(0.05 + Math.sin(t * 1.3) * 0.01);
+    // il superstite smette di respirare
+    const W = this.surv; if (W && W.ready && !this.survDead) { this.wB = (this.wB || 1) - dt; if (this.wB <= 0) { this.wB = 2.4; const b = breath.find(b => b.life <= 0); if (b) { const hp = new THREE.Vector3(); W.B.Head.getWorldPosition(hp); b.life = 1.2; b.s.visible = true; b.s.position.copy(hp); b.s.scale.setScalar(0.06); } }
+      if (this.survQuiet && Math.hypot(hero.x - W.x, hero.z - W.z) > 3.5) { this.survDead = true; tell('survDead', 'Mi volto un\'ultima volta. L\'uomo non respira più.'); } }
+    if (this.doorOpen > 0 && this.doorOpen < 1) { this.doorOpen = Math.min(1, this.doorOpen + dt * 0.8); this.tecDoor.rotation.y = smooth01(this.doorOpen) * 1.3; this.tecDoor.position.z = smooth01(this.doorOpen) * 0.6; this.doorWheel.rotation.x += dt * 6; }
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 1.2; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
+  },
+  ending() {
+    return { text: 'Entro nel piazzale della centrale. La ciminiera bianca e rossa si staglia contro il cielo spento.<br><br>Ho visto 312 tacche col mio cacciavite. Ho letto di un tecnico col cappotto blu e il numero 0417 che passa e fa ricominciare la neve.<br><br>Il tecnico sono io.',
+      next: 0, nextLabel: 'CAPITOLO VIII · LA ТЭЦ — in arrivo' };
+  },
+};
+
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
