@@ -5799,9 +5799,14 @@ const CH5 = {
       { id: 'schedario', x: 9.5, z: -9.0, r: 1.6, my: 1.6, clue: true, label: 'Apri lo schedario',
         use() { say(['Migliaia di cartelle cliniche. Portano tutte la stessa data di ricovero: 12 febbraio 1991.', 'Il registro generale è aperto sul ripiano:',
           Q('«ЖУРНАЛ ПОСТУПЛЕНИЯ БОЛЬНЫХ — 12.02.1991. Все жители сектора А, Б, В. Диагноз: острая потеря памяти, гипотермия. Примечание: пациенты исчезают из палат ровно в 23:40, оставляя только мокрые следы на полу.»'),
-          'Tutti i residenti dei settori A, B e V. Perdita di memoria, ipotermia. I pazienti spariscono dalle corsie alle 23:40, lasciando solo impronte bagnate sul pavimento.'], 'REGISTRO'); } },
+          'Tutti i residenti dei settori A, B e V. Perdita di memoria, ipotermia. I pazienti spariscono dalle corsie alle 23:40, lasciando solo impronte bagnate sul pavimento.'], 'REGISTRO');
+          say('«Tutti ricoverati lo stesso giorno…»', 'DMITRI');
+          say(['Su una seconda pagina, molte righe sono cancellate con una matita rossa. Una sola è ancora leggibile:', Q('«ВОРОНИН Д. А.»'), 'Nessun numero di stanza.']); } },
       { id: 'lettini', x: 0.5, z: -6.8, r: 1.6, marker: false, label: 'Guarda i lettini',
-        use() { say(['I cuscini sono intatti. Nessuno ci ha dormito.', 'Sulla lavagna, col gesso: ' + Q('«Сегодня идёт тёплый снег»') + ' — Oggi nevica caldo.']); } },
+        use() { say(['Nessuna impronta sul pavimento. Ma un materasso è abbassato al centro, come se qualcuno fosse appena sceso.', 'In fondo, il cavalluccio a dondolo è girato verso il muro.']); } },
+      { id: 'lavagna', x: -0.5, z: -9.3, r: 1.4, my: 2.0, marker: false, label: 'Lavagna', use() {
+          say(['Sulla lavagna verde, col gesso: ' + Q('«СЕГОДНЯ ИДЁТ ТЁПЛЫЙ СНЕГ.»') + ' — Oggi nevica caldo.', 'La leggo due volte.']); say('«Che razza di posto è questo?»', 'DMITRI');
+          act(() => { Sound.creak(); setTimeout(() => Sound.creak(), 700); self.bedRock = 3; }); say('Uno dei lettini oscilla lentamente sulla sua struttura di metallo.'); } },
       { id: 'armadietto', x: -9.6, z: -9.1, r: 1.4, my: 1.5, pick: true, label: 'Armadietto dei farmaci', done: () => S.items.has('chiaveGen'), gone: () => S.items.has('chiaveGen'),
         use() { S.items.add('chiaveGen'); S.cans += 1; addBattery(35); say('Bende ghiacciate. Sul ripiano in basso, una razione d\'emergenza, una pila e una chiave con la targhetta «ДГУ».'); } },
       { id: 'portaGen', x: L5.GEN_DOOR, z: 0.9, r: 1.3, my: 1.6, label: () => self.dGen.open ? 'Locale tecnico' : 'Porta del locale tecnico', done: () => self.dGen.open,
@@ -5809,30 +5814,43 @@ const CH5 = {
           self.openDoor(self.dGen); Sound.clunk(); say('La chiave «ДГУ» apre il locale del generatore.'); } },
       { id: 'generatore', x: L5.GEN.x, z: L5.GEN.z - 1.3, r: 1.5, my: 1.6, label: 'Generatore diesel', done: () => self.power,
         use() { if (self.power) { say('Il diesel romba. Il pavimento vibra sotto gli stivali.'); return; }
-          if (!S.items.has('gasolio')) { say(['Il serbatoio è asciutto, ma il motore è ancora tiepido… come se si fosse spento da poco.', 'Serve del gasolio. L\'ambulanza nel cortile, forse.']); return; }
+          if (!S.items.has('gasolio')) { say(['Il serbatoio è vuoto. Passo una mano sul blocco motore: è tiepido.', '«È stato spento da poco…» Serve del gasolio. L\'ambulanza nel cortile, forse.']); return; }
+          self.genTry = (self.genTry || 0) + 1;
+          if (self.genTry === 1) { Sound.clunk(); say(['Verso il gasolio, collego il tubo di alimentazione, riarmo l\'interruttore principale e tiro la leva di avviamento.', 'Niente. Il motorino gira a vuoto.']); return; }
+          if (self.genTry === 2) { Sound.thud(); shake = 0.3; say('Secondo strappo. Un colpo secco, una nuvola di fumo nero. Il motore tossisce e muore.'); return; }
           self.powerOn(); } },
       { id: 'bancone', x: -6, z: 4.9, r: 1.5, my: 1.5, clue: true, pick: true, label: 'Esamina le provette', needs: () => self.power,
         use() { S.gear.add('provette'); self.rack.visible = false;
           say(['Decine di provette sigillate. Dentro c\'è la neve della città. Qui ci sono venti gradi, e non si scioglie.', 'Accanto, il rapporto del laboratorio:',
             Q('«ЛАБОРАТОРИЯ № 3 — ОБРАЗЕЦ ОСАДКОВ «ЗИМА». Вещество в пробирках не является водой. При +20°C кристаллы сохраняют структуру и излучают слабое остаточное тепло. Это не снег. Это застывшая память теплового цикла.»'),
-            'Non è acqua. A venti gradi i cristalli restano interi ed emettono un debole calore. Non è neve. È memoria solidificata del ciclo termico.', 'Prendo la rastrelliera. Le provette sono tiepide: scaldano la pila della torcia.'], 'LABORATORIO N. 3'); } },
+            'Non è acqua. A venti gradi i cristalli restano interi ed emettono un debole calore. Non è neve. È memoria solidificata del ciclo termico.', 'Avvicino una provetta alla luce. Per un istante, dentro il cristallo, si muove qualcosa. Non una figura: una traccia. Come un\'impronta sospesa.', 'Prendo il contenitore. Le provette sono tiepide: scaldano la pila della torcia.'], 'LABORATORIO N. 3'); } },
       { id: 'cella', x: L5.CELL.x, z: L5.CELL.z + 0.6, r: 1.4, my: 1.7, clue: true, kneel: false, label: 'Cella frigorifera n. 0417',
         use() { Sound.clunk(); say(['Lo sportello ha il mio numero di tesserino. Dentro non c\'è un corpo… c\'è solo una cartella clinica.',
           Q('«МЕДИЦИНСКАЯ КАРТА № 0417 — ВОРОНИН ДМИТРИЙ А. Дата поступления: 12.02.1991. Воздействие цикла: 3-й раз. Память: обнулена. Примечание врача: пациент снова пришёл сам. Ищет пробирки. На правой ладони — старый ожог от вентиля.»'),
-          'Esposizione al ciclo: terza volta. Memoria: azzerata. «Il paziente è tornato di nuovo da solo. Cerca le provette. Sul palmo destro, una vecchia ustione da valvola.»'], 'CARTELLA 0417'); } },
+          'Esposizione al ciclo: terza volta. Memoria: azzerata. «Il paziente è tornato di nuovo da solo. Cerca le provette. Sul palmo destro, una vecchia ustione da valvola.»'], 'CARTELLA 0417');
+          say(['Mi tolgo lentamente il guanto destro. Sul palmo, una cicatrice circolare. Non è recente: è una bruciatura vecchia, profonda, con la forma precisa di un volantino di metallo.',
+            'Un\'immagine mi attraversa la testa: una mano che stringe una valvola, il metallo rovente, una voce che urla qualcosa. Sparisce prima che riesca a riconoscerla.']);
+          say('«Non me lo ricordo…»', 'DMITRI'); act(() => { dreadSpike = 1; }); say('Ma la mano sì.', 'VOCE'); say('Mi volto. In fondo alla stanza, vicino a un radiatore, un uomo su una sedia a rotelle.'); } },
       { id: 'dottore', x: L5.DOC.x, z: L5.DOC.z - 1.2, r: 1.7, my: 1.6, label: 'Parla con il dottore', done: () => S.flags.doc,
-        use() { if (S.flags.doc) { say(self.docDead ? 'Il dottore non respira più. Stringe ancora il portacampioni vuoto.' : 'Prendi le provette e sali alla torre radio, Voronin.', self.docDead ? '' : 'DOTTOR KOVALËV'); return; } self.talkDoc(); } },
+        use() { if (S.flags.doc) { say(self.docDead ? ['Immobile. Il filo di fiato è sparito. Non risponde.', 'Sul camice, un cartellino: ' + Q('«КОВАЛЁВ — ЛАБОРАТОРИЯ №3»') + '.'] : 'Prendi le provette e sali alla torre radio, Voronin.', self.docDead ? '' : 'DOTTOR KOVALËV'); return; } self.talkDoc(); } },
       { id: 'uscita', x: L5.EXIT.x + 0.8, z: L5.EXIT.z, r: 1.6, my: 1.6, label: 'Rampa di carico',
-        use() { if (!S.gear.has('provette')) { say('Non posso andarmene senza le provette del laboratorio.'); return; } Sound.clunk(); endChapter(); } },
+        use() { if (!S.gear.has('provette')) { say('Non posso andarmene senza le provette del laboratorio.'); return; } if (S.flags.leaving) return; S.flags.leaving = true; Sound.clunk(); interactables = [];
+          say(['La porta della rampa si apre con un rumore pesante. Fuori, la tormenta è aumentata.', 'In cima alla collina, lontana, una torre radio. Una luce rossa lampeggia a intervalli regolari.',
+            'La radio da campo frusciava appena. La provetta più piccola si illumina: la luce azzurra pulsa tre volte.']);
+          act(() => Sound.radio(1.6)); say(Q('«…Волк-0417…»'), 'RADIO'); say('«Chi ha parlato?»', 'DMITRI'); say('La trasmissione si interrompe.');
+          say(['Ai margini della collina, oltre la neve, sagome immobili. Illumino la più vicina: cappotto scuro, colbacco. Non si muove.', 'Abbasso la torcia e proseguo.']);
+          act(() => Sound.radio(1.2)); say('«…Se sei arrivato all\'ospedale, non sei ancora troppo avanti.»', 'RADIO'); say('«Chi sei?»', 'DMITRI');
+          say('«Non perdere tempo. La torre. Devi riparare l\'antenna.»', 'RADIO'); say('«Come fai a sapere dove sono?»', 'DMITRI'); act(() => Sound.radio(2.0)); say('«Perché ci sono già stato.»', 'RADIO');
+          self.endPending = true; } },
     ];
   },
   openDoor(D) { D.open = true; D.locked = false; D.bx.off = true; },
   powerOn() {
     this.power = true; this.powerT = 0; state.flags.power = true; state.gear.add('guanti'); Sound.clunk(); Sound.ignite();
     for (const D of this.doors) if (D.mag) this.openDoor(D);
-    say(['Verso il gasolio nel serbatoio. Tiro la corda dell\'avviamento: una volta, due… al terzo strappo il diesel tossisce e prende a rombare.',
+    say(['Terzo strappo. BRRRRRRRRRR… Il diesel prende a rombare e sale di giri.',
       'Il ronzio dei neon corre lungo il corridoio. Le serrature magnetiche scattano: il laboratorio e l\'obitorio sono aperti.',
-      'Sullo scaffale accanto al motore, un paio di guanti da tecnico in cuoio imbottito. Dentro, a pennarello: «В». Li infilo.'], '');
+      'Accanto al generatore, un paio di guanti da lavoro in cuoio imbottito. Sul polsino è cucita una lettera: «В». Li infilo.'], '');
   },
   talkDoc() {
     state.flags.doc = true;
@@ -5843,6 +5861,10 @@ const CH5 = {
     say(['Significa che la tua mente si cancella ogni volta che il cielo si spegne, ma il tuo corpo ricorda la strada.', 'Guardati la mano destra, sotto il guanto. Quella bruciatura circolare non te la sei fatta oggi.'], 'DOTTOR KOVALËV');
     say('«È la forma di un volantino… una valvola.»', 'DMITRI');
     say('Prendi le provette dal bancone e sali alla torre radio. Qualcuno trasmette sulla frequenza di emergenza della centrale… e ha la tua stessa voce.', 'DOTTOR KOVALËV');
+    say('«La mia stessa voce?»', 'DMITRI'); say('Non sono io quello che devi ascoltare.', 'DOTTOR KOVALËV');
+    say('«E chi dovrei ascoltare?»', 'DMITRI'); say('Guarda verso il corridoio. Quello che è rimasto dall\'altra parte.', 'DOTTOR KOVALËV');
+    act(() => { Sound.clunk(); dreadSpike = 1; this.docDead = true; });
+    say(['Un colpo metallico dietro le celle frigorifere. Mi giro.', 'Quando torno a guardare il medico, è immobile. Il filo di vapore che gli usciva dalla bocca è sparito.', 'Non risponde. Non so se è morto, se dorme, o se è diventato come le altre figure.']);
   },
   phase() { return !this.barrel.lit ? 1 : !state.items.has('gasolio') ? 2 : !this.power ? 3 : !state.gear.has('provette') ? 4 : 5; },
   objective() { return ['', 'Accendi il fuoco nel cortile dell\'ospedale', 'Trova il carburante per il generatore d\'emergenza', 'Trova la chiave e riattiva il generatore a gasolio', 'Esamina i campioni nel laboratorio di analisi', 'Raggiungi l\'uscita attraverso l\'obitorio'][this.phase()]; },
@@ -5854,7 +5876,7 @@ const CH5 = {
     'Entra nell\'ospedale, usa la torcia per bloccare le figure, prendi la chiave nell\'armadietto della guardiola (porta a nord del corridoio, a sinistra del reparto bambini) e apri il locale tecnico (porta a sud del corridoio, vicino all\'ingresso) per avviare il generatore.',
     'Entra nel laboratorio illuminato (porta a vetri a sud del corridoio) e raccogli le provette sul bancone centrale.', 'Attraversa l\'obitorio in fondo al corridoio, esamina la cella 0417 sulla parete di sportelli e parla con il medico prima di uscire dalla rampa di carico a ovest.'][this.phase()]; },
   coldTip() { return this.barrel.lit ? 'Le mani non rispondono più. Torno al bidone accanto all\'ambulanza.' : 'Fa un freddo che spacca le ossa. Accanto all\'ambulanza c\'è un bidone.'; },
-  intro() { return ['Le corsie dell\'Ospedale n. 3 odorano di etere e ferro ghiacciato.', 'Le mie impronte entrano dritte dall\'ingresso delle ambulanze, senza esitare.', 'Chiunque io fossi ieri, sapeva già in quale reparto cercare.']; },
+  intro() { return ['L\'odore di disinfettante. Davanti a me, il cancello dell\'Ospedale n. 3: ' + Q('«ГОРОДСКАЯ БОЛЬНИЦА № 3»') + '.', 'Un ospedale. Se qualcuno è rimasto in città, potrebbe essere passato da qui.', 'Le corsie dell\'Ospedale n. 3 odorano di etere e ferro ghiacciato.', 'Le mie impronte entrano dritte dall\'ingresso delle ambulanze, senza esitare.', 'Chiunque io fossi ieri, sapeva già in quale reparto cercare.']; },
   heroHook() { return true; },
   update(dt, t) {
     const S = state, live = S.started && !S.ended, inside = smooth01((L5.FAC_X - hero.x) / 2), pw = this.power;
@@ -5869,6 +5891,8 @@ const CH5 = {
     if (Sound.ctx) Sound.setHum(live && pw && hero.x < L5.FAC_X ? 0.02 : 0);
     this.tubeMat.emissiveIntensity = 0.7 + Math.sin(t * 2.3) * 0.35;
     this.horse.rotation.z = Math.sin(t * 0.9) * 0.08 * (pw ? 0.3 : 1);
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 1.2; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
     // porte: si aprono/chiudono con un'animazione; sbattono da sole se una figura è vicina nel buio
     for (const D of this.doors) {
       if (D.slam > 0) { D.slam -= dt; if (D.slam <= 0) { D.bx.off = true; } }
@@ -5896,14 +5920,13 @@ const CH5 = {
     }
     // il dottore: respira finché non prendi la cartella e ti allontani
     const W = this.doc; if (W && W.ready) {
-      if (S.clues.has('cella') && S.flags.doc && !this.docDead && Math.hypot(hero.x - W.x, hero.z - W.z) > 4) this.docDead = true;
       this.wB = (this.wB || 1) - dt;
       if (!this.docDead && this.wB <= 0) { this.wB = 2.2 + Math.random(); const b = breath.find(b => b.life <= 0); if (b) { const hp = new THREE.Vector3(); W.B.Head.getWorldPosition(hp); b.life = 1.2; b.s.visible = true; b.s.position.set(hp.x, hp.y - 0.05, hp.z - 0.2); b.s.scale.setScalar(0.07); } }
     }
     if (live && hero.x < L5.FAC_X && !pw) tell('dark5', ['Dentro è buio. Solo le luci d\'emergenza, rosse, che respirano piano sul soffitto.', 'Le porte delle corsie sono socchiuse. Qualcuno, in fondo al reparto bambini, è in piedi accanto ai lettini.']);
   },
   ending() {
-    return { text: 'Mi tolgo il guanto destro: sul palmo c\'è davvero una cicatrice rossa, la bruciatura perfetta di una valvola rovente. La neve nelle provette non si scioglie nemmeno se la stringo nel pugno.<br><br>Fuori dall\'obitorio, in cima alla collina spazzata dal vento, la luce rossa della torre radio lampeggia nella tormenta.',
+    return { text: 'Il sentiero sale verso la torre. Mi volto: le finestre illuminate dell\'ospedale sembrano quelle di un edificio ancora in funzione.<br><br>Mi tolgo il guanto destro. La cicatrice è reale. Le provette sono fredde, eppure il loro contenuto emana un calore leggero.<br><br>La luce rossa continua a lampeggiare.',
       next: 0, nextLabel: 'CAPITOLO VI · LA STAZIONE RADIO — in arrivo' };
   },
 };
