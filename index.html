@@ -240,7 +240,7 @@
     <button class="vhs ch" data-ch="3">III · IL POSTO DI BLOCCO<small>chi non respira</small></button>
     <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
     <button class="vhs ch" data-ch="5">V · L'OSPEDALE N. 3<small>le provette</small></button>
-    <button class="vhs ch soon" data-ch="6" disabled>VI · LA STAZIONE RADIO<small>il walkie-talkie · in arrivo</small></button>
+    <button class="vhs ch" data-ch="6">VI · LA STAZIONE RADIO<small>il walkie-talkie</small></button>
     <button class="vhs ch soon" data-ch="7" disabled>VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne · in arrivo</small></button>
     <button class="vhs ch soon" data-ch="8" disabled>VIII · LA ТЭЦ<small>la ciminiera · in arrivo</small></button>
     <button class="vhs ch soon" data-ch="9" disabled>IX · I LABORATORI SOTTERRANEI<small>il ciclo termico · in arrivo</small></button>
@@ -613,9 +613,9 @@ function makeSnow(count, size, fall, opacity) {
   return { pts, pos, ph, sp, count };
 }
 const snowLayers = [makeSnow(2400, 2.6, 1.3, 0.75), makeSnow(550, 4.6, 1.9, 0.9)];
-let windBoost = 0;
+let windBoost = 0, windExtra = 0;
 function updateSnow(dt, t) {
-  const windX = 0.9 + 0.6 * Math.sin(t * 0.13) + windBoost, windZ = -0.35 + 0.25 * Math.sin(t * 0.07 + 1);
+  const windX = 0.9 + 0.6 * Math.sin(t * 0.13) + windBoost + windExtra, windZ = -0.35 + 0.25 * Math.sin(t * 0.07 + 1);
   for (const L of snowLayers) {
     const p = L.pos;
     for (let i = 0; i < L.count; i++) {
@@ -2713,7 +2713,7 @@ function updateSurvival(dt, t) {
   if (!state.started || state.ended || state.gap || state.paused) return;
   // il freddo: più veloce da fermi, più lento correndo, quasi nullo leggendo; vicino al fuoco ci si scalda
   const k = hero.speed > 2.5 ? 0.55 : hero.speed > 0.15 ? 1 : 1.5;
-  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1) * (state.gear.has('guanti') ? 0.92 : 1);
+  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1) * (state.gear.has('guanti') ? 0.92 : 1) * (state.gear.has('colbacco') ? 0.9 : 1);
   let warm = 0;
   for (const f of fires) if (f.lit) { const d = Math.hypot(f.x - hero.x, f.z - hero.z); if (d < 3.4) warm += 10 * (1 - d / 3.4) + 2; }
   if (state.foodWarm > 0) { state.foodWarm -= dt; warm += 2.5; }
@@ -2839,6 +2839,9 @@ const ITEMS = {
   planimetria: { icon: null, img: paperIcon, name: 'Planimetria dei percorsi', desc: 'I percorsi urbani dello ЗАТО-42. Il percorso 6 arriva fino alla Casa della Cultura.' },
   bigliettoBus: { icon: null, img: paperIcon, name: 'Biglietto · posto 17', desc: '«МЕСТО 17 — ВОРОНИН». Sul retro: «ТЫ УЖЕ ЕХАЛ.» Sei già salito.' },
   piantina: { icon: null, img: drawIcon(x => { x.fillStyle = '#d8d0b8'; x.beginPath(); x.moveTo(-34, -28); x.lineTo(34, -28); x.lineTo(30, 6); x.lineTo(10, 28); x.lineTo(-34, 28); x.fill(); x.strokeStyle = '#3a3630'; x.lineWidth = 3; x.strokeRect(-26, -20, 20, 14); x.strokeRect(-26, 4, 40, 10); x.fillStyle = '#b0221c'; x.beginPath(); x.arc(18, -12, 6, 0, 7); x.fill(); }), name: 'Piantina del cortile', desc: 'Incompleta, manca un pezzo del foglio. Un segno rosso sulla cabina elettrica «ТП-4».' },
+  walkie: { icon: null, img: drawIcon(x => { x.fillStyle = '#3f4a35'; x.fillRect(-18, -30, 36, 64); x.fillStyle = '#1a1e18'; x.fillRect(-12, -22, 24, 18); x.fillStyle = '#5a5e62'; x.fillRect(8, -48, 4, 20); x.fillStyle = '#d8d4c4'; x.font = 'bold 18px serif'; x.fillText('В', -6, 26); }), name: 'Walkie-talkie P-105', desc: 'Dalla stazione radio. Sul retro, una «В» graffiata. Gracchia quando qualcosa si avvicina.', have: () => state.gear.has('walkie') },
+  colbacco: { icon: null, img: drawIcon(x => { x.fillStyle = '#3a342c'; x.beginPath(); x.ellipse(0, -4, 34, 26, 0, Math.PI, 0); x.fill(); x.fillRect(-34, -6, 68, 14); x.fillRect(-36, 4, 12, 26); x.fillRect(24, 4, 12, 26); }), name: 'Colbacco foderato', desc: 'Dalla Niva della stazione radio. Il vento morde un po\' meno.', have: () => state.gear.has('colbacco') },
+  rompighiaccio: { icon: null, img: drawIcon(x => { x.fillStyle = '#7a7e82'; x.save(); x.rotate(0.6); x.fillRect(-5, -40, 10, 70); x.fillRect(-18, -44, 36, 12); x.restore(); }), name: 'Chiave rompighiaccio', desc: 'Per liberare i tiranti ghiacciati dell\'antenna.' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -5927,10 +5930,310 @@ const CH5 = {
   },
   ending() {
     return { text: 'Il sentiero sale verso la torre. Mi volto: le finestre illuminate dell\'ospedale sembrano quelle di un edificio ancora in funzione.<br><br>Mi tolgo il guanto destro. La cicatrice è reale. Le provette sono fredde, eppure il loro contenuto emana un calore leggero.<br><br>La luce rossa continua a lampeggiare.',
-      next: 0, nextLabel: 'CAPITOLO VI · LA STAZIONE RADIO — in arrivo' };
+      next: 6, nextLabel: 'CAPITOLO VI · LA STAZIONE RADIO' };
   },
 };
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5 };
+/* =====================================================================
+   CAPITOLO VI · LA STAZIONE RADIO — «il walkie-talkie»
+   Il crinale sopra l'ospedale, la tormenta a raffiche, la casupola dell'operatore, la torre col cavo spezzato,
+   sette figure ferme sul ciglio con il numero 417, una voce identica alla mia che è già più avanti.
+   ===================================================================== */
+const L6 = { START: { x: -28, z: 0.6 }, NIVA: { x: -17.5, z: -5.2, r: 0.12 }, HUT: { x0: -3, x1: 5, z0: -9.2, z1: -3.6 }, BARREL: { x: 6.4, z: -6.2 },
+  TOWER: { x: 12, z: -4 }, LADDER: { x: 12, z: -2.0 }, ANCHOR: { x: 17.2, z: 1.6 }, HATCH: { x: 21.5, z: -5.2 }, PLAT_Y: 6.0,
+  COVERS: [{ x: -23.5, z: 0.4 }, { x: -17.5, z: -3.6 }, { x: -12.2, z: 0.2 }, { x: -8.4, z: -2.6 }] };
+function ground6(x, z) {
+  if (CH6.climbY > 0 && Math.hypot(x - L6.LADDER.x, z - L6.LADDER.z) < 0.7) return 0.05 + CH6.climbY;
+  let h = 0.08 * Math.sin(x * 0.19 + z * 0.15) + 0.06 * Math.sin(x * 0.47 - z * 0.31) + 0.03 * Math.sin(z * 0.9);
+  h -= smooth01((z - 7.6) / 2.8) * 1.3;                      // il ciglio della collina
+  if (z < -9.6) h += smooth01((-z - 9.7) / 1.2) * 0.5;
+  return h;
+}
+function ushanka(head) {
+  const g = boneKit(head), fur = flatMat({ color: 0x3a342c, roughness: 1 });
+  kitM(new THREE.SphereGeometry(0.16, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2), fur, g, 0, 0.15, 0).scale.set(1.05, 0.9, 1.1);
+  for (const s of [-1, 1]) kitM(new THREE.BoxGeometry(0.05, 0.16, 0.13), fur, g, s * 0.15, 0.1, 0);
+  kitM(new THREE.BoxGeometry(0.28, 0.06, 0.08), fur, g, 0, 0.22, 0.12);
+  shadowAll(g); return g;
+}
+const CH6 = {
+  id: 6, roman: 'VI', name: 'La stazione radio', clueCount: 3, cold: 0.34, attention: true, ground: ground6,
+  docs: { diario: 'Registro radio · 12.02.1991, 23:35 · «tre voci identiche, tutte "Volk-0417", si avvertono di non scendere alla valvola» · a matita: «НЕ ОТВЕЧАЙ СЕБЕ.»',
+    nastro: 'Nastro delle intercettazioni · la mia voce: «quelle figure nella nebbia siamo noi. Quelli che sono morti di freddo e non hanno finito il giro…»',
+    tabella: 'Tabella · canale 142.8 MHz · «Parlo con me stesso attraverso ieri… Ci aiutiamo a vicenda a girare in tondo. — В.»' },
+  start: { x: L6.START.x, z: L6.START.z, heading: Math.PI / 2 }, bounds: [-30, 26, -10.6, 9.6],
+  env() { setSun(10, -0.7, 0.7); scene.fog.density = 0.016; hemi.intensity = 0.5; },
+  shelter(x, z) { const H = L6.HUT; return x > H.x0 && x < H.x1 && z > H.z0 && z < H.z1; },
+  snow() {
+    snowBase();
+    bandZ(-11, -9.4, -HX, HX, 210, 0.45, 0.6);
+    for (let i = 0; i < 260; i++) blob(-HX + rand() * GW, -10 + rand() * 20, 0.3 + rand() * 0.7, 200 + rand() * 40, 0.3);
+    // il sentiero dall'ospedale, quasi cancellato dal vento; dentro, le impronte rigide
+    walkTrail(polyPath([[-31, 1.4], [-24, 0.6], [-16, 0.2], [-9, 0], [-2, -1.6], [0.6, -3.4]]), 0.55, 0.82, 0.0, mulberry32(61));
+  },
+  build() {
+    this.walls = [];
+    const wall = CH3.wallKit.call(this), mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.8 }, o));
+    // recinzione del piazzale, cartello
+    const post = mt(0x3a3e42, { metalness: 0.5 });
+    for (const [x0, z0, x1, z1] of [[-8, -10.2, 25, -10.2], [-8, 4.6, 25, 4.6], [-8, -10.2, -8, -2.2], [-8, 2.2, -8, 4.6]]) {
+      const L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 2.5);
+      for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n), z = lerp(z0, z1, k / n), p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), post); p.position.set(x, groundH(x, z) + 1.0, z); world.add(p); }
+      for (const y of [0.6, 1.3, 1.9]) cable([x0, y, z0], [x1, y, z1], 0.05, 0.01);
+      if (x0 === x1) addBox(x0 - 0.1, x0 + 0.1, z0, z1); else addBox(x0, x1, z0 - 0.1, z0 + 0.1);
+    }
+    { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['РАДИОУЗЕЛ ЗАТО-42', 'ЗАПРЕТНАЯ ЗОНА'], 512, 128, '#d8d4c4', '#a01a12', 'bold 40px monospace'), side: THREE.DoubleSide })); s.position.set(-8.1, groundH(-8, -3) + 1.5, -3.4); s.rotation.y = -Math.PI / 2; world.add(s); }
+    // la Niva di servizio contro la recinzione, i ripari lungo il sentiero
+    makeCar({ x: L6.NIVA.x, z: L6.NIVA.z, rot: L6.NIVA.r, color: 0x3a5a3a, buried: 0.7, kind: 'lada', state: 'broken' });
+    for (const c of [L6.COVERS[0], L6.COVERS[2], L6.COVERS[3]]) { const b = new THREE.Mesh(new RoundedBoxGeometry(1.2, 1.3, 2.2, 2, 0.15), concreteMat); b.position.set(c.x, groundH(c.x, c.z) + 0.6, c.z); shadowAll(b); ink(b); world.add(b); addBox(c.x - 0.6, c.x + 0.6, c.z - 1.1, c.z + 1.1);
+      const sn = new THREE.Mesh(pillow(1.6, 0.6, 2.4, Math.round(c.x * 7), 10), plainSnowMat); sn.position.set(c.x + 0.9, groundH(c.x, c.z), c.z); world.add(sn); }
+    // la casupola in mattoni dell'operatore
+    { const H = L6.HUT, c = document.createElement('canvas'); c.width = 256; c.height = 128; const m = c.getContext('2d'); m.fillStyle = '#5e4033'; m.fillRect(0, 0, 256, 128);
+      for (let y = 0; y < 128; y += 8) for (let x = (y / 8) % 2 * 9; x < 256; x += 18) { const v = 80 + Math.random() * 30; m.fillStyle = `rgb(${v + 20},${v - 10},${v - 25})`; m.fillRect(x, y, 16, 6); }
+      const bt = new THREE.CanvasTexture(c); bt.colorSpace = THREE.SRGBColorSpace; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; const brick = new THREE.MeshStandardMaterial({ map: bt, roughness: 0.95 });
+      const fl = new THREE.Mesh(new THREE.PlaneGeometry(H.x1 - H.x0, H.z1 - H.z0), mt(0x4a4238)); fl.rotation.x = -Math.PI / 2; fl.position.set((H.x0 + H.x1) / 2, groundH(0, -6) + 0.06, (H.z0 + H.z1) / 2); world.add(fl);
+      this.hutY = groundH(0, -6);
+      wall(brick, H.x0, H.z0, H.x1, H.z0, 2.6); wall(brick, H.x0, H.z0, H.x0, H.z1, 2.6); wall(brick, H.x1, H.z0, H.x1, H.z1, 2.6); wall(brick, H.x0, H.z1, H.x1, H.z1, 2.6, [[3.0, 4.2]]);
+      this.walls.forEach(w => { w.m.map = bt; });
+      this.hutRoof = new THREE.MeshStandardMaterial({ color: 0xe6ecf2, roughness: 0.95, transparent: true });
+      const rf = new THREE.Mesh(new RoundedBoxGeometry(H.x1 - H.x0 + 0.5, 0.35, H.z1 - H.z0 + 0.5, 2, 0.12), this.hutRoof); rf.position.set((H.x0 + H.x1) / 2, this.hutY + 2.75, (H.z0 + H.z1) / 2); world.add(rf);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['АППАРАТНАЯ СВЯЗИ'], 512, 96, '#d8d4c4', '#1a1a1a', 'bold 44px monospace'), transparent: true })); sg.position.set(H.x0 + 3.6, this.hutY + 2.35, H.z1 + 0.09); world.add(sg); this.hutSign = sg.material;
+      // dentro: banco del trasmettitore, oscilloscopi verdi, registratore a bobine, la tabella, la stufetta
+      const y = this.hutY;
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.85, 0.75), mt(0x4a3a2a)); bench.position.set(H.x0 + 2.4, y + 0.42, H.z0 + 0.55); world.add(bench); addBox(H.x0 + 0.3, H.x0 + 4.5, H.z0, H.z0 + 0.95).low = true;
+      for (let k = 0; k < 3; k++) { const tx = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.45), mt(0x5a6252, { metalness: 0.3 })); tx.position.set(H.x0 + 1.0 + k * 1.1, y + 1.2, H.z0 + 0.4); world.add(tx);
+        const sc = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16), new THREE.MeshBasicMaterial({ color: 0x60ff90 })); sc.position.set(H.x0 + 0.85 + k * 1.1, y + 1.25, H.z0 + 0.63); world.add(sc);
+        for (let i = 0; i < 4; i++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffa030 : 0xff5020 })); l.position.set(H.x0 + 1.2 + k * 1.1 + i * 0.06, y + 1.0, H.z0 + 0.63); world.add(l); } }
+      this.walkieMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.06), mt(0x3f4a35)); this.walkieMesh.position.set(H.x0 + 3.6, y + 0.97, H.z0 + 0.7); world.add(this.walkieMesh);
+      const rec = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.5), mt(0x2a2c2e)); rec.position.set(H.x1 - 0.7, y + 0.75, H.z0 + 0.6); world.add(rec); addBox(H.x1 - 1.1, H.x1 - 0.2, H.z0 + 0.2, H.z0 + 1.0).low = true;
+      const tbl = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.6), mt(0x4a3a2a)); tbl.position.set(H.x1 - 0.7, y + 0.3, H.z0 + 0.6); world.add(tbl);
+      this.reelsR = [-0.18, 0.18].map(dx => { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 16), mt(0x8a8a80, { metalness: 0.5 })); r.position.set(H.x1 - 0.7 + dx, y + 0.92, H.z0 + 0.6); world.add(r); return r; });
+      const chart = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.7), new THREE.MeshStandardMaterial({ map: textTex(['ИНСТРУКЦИЯ ПО СВЯЗИ', 'КАНАЛ 142.8 МГц', 'СЕКТОР Б', '— — — —', '— В.'], 256, 200, '#e2dcc8', '#2a2620', 'bold 22px monospace') })); chart.position.set(H.x0 + 0.09, y + 1.5, H.z0 + 3.0); chart.rotation.y = Math.PI / 2; world.add(chart);
+      const tb = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.35), mt(0x8a2018, { metalness: 0.3 })); tb.position.set(H.x1 - 0.8, y + 0.15, H.z1 - 0.9); world.add(tb);
+      const stove = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.6, 12), mt(0x1e2022, { metalness: 0.6 })); stove.position.set(H.x0 + 0.6, y + 0.3, H.z1 - 0.7); world.add(stove);
+      this.hutLight = new THREE.PointLight(0x60ff90, 3.5, 7, 1.5); this.hutLight.position.set(H.x0 + 2.2, y + 1.8, H.z0 + 1.6); world.add(this.hutLight);
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), new THREE.MeshBasicMaterial({ color: 0x3a8a5a })); wl.position.set(H.x0 + 1.2, y + 1.5, H.z1 + 0.08); world.add(wl);   // la luce verde dietro il vetro
+    }
+    this.barrel = makeFireBarrel(L6.BARREL.x, L6.BARREL.z);
+    // la torre a traliccio: gambe, croci, scala, piattaforma, tiranti, la luce rossa in cima
+    { const T = L6.TOWER, H = 22, g = new THREE.Group(), steel = mt(0x6a5a4a, { metalness: 0.5, roughness: 0.6 }), geos = [];
+      const leg = (x0, z0, x1, z1) => { const a = new THREE.Vector3(T.x + x0, 0, T.z + z0), b = new THREE.Vector3(T.x + x1, H, T.z + z1); const d = b.clone().sub(a), L = d.length();
+        const geo = new THREE.CylinderGeometry(0.07, 0.09, L, 6); geo.translate(0, L / 2, 0); const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); geo.applyQuaternion(q); geo.translate(a.x, a.y, a.z); geos.push(geo); };
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) leg(sx * 1.5, sz * 1.5, sx * 0.35, sz * 0.35);
+      const at = (y, sx, sz) => { const k = y / H, w = lerp(1.5, 0.35, k); return new THREE.Vector3(T.x + sx * w, y, T.z + sz * w); };
+      const bar = (a, b) => { const d = b.clone().sub(a), L = d.length(), geo = new THREE.CylinderGeometry(0.03, 0.03, L, 4); geo.translate(0, L / 2, 0); geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); geo.translate(a.x, a.y, a.z); geos.push(geo); };
+      const C4 = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      for (let y = 0; y < H - 1; y += 2.2) for (let i = 0; i < 4; i++) { const [ax, az] = C4[i], [bx, bz] = C4[(i + 1) % 4]; bar(at(y, ax, az), at(y + 2.2, bx, bz)); bar(at(y + 2.2, ax, az), at(y + 2.2, bx, bz)); }
+      const tm = new THREE.Mesh(mergeGeometries(geos), steel); tm.castShadow = true; world.add(tm);
+      for (let k = 0; k < 24; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.04), steel); r.position.set(L6.LADDER.x, 0.3 + k * 0.26, L6.LADDER.z + 0.15); world.add(r); }
+      for (const dx of [-0.25, 0.25]) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.04, 6.4, 0.04), steel); s.position.set(L6.LADDER.x + dx, 3.2, L6.LADDER.z + 0.15); world.add(s); }
+      const plat = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.08, 3.0), mt(0x4a4a46, { metalness: 0.5 })); plat.position.set(T.x, L6.PLAT_Y, T.z); world.add(plat);
+      this.jbox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), mt(0x5a6a5a, { metalness: 0.5 })); this.jbox.position.set(T.x + 0.6, L6.PLAT_Y + 0.5, T.z + 1.2); world.add(this.jbox);
+      this.redMat = new THREE.MeshBasicMaterial({ color: 0xff2010 }); const rl = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), this.redMat); rl.position.set(T.x, H + 0.4, T.z); world.add(rl);
+      this.redLight = new THREE.PointLight(0xff2010, 0, 40, 1.2); this.redLight.position.copy(rl.position); world.add(this.redLight);
+      this.redGlow = makeGlow(rl.position.clone(), 4, 0.8);
+      const ts = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.45), new THREE.MeshStandardMaterial({ map: textTex(['ВЫШКА № 1', 'ВЫСОКОЕ НАПРЯЖЕНИЕ / ОБЛЕДЕНЕНИЕ'], 512, 140, '#e6c84a', '#1a1a1a', 'bold 30px monospace') })); ts.position.set(T.x - 1.0, 1.4, T.z + 1.62); world.add(ts);
+      addBox(T.x - 1.6, T.x + 1.6, T.z - 1.6, T.z + 1.6);
+      cable([T.x, 12, T.z], [L6.ANCHOR.x, 0.6, L6.ANCHOR.z], 0.2, 0.02); cable([T.x, 12, T.z], [T.x - 5, 0.6, T.z - 5.5], 0.2, 0.02); cable([T.x, 12, T.z], [T.x - 4.6, 0.6, T.z + 5.4], 0.2, 0.02);
+      this.coax = cable([T.x + 0.6, L6.PLAT_Y + 0.3, T.z + 1.2], [L6.HUT.x1, 2.2, -6], 1.2, 0.03);
+      const anc = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), concreteMat); anc.position.set(L6.ANCHOR.x, groundH(L6.ANCHOR.x, L6.ANCHOR.z) + 0.25, L6.ANCHOR.z); world.add(anc); addBox(L6.ANCHOR.x - 0.45, L6.ANCHOR.x + 0.45, L6.ANCHOR.z - 0.45, L6.ANCHOR.z + 0.45);
+      this.ice = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0xcfe4f0, roughness: 0.1, transparent: true, opacity: 0.85 })); this.ice.position.set(L6.ANCHOR.x - 0.4, groundH(L6.ANCHOR.x, L6.ANCHOR.z) + 1.0, L6.ANCHOR.z - 0.3); this.ice.rotation.z = 0.6; world.add(this.ice); }
+    // il gabbiotto di cemento con la discesa nella теплотрасса
+    { const Hh = L6.HATCH, g = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 2.6), concreteMat); g.position.set(Hh.x, groundH(Hh.x, Hh.z) + 1.2, Hh.z); shadowAll(g); ink(g); world.add(g); addBox(Hh.x - 1.3, Hh.x + 1.3, Hh.z - 1.3, Hh.z + 1.3);
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.9, 0.06), mt(0x5a6268, { metalness: 0.6 })); d.position.set(Hh.x, groundH(Hh.x, Hh.z) + 0.95, Hh.z + 1.32); world.add(d); this.hatchDoor = d;
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.32), new THREE.MeshStandardMaterial({ map: textTex(['СПУСК В ТЕПЛОТРАССУ — СЕКТОР 4'], 512, 74, '#d8d4c4', '#1a1a1a', 'bold 30px monospace') })); s.position.set(Hh.x, groundH(Hh.x, Hh.z) + 2.1, Hh.z + 1.32); world.add(s);
+      const kp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.05), mt(0x2a2c2e)); kp.position.set(Hh.x + 0.7, groundH(Hh.x, Hh.z) + 1.2, Hh.z + 1.33); world.add(kp);
+      const rs = new THREE.Mesh(pillow(2.5, 0.3, 2.5, 66, 10), plainSnowMat); rs.position.set(Hh.x, groundH(Hh.x, Hh.z) + 2.4, Hh.z); world.add(rs); }
+    // pini lungo il ciglio
+    [[-26, 8.6, 0.9], [-20, 9.2, 1.0], [-13, 8.8, 0.85], [-4, 9.4, 1.05], [5, 9.0, 0.95], [13, 9.3, 0.9], [22, 8.8, 1.0], [-29, -9.2, 0.8], [24, -9.4, 0.85]].forEach(([x, z, k], i) => makeTree(x, z, 300 + i * 7, k));
+    // le sette Sentinelle: compaiono dopo l'antenna. Cappotto, colbacco, una targhetta col 417
+    this.sent = [-5, -1, 3, 7.5, 11, 15, 19].map((x, i) => { const z = 7.6 + (i % 3) * 0.5, N = makeNPC({ x, z, heading: Math.PI, tint: { key: 'shadowcoat', fn: recolor(40, 42, 46, 0.75, 0.55) }, pose: POSE.stand, dim: 0.4, noOutline: true });
+      N.group.visible = false; whenDM(() => { ushanka(N.B.Head); const pm = new THREE.MeshStandardMaterial({ color: 0x8a8a80, metalness: 0.6, roughness: 0.4, map: textTex(['417'], 64, 32, '#a8a89c', '#1a1a1a', 'bold 24px monospace'), emissive: 0xffffff, emissiveIntensity: 0 });
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.06), pm); p.scale.setScalar(1 / DM.S); p.position.set(0.04 / DM.S, 0.06 / DM.S, 0.13 / DM.S); N.B.Spine3.add(p); N.plate = pm; }); return N; });
+    // l'Inseguitore tra i pini, e chi segue le impronte
+    this.limper = makeNPC({ x: 22, z: 9.6, heading: -Math.PI / 2, walk: true, tint: { key: 'shadowcoat', fn: recolor(40, 42, 46, 0.75, 0.55) }, dim: 0.3, noOutline: true }); this.limper.group.visible = false;
+    makeFigure('stalker', { cool: 40 });
+    this.gustT = 6; this.gust = 0; this.climbY = 0;
+  },
+  items() {
+    const S = state, self = this, have = k => state.items.has(k), G = state.gear, H = L6.HUT, T = L6.TOWER;
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    const niva = loc(L6.NIVA.x, L6.NIVA.z, L6.NIVA.r, 0.3, 1.6);
+    return [
+      { id: 'niva', x: niva.x, z: niva.z, r: 1.8, pick: true, label: 'Sportello della Niva', done: () => G.has('colbacco'), gone: () => G.has('colbacco'), use() {
+          G.add('colbacco'); addBattery(40); say(['Il parabrezza è esploso. Qualcuno ha lasciato qualcosa sul sedile.', 'Un colbacco foderato, e una pila. Calco il colbacco fino alle sopracciglia e stringo il cappotto al collo.']); } },
+      { id: 'fuoco', x: L6.BARREL.x + 0.6, z: L6.BARREL.z + 0.9, r: 1.6, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit, use() {
+          if (self.barrel.lit) { say('Qui dietro il vento quasi non arriva.'); return; }
+          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L6.BARREL.x + 0.8, z: L6.BARREL.z + 1.0 }; zoomTarget = Math.max(zoomTarget, 1.9);
+          say(['Dietro la parete della casupola, un bidone con della legna asciutta. Lo accendo. Per qualche secondo il vento sembra calare.']);
+          say('«Almeno qui posso fermarmi. Ma quella luce dentro… non dovrebbe esserci nessuno.»', 'DMITRI'); } },
+      { id: 'walkie', x: H.x0 + 3.6, z: H.z0 + 1.5, r: 1.1, pick: true, label: 'Banco del trasmettitore', done: () => G.has('walkie'), gone: () => G.has('walkie'), use() {
+          G.add('walkie'); self.walkieMesh.visible = false; say(['Le valvole sono ancora calde. Accanto al microfono, una ricetrasmittente portatile: un P-105. Qualcuno ha inciso una lettera sulla scocca.', 'Una «В». Graffiata, non stampata. La sfioro col pollice.']);
+          say('«Ancora quella lettera…»', 'DMITRI'); } },
+      { id: 'diario', x: H.x0 + 1.4, z: H.z0 + 1.5, r: 1.0, clue: true, label: 'Registro delle comunicazioni', use() {
+          say([Q('«ЖУРНАЛ РАДИОСВЯЗИ — 12.02.1991, 23:35»'), '«Interferenze sull\'etere. Sulla frequenza chiusa della ТЭЦ parlano contemporaneamente tre voci identiche. Tutte e tre usano il nominativo "Volk-0417" e si avvertono a vicenda di non scendere alla valvola.»',
+            'La pagina dopo è strappata. Sul margine, a matita: ' + Q('«НЕ ОТВЕЧАЙ СЕБЕ.»') + ' — Non rispondere a te stesso.'], 'REGISTRO RADIO'); say('«A chi dovrei rispondere?»', 'DMITRI'); } },
+      { id: 'nastro', x: H.x1 - 0.8, z: H.z0 + 1.5, r: 1.0, clue: true, repeat: true, label: () => S.clues.has('nastro') ? 'Riascolta il nastro' : 'Registratore a bobine', use() {
+          Sound.tape(); self.reelSpin = 12; const v = ['', ' (un respiro più vicino)', ' (sotto, quasi una seconda voce)', ' (un rumore di fondo diverso)'][(self.tapeN = ((self.tapeN || 0) + 1)) % 4];
+          say(['Il nastro gira piano. Premo PLAY. Una voce maschile, disturbata, da una stanza lontana. È la mia voce' + (self.tapeN > 1 ? v : '') + '.',
+            Q('«…Passo. Sono alla fermata del filobus. No, sono in ospedale… Quanti siamo qui dentro? Se mi senti sulla torre: quelle figure nella nebbia siamo noi. Quelli che sono morti di freddo e non hanno finito il giro…»')], 'NASTRO');
+          if (self.tapeN === 1) say('«No… Questa registrazione non può essere mia.»', 'DMITRI'); say('La bobina continua a girare anche dopo la fine del messaggio.'); } },
+      { id: 'tabella', x: H.x0 + 0.9, z: H.z0 + 3.0, r: 1.0, my: 1.5, clue: true, label: 'Foglio alla parete', use() {
+          say([Q('«ИНСТРУКЦИЯ ПО СВЯЗИ — КАНАЛ 142.8 МГц»') + ' — Istruzioni per le comunicazioni, canale 142.8 MHz. Settore B.', 'Sotto, a mano:',
+            Q('«Я говорю сам с собой через вчерашний день. Он внизу, у закрытого люка ТЭЦ, просит частоту сброса. Я наверху, прошу код от теплотрассы. Мы помогаем друг другу идти по кругу. — В.»'),
+            '«Parlo con me stesso attraverso ieri. Lui è giù, alla botola chiusa della ТЭЦ, e chiede la frequenza di sfiato. Io sono quassù e chiedo il codice del teleriscaldamento. Ci aiutiamo a vicenda a girare in tondo. — В.»'], 'TABELLA'); } },
+      { id: 'attrezzi', x: H.x1 - 0.8, z: H.z1 - 1.5, r: 1.0, pick: true, label: 'Cassetta degli attrezzi', gone: () => have('rompighiaccio'), use() { S.items.add('rompighiaccio'); S.cans += 1; say('Nella cassetta: una chiave rompighiaccio e una scatoletta di cibo.'); } },
+      { id: 'tirante', x: L6.ANCHOR.x - 1.0, z: L6.ANCHOR.z, r: 1.4, label: 'Tirante ghiacciato', done: () => f.iceOff, use() {
+          if (f.iceOff) return;
+          if (!have('rompighiaccio')) { say(['Il ghiaccio tira il cavo fino a spezzarlo. Devo liberare il metallo prima di poter raggiungere il quadro.', 'A mani nude non ci riesco. Nella casupola forse c\'è un attrezzo.']); return; }
+          f.iceOff = true; self.ice.visible = false; Sound.clunk(); Sound.burst(2600, 0.6, 0.4, 0.3, 'highpass'); say('Batto con la chiave rompighiaccio finché la crosta si spacca. Il tirante si allenta.'); } },
+      { id: 'scala', x: L6.LADDER.x, z: L6.LADDER.z + 0.4, r: 1.2, label: () => self.climbing ? '' : 'Sali sulla torre', done: () => f.antenna, gone: () => self.climbing || f.antenna, use() {
+          if (!f.iceOff) { say('Il cavo coassiale è bloccato dal tirante ghiacciato, laggiù. Prima devo liberarlo.'); return; }
+          self.climbing = true; self.climbK = 0; hero.speed = 0; say(['Comincio a salire. Il ferro brucia di freddo attraverso i guanti.', RU('[tieni premuto per salire · quando arriva una raffica, FERMATI e aggrappati]')]); } },
+      { id: 'quadroT', x: L6.LADDER.x, z: L6.LADDER.z, r: 1.0, label: 'Quadro di giunzione', gone: () => !(self.climbing && self.climbK >= 1) || f.antenna, use() { self.fixAntenna(); } },
+      { id: 'chiamata', x: H.x0 + 3.0, z: H.z0 + 1.6, r: 1.3, label: 'Rispondi al walkie-talkie', gone: () => !f.call || f.called, use() {
+          if (!S.clues.has('tabella')) { say(['«…Chi c\'è sulla torre radio? Dammi la frequenza! È scritta sul muro della casupola…»', 'Il foglio alla parete. Prima devo leggerlo.']); return; }
+          self.talkSelf(); } },
+      { id: 'botola', x: L6.HATCH.x, z: L6.HATCH.z + 2.0, r: 1.4, label: () => f.code ? 'Scendi nella теплотрасса' : 'Serratura a pulsanti', use() {
+          if (f.code) { self.descend(); return; }
+          if (!f.called) { say(['Una serratura meccanica con quattro pulsanti numerici.', 'Non conosco il codice.']); return; }
+          self.openKeypad(); } },
+    ];
+  },
+  fixAntenna() {
+    const S = state; S.flags.antenna = true; Sound.zap(0.5); flash = 0.4; this.redPause = 1.2;
+    say(['Il cavo coassiale è staccato. Le mie dita non sentono più il metallo.', 'Collego i due terminali. Un lampo attraversa il quadro.', 'La luce rossa in cima smette per un istante di lampeggiare, poi riprende. Dalla casupola arriva un fischio acuto.', 'Il segnale è tornato.']);
+    act(() => { this.climbDown = true; Sound.tone(1800, 0.4, 0.06, 'sine'); });
+    setTimeout(() => { this.limper.group.visible = true; this.limpX = 22; }, 4000);
+  },
+  talkSelf() {
+    const S = state; S.flags.called = true; act(() => Sound.radio(1.5));
+    say('KRRR… KRRR… «…Mi senti adesso? Krrr… Chi c\'è sulla torre radio? Rispondi!»', 'VOCE');
+    say('«Sono Voronin. Dmitri Voronin, tecnico della ТЭЦ. Chi parla? Perché hai la mia voce?»', 'DMITRI');
+    say('Un respiro tremante.');
+    say('«Perché sono te, idiota. Tu sei ancora lassù, sulla collina. Io sono più avanti, davanti ai cancelli della centrale, ma il quadro radio qui chiede la frequenza di emergenza che è scritta sul muro della casupola.»', 'VOCE');
+    say('«Non è possibile. Io sono qui adesso.»', 'DMITRI');
+    say('«Non c\'è nessun "adesso", Dima. È sempre il 12 febbraio. Guarda giù dalla collina, verso i pini nella nebbia: le vedi quelle sagome nere ferme nella neve? Hanno tutte il nostro cappotto. Sono i giri in cui ci siamo fermati.»', 'VOCE');
+    say('Mi avvicino alla finestra. In lontananza, le sette figure.');
+    say('«Le Sentinelle… siamo noi?»', 'DMITRI');
+    act(() => Sound.radio(1.0));
+    say('«Se ti fermi, diventi una di loro. Dammi la frequenza scritta sulla tabella e io ti do il codice della botola per scendere nei tubi caldi della теплотрасса.»', 'VOCE');
+    say('«La tabella dice… 142.8 megahertz. Settore B.»', 'DMITRI');
+    say('«142.8… ricevuta. Ascoltami: il codice della botola alla tua destra è 4-1-7-3. Il nostro tesserino, più tre. E quando arrivi alla centrale… non credere a quello che ti sei lasciato registrato. Krrr—»', 'VOCE');
+    say('«Aspetta! Cosa mi sono lasciato registrato? Cosa significa?»', 'DMITRI');
+    say('Nessuna risposta. Poi, molto lentamente, un\'ultima frase.');
+    say('«Non farmi aspettare ancora.»', 'VOCE');
+  },
+  openKeypad() {
+    this.code = ''; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); $('tpDrawer').style.display = 'none'; $('tpTitle').textContent = 'СПУСК В ТЕПЛОТРАССУ · СЕКТОР 4';
+    const c = $('tpSchema'), m = c.getContext('2d'); m.fillStyle = '#2a2c2e'; m.fillRect(0, 0, c.width, c.height); m.fillStyle = '#d8d4c4'; m.font = 'bold 16px monospace'; m.fillText('ЗАМОК КОДОВЫЙ · 4 ЦИФРЫ', 20, 40); this.renderTP();
+  },
+  closeTP() { $('tp').classList.add('hide'); state.paused = false; $('tpDrawer').style.display = ''; },
+  drawer() {},
+  renderTP(msg) {
+    $('tpSw').style.gridTemplateColumns = 'repeat(5,minmax(0,1fr))';
+    $('tpSw').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(d => `<button class="vhs sw" data-k="${d}"><span class="lever">${d}</span></button>`).join('');
+    $('tpSw').querySelectorAll('button').forEach(b => b.onclick = () => this.pressSw(+b.dataset.k));
+    const c = $('tpSchema'), m = c.getContext('2d'); m.fillStyle = '#101214'; m.fillRect(150, 90, 260, 70); m.fillStyle = '#ffb030'; m.font = 'bold 44px monospace'; m.fillText((this.code + '____').slice(0, 4).split('').join(' '), 190, 140);
+    $('tpMsg').innerHTML = msg || 'Quattro cifre. «Il nostro tesserino, più tre.»';
+  },
+  pressSw(d) {
+    Sound.click(); this.code += d; this.renderTP();
+    if (this.code.length < 4) return;
+    if (this.code === '4173') { state.flags.code = true; Sound.clunk(); this.renderTP('La serratura scatta.'); setTimeout(() => { this.closeTP(); say(['«Il mio tesserino… più tre.» Guardo il mio numero: 0417. Poi guardo il walkie-talkie.']); say('«Come facevi a saperlo?»', 'DMITRI'); say('Apro la porta. Dal basso sale una nuvola di vapore caldo. Per la prima volta da quando sono uscito dall\'ospedale, sento qualcosa che assomiglia al calore.'); }, 900); }
+    else { Sound.thud(); setTimeout(() => { this.code = ''; this.renderTP('Niente. La serratura non si muove.'); }, 500); }
+  },
+  descend() {
+    const S = state; if (S.flags.down) return; S.flags.down = true; interactables = [];
+    const lit = this.sent.some(N => N.plateSeen);
+    say(lit ? ['Prima di scendere mi volto verso il crinale. Le figure sono ancora lì.'] : ['Prima di scendere punto la torcia sulla figura più vicina. La luce colpisce il petto: una targhetta. Il numero è chiaro: 417.', 'Ha lo stesso colbacco che ho appena preso dalla Niva.']);
+    say('«Quanti siamo?»', 'DMITRI'); act(() => Sound.radio(1.2)); say('KRRR… Nessuna voce.');
+    say('Scendo nella botola. La porta si chiude sopra di me. Dal pozzo sale una nuvola di vapore bollente.'); this.endPending = true;
+  },
+  phase() {
+    const f = state.flags, c = state.clues, G = state.gear;
+    if (!this.barrel.lit) return 1;
+    if (!G.has('walkie') || !(c.has('diario') && c.has('nastro') && c.has('tabella')) || !state.items.has('rompighiaccio')) return 2;
+    if (!f.iceOff) return 3; if (!f.antenna) return 4; if (!f.called) return 5; if (!f.code) return 6; return 7;
+  },
+  objective() { return ['', 'Riparati dal vento e accendi il fuoco alla stazione radio', 'Esplora la casupola dell\'operatore', 'Libera il tirante ghiacciato della torre', 'Sali sulla torre e ricollega il cavo dell\'antenna', 'Torna alla casupola: il walkie-talkie', 'Apri la botola della теплотрасса', 'Scendi nella теплотрасса'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase(), c = state.clues;
+    if (p === 1) return by('fuoco'); if (p === 2) return !state.gear.has('walkie') ? by('walkie') : !c.has('diario') ? by('diario') : !c.has('nastro') ? by('nastro') : !c.has('tabella') ? by('tabella') : by('attrezzi');
+    if (p === 3) return by('tirante'); if (p === 4) return by('scala'); if (p === 5) return by('chiamata'); return by('botola'); },
+  thought() { return ['', 'Il vento mi spinge indietro. Devo avanzare da un riparo all\'altro. La luce verde, nella casupola…', 'Qualcuno è ancora qui. O qualcuno non se n\'è mai andato.', 'Il cavo dell\'antenna è bloccato da un tirante ghiacciato.', 'La scala della torre. Durante le raffiche devo fermarmi e aggrapparmi.', 'Il walkie-talkie gracchia. Dalla casupola.', 'La botola a destra della torre. Il codice: il tesserino, più tre.', 'Il vapore caldo, sotto.'][this.phase()]; },
+  hint() { return ['', 'Avanza tra un riparo e l\'altro (la Niva, i blocchi di cemento): quando arriva una raffica, fermati dietro un riparo. Il bidone è dietro la parete est della casupola. Nella Niva c\'è un colbacco.',
+    'Nella casupola: il walkie-talkie sul banco, il registro, il registratore a bobine, il foglio sulla parete ovest e la cassetta degli attrezzi.', 'Il tirante ghiacciato è il blocco di cemento a sud-est della torre: usa la chiave rompighiaccio.',
+    'Sali dalla scala della torre tenendo premuto avanti; quando arriva una raffica lascia i comandi finché non passa. In cima, ricollega il quadro.', 'Rientra nella casupola e rispondi al walkie-talkie vicino al banco. Prima leggi la tabella sul muro.', 'La botola è nel gabbiotto di cemento a destra della torre: codice 4173.', 'Scendi.'][this.phase()]; },
+  coldTip() { return this.barrel.lit ? 'Il vento mi entra nelle ossa. Torno al bidone dietro la casupola.' : 'Il vento qui taglia la faccia. Devo trovare riparo e un fuoco.'; },
+  intro() {
+    setTimeout(() => act(() => Sound.radio(1.2)), 0);
+    return ['Esco dal sentiero dietro l\'ospedale. Il vento mi impedisce quasi di avanzare. Lontano, la torre radio: la luce rossa pulsa nella tormenta.', 'La radio da campo gracchia: ' + Q('«…Volk…»'), '«Sono qui. Mi senti?» Solo interferenze. Poi: ' + Q('«…Non usare quella frequenza…»'),
+      'Dietro il vetro della casupola c\'è una luce verde accesa.'];
+  },
+  heroHook(dt) {
+    const S = state, f = S.flags;
+    // la torre: sali tenendo premuto; durante la raffica fermati, o cadi
+    if (this.climbing) {
+      hero.x = L6.LADDER.x; hero.z = L6.LADDER.z; hero.heading = Math.PI;
+      const inp = inputAxes(), push = Math.hypot(inp.x, inp.y) > 0.3;
+      if (this.climbDown) { this.climbK = Math.max(0, this.climbK - dt * 0.35); if (this.climbK <= 0) { this.climbing = false; this.climbDown = false; refreshObjective(); } }
+      else if (this.climbK < 1) {
+        if (this.gust > 0.3 && push && !reading()) { this.climbK = Math.max(0, this.climbK - 0.35); S.heat = Math.max(1, S.heat - 10); shake = 0.5; Sound.thud(); showMsg('Ho perso la presa!<br>Durante la raffica, fermati.'); }
+        else if (push && this.gust < 0.3) this.climbK = Math.min(1, this.climbK + dt * 0.12);
+        if (this.climbK >= 1) { refreshObjective(); tell('top', 'La piattaforma. Il quadro di giunzione è qui.'); }
+      }
+      this.climbY = this.climbK * L6.PLAT_Y;
+      return false;
+    }
+    this.climbY = 0;
+    return true;
+  },
+  update(dt, t) {
+    const S = state, f = S.flags, live = S.started && !S.ended && !S.gap, H = L6.HUT;
+    const inHut = hero.x > H.x0 && hero.x < H.x1 && hero.z > H.z0 && hero.z < H.z1 + 0.2;
+    // raffiche ogni otto secondi
+    this.gustT -= dt; if (this.gustT <= 0) { this.gustT = 8; this.gust = 1; if (live && !inHut) Sound.burst(500, 0.4, 2.2, 0.35, 'lowpass'); }
+    this.gust = Math.max(0, this.gust - dt / 2.2);
+    windExtra = -3 - this.gust * 9;
+    if (live && !inHut && this.gust > 0.2 && !this.climbing && !reading()) {
+      const covered = L6.COVERS.some(c => hero.x < c.x - 0.3 && hero.x > c.x - 2.8 && Math.abs(hero.z - c.z) < 1.6) || (hero.x > -8 && hero.x < H.x1 + 2 && hero.z < H.z1 + 1.5 && hero.z > H.z0 - 1);
+      if (!covered) { hero.kvx = Math.min(hero.kvx, -2.4 * this.gust); S.heat = Math.max(0, S.heat - dt * 1.4 * (S.gear.has('colbacco') ? 0.6 : 1));
+        if (this.gust > 0.95 && hero.speed > 1.0 && Math.random() < 0.5 && !downed()) { knockDown(1, 1.0, 1.2); tell('fall', 'La raffica mi butta a terra. Devo fermarmi dietro un riparo quando arriva.'); } }
+    }
+    // la casupola: muri trasparenti, tetto, luce verde, bobine
+    const cxa = Math.sin(camAz), cza = Math.cos(camAz);
+    for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
+      const want = inHut && vx * cxa + vz * cza > 0.2 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+    for (const m of [this.hutRoof, this.hutSign]) { m.opacity = lerp(m.opacity, inHut ? 0.06 : 1, damp(6, dt)); m.depthWrite = m.opacity > 0.9; }
+    this.hutLight.intensity = 3.2 + Math.sin(t * 7) * 0.3;
+    if ((this.reelSpin || 0) > 0 || S.clues.has('nastro')) { this.reelsR.forEach((r, k) => r.rotation.y += dt * (k ? 1.6 : 1.2)); if (this.reelSpin > 0) this.reelSpin -= dt; }
+    if (inHut) tell('hut', ['La stanza è piena di apparecchi: trasmettitori a valvole, oscilloscopi verdi, un registratore a bobine, una stufetta spenta.', 'Non c\'è nessuno.']);
+    // la luce rossa in cima alla torre
+    const on = this.redPause > 0 ? 1 : (Math.sin(t * 2.4) > 0.2 ? 1 : 0); if (this.redPause > 0) this.redPause -= dt;
+    this.redMat.color.setHex(on ? 0xff2010 : 0x300404); this.redLight.intensity = on ? 30 : 0; this.redGlow.material.opacity = on ? 0.8 : 0;
+    // le sette Sentinelle: dopo l'antenna, quando torni verso la casupola
+    if (f.antenna && !this.climbing && !f.sentShown && hero.x < 10) { f.sentShown = true; this.sent.forEach(N => N.group.visible = true); dreadSpike = 1; Sound.sting();
+      say(['La tormenta si apre per qualche secondo.', 'Sul ciglio della collina ci sono sette figure immobili. Prima non c\'erano.', 'Sono disposte a distanze irregolari, come se guardassero la stazione.']); }
+    if (f.sentShown) for (const N of this.sent) if (N.plate) { const lit = S.torch && torchHits(N.x, N.z) && Math.hypot(hero.x - N.x, hero.z - N.z) < 11; N.plate.emissiveIntensity = lerp(N.plate.emissiveIntensity, lit ? 0.9 : 0, damp(6, dt));
+      if (lit && !N.plateSeen) { N.plateSeen = true; tell('plate', ['La luce rivela un cappotto invernale come il mio. Un colbacco dello stesso modello. Sul petto, una targhetta di metallo: 417.', 'La figura non si muove.']); say('«Chi siete?»', 'DMITRI'); } }
+    if (f.sentShown && this.gust > 0.9) this.sent.forEach(N => N.group.visible = false); else if (f.sentShown) this.sent.forEach(N => N.group.visible = true);
+    // il walkie gracchia: la chiamata
+    if (f.sentShown && !f.call && S.gear.has('walkie') && (inHut || Math.hypot(hero.x - (H.x0 + 2), hero.z - H.z1) < 6) && !reading()) { f.call = true; Sound.radio(1.2); refreshObjective(); say('Il walkie-talkie P-105 emette una scarica di statica. KRRR… KRRR… Una voce, più vicina delle registrazioni.'); }
+    // l'Inseguitore tra i pini, mentre scendi dalla torre
+    const Lm = this.limper; if (Lm.group.visible && Lm.ready) { this.limpX -= dt * 0.45 * (0.55 + 0.45 * Math.abs(Math.sin(t * 2.2))); Lm.x = this.limpX; Lm.z = 9.4; Lm.mixer.update(dt * 0.6); Lm.group.position.set(Lm.x, groundH(Lm.x, Lm.z) - Math.max(0, Math.sin(t * 4.4)) * 0.05, Lm.z); Lm.group.rotation.set(0, -Math.PI / 2, Math.max(0, Math.sin(t * 4.4)) * 0.06);
+      if (Lm.x < -8) Lm.group.visible = false; tell('limpT', 'Tra gli alberi, nella tormenta, una figura avanza lentamente. Trascina una gamba.'); }
+    // fermarsi allo scoperto: l'Inseguitore arriva
+    if (f.antenna && live && !inHut && !this.climbing && hero.speed < 0.2 && !nearFire(hero.x, hero.z, 3.6)) { this.idleOut = (this.idleOut || 0) + dt; if (this.idleOut > 9) { this.idleOut = 0; state.attention = 100; } } else this.idleOut = 0;
+    if (S.gear.has('walkie') && figures.some(F => F.mode === 'stalker' && F.state === 'hunt' && Math.hypot(F.x - hero.x, F.z - hero.z) < 12) && Math.random() < dt * 1.5) Sound.burst(2600, 3, 0.08, 0.05, 'bandpass');
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 1.2; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
+  },
+  ending() {
+    return { text: 'Scendo nel pozzo della теплотрасса. Sopra di me la porta si chiude.<br><br>Sul crinale, sette figure col mio cappotto restano ferme nella neve. Il walkie-talkie gracchia, poi tace.<br><br>«Non farmi aspettare ancora.»',
+      next: 0, nextLabel: 'CAPITOLO VII · SOTTO LA CITTÀ — in arrivo' };
+  },
+};
+
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
@@ -5953,7 +6256,7 @@ function loadChapter(n, fromPrev = false) {
   sun.intensity = 3.3; C.env();
   C.snow(); hTex.needsUpdate = true; cTex.needsUpdate = true; dirty.h = dirty.c = null;
   buildTerrain();
-  Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 }); if ($('filmOv')) $('filmOv').style.opacity = '0';
+  Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 }); windExtra = 0; if ($('filmOv')) $('filmOv').style.opacity = '0';
   if (!C._keys) C._keys = new Set(Object.keys(C)); else for (const k of Object.keys(C)) if (!C._keys.has(k)) delete C[k];   // stato del capitolo pulito a ogni partenza
   C.build();
   interactables = C.items();
