@@ -13,7 +13,6 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="manifest" href="manifest.webmanifest">
-
 <!--
   ЗИМА — L'Inverno Lungo
   Dmitri "Volk" Voronin, tecnico della centrale termoelettrica dello ЗАТО-42. 12 febbraio 1991.
@@ -1145,30 +1144,6 @@ function makeLamp(x, z, dx, dz, castShadow, intensity = 85) {
   return Lp;
 }
 
-/* ---------- B3. Alberi spogli procedurali ---------- */
-function makeTree(x, z, seed, size = 1) {
-  const trnd = mulberry32(seed), geos = [], q = new THREE.Quaternion();
-  const seg = (s, dir, len, r0, r1) => { const g = new THREE.CylinderGeometry(r1, r0, len, clamp(Math.round(r0 * 45), 3, 9), 1, false);
-    g.translate(0, len / 2, 0); q.setFromUnitVectors(UPV, dir); g.applyQuaternion(q); g.translate(s.x, s.y, s.z); geos.push(g); };
-  const ru = () => { const v = new THREE.Vector3(trnd() * 2 - 1, trnd() * 2 - 1, trnd() * 2 - 1); return v.lengthSq() < 1e-4 ? new THREE.Vector3(1, 0, 0) : v.normalize(); };
-  function grow(s, dir, len, r, depth) {
-    const rEnd = r * 0.66, rMid = (r + rEnd) / 2, dir2 = dir.clone().addScaledVector(ru(), 0.22).normalize();
-    seg(s, dir, len * 0.52, r, rMid); const mid = s.clone().addScaledVector(dir, len * 0.52);
-    seg(mid, dir2, len * 0.5, rMid, rEnd); const end = mid.clone().addScaledVector(dir2, len * 0.5);
-    if (depth === 0 || rEnd < 0.011) return;
-    const n = 2 + (trnd() < (depth > 4 ? 0.45 : 0.3) ? 1 : 0);
-    for (let i = 0; i < n; i++) {
-      const axis = new THREE.Vector3().crossVectors(dir2, ru()).normalize();
-      const d = dir2.clone().applyAxisAngle(axis, 0.32 + trnd() * 0.5); d.y += 0.18; d.normalize();
-      grow(end, d, len * (0.7 + trnd() * 0.12), rEnd * (i === 0 ? 1 : 0.82), depth - 1);
-    }
-    if (depth <= 3 && trnd() < 0.6) { const axis = new THREE.Vector3().crossVectors(dir, ru()).normalize(); grow(mid, dir.clone().applyAxisAngle(axis, 0.9 + trnd() * 0.4), len * 0.45, rMid * 0.5, Math.max(0, depth - 2)); }
-  }
-  grow(new THREE.Vector3(0, -0.1, 0), new THREE.Vector3(trnd() * 0.1 - 0.05, 1, trnd() * 0.1 - 0.05).normalize(), 2.4 * size, 0.2 * size, 7);
-  const t = new THREE.Mesh(mergeGeometries(geos), barkMat);
-  t.position.set(x, groundH(x, z), z); t.castShadow = true; t.receiveShadow = true; world.add(t);
-  CIRCLES.push([x, z, 0.4]);
-}
 
 /* ---------- B4. Auto sovietiche: ВАЗ-2106, Москвич-412, ГАЗ-24 «Волга», УАЗ-469 ----------
    carrozzeria estrusa dal profilo laterale (con i passaruota), abitacolo rastremato, cromature, fari, targhe,
@@ -1733,6 +1708,156 @@ function makeKamaz(cx, cz, rot, opts = {}) {
   return wrap;
 }
 
+/* ---------- B3. Alberi: tronco nodoso con corteccia, radici fuori dalla neve, rami storti con la neve appoggiata sopra ---------- */
+const barkTex = (() => {
+  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = mulberry32(5);
+  x.fillStyle = '#2e2620'; x.fillRect(0, 0, W, H);
+  for (let k = 0; k < 60; k++) {                                // creste verticali della corteccia
+    const px = r() * W, w = 2 + r() * 6, v = 50 + r() * 40; x.strokeStyle = `rgba(${v + 10},${v},${v - 8},0.55)`; x.lineWidth = w; x.beginPath();
+    for (let y = 0; y <= H; y += 16) x.lineTo(px + Math.sin(y * 0.05 + k) * 4, y); x.stroke();
+  }
+  for (let k = 0; k < 90; k++) { x.fillStyle = 'rgba(10,8,6,0.6)'; x.fillRect(r() * W, r() * H, 1 + r() * 2, 6 + r() * 26); }   // fessure
+  for (let k = 0; k < 25; k++) { x.fillStyle = 'rgba(90,100,80,0.25)'; x.beginPath(); x.arc(r() * W, r() * H, 2 + r() * 6, 0, 7); x.fill(); }   // licheni
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+const treeBarkMat = new THREE.MeshStandardMaterial({ map: barkTex, roughness: 1, color: 0xb8aea4 });
+function makeTree(x, z, seed, size = 1) {
+  const trnd = mulberry32(seed), bark = [], snow = [], q = new THREE.Quaternion();
+  const ru = () => { const v = new THREE.Vector3(trnd() * 2 - 1, trnd() * 2 - 1, trnd() * 2 - 1); return v.lengthSq() < 1e-4 ? new THREE.Vector3(1, 0, 0) : v.normalize(); };
+  const seg = (s, dir, len, r0, r1, snowy = true) => {
+    const rs = clamp(Math.round(r0 * 40), 3, 10);
+    const g = new THREE.CylinderGeometry(r1, r0, len, rs, r0 > 0.12 ? 4 : 1, false);
+    if (r0 > 0.12) { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const a = Math.atan2(p.getZ(i), p.getX(i)), y = p.getY(i);
+      const k = 1 + 0.16 * Math.sin(a * 3 + y * 4 + seed) + 0.08 * Math.sin(a * 7 - y * 9); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } g.computeVertexNormals(); }   // tronco nodoso
+    const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * len * 1.2);
+    g.translate(0, len / 2, 0); q.setFromUnitVectors(UPV, dir); g.applyQuaternion(q); g.translate(s.x, s.y, s.z); bark.push(g);
+    // neve appoggiata sul lato superiore dei rami poco inclinati
+    if (snowy && r0 > 0.011 && dir.y < 0.95 && trnd() < 0.9) {
+      const sg = new THREE.CylinderGeometry(r1 * 1.0 + 0.008, r0 * 1.0 + 0.008, len * 0.94, 5, 1, false); sg.scale(1, 1, 0.6);
+      sg.translate(0, len / 2, 0); sg.applyQuaternion(q);
+      const up = new THREE.Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize().multiplyScalar(r0 * 0.75);
+      sg.translate(s.x + up.x, s.y + up.y + r0 * 0.15, s.z + up.z); snow.push(sg);
+    }
+  };
+  function grow(s, dir, len, r, depth) {
+    const rEnd = r * 0.64, rMid = (r + rEnd) / 2;
+    const dir2 = dir.clone().addScaledVector(ru(), 0.32).normalize(), dir3 = dir2.clone().addScaledVector(ru(), 0.28).normalize();   // rami storti: tre tratti
+    seg(s, dir, len * 0.36, r, rMid); const m1 = s.clone().addScaledVector(dir, len * 0.36);
+    seg(m1, dir2, len * 0.34, rMid, (rMid + rEnd) / 2); const m2 = m1.clone().addScaledVector(dir2, len * 0.34);
+    seg(m2, dir3, len * 0.32, (rMid + rEnd) / 2, rEnd); const end = m2.clone().addScaledVector(dir3, len * 0.32);
+    if (depth === 0 || rEnd < 0.009) return;
+    const n = depth >= 6 ? 3 + (trnd() < 0.5 ? 1 : 0) : 2 + (trnd() < (depth > 3 ? 0.5 : 0.35) ? 1 : 0);
+    const a0 = trnd() * 6.28;
+    for (let i = 0; i < n; i++) {
+      let d;
+      if (depth >= 6) {                                            // grandi branche che si aprono a ventaglio
+        const az = a0 + i / n * 6.28 + (trnd() - 0.5) * 0.6, el = 0.5 + trnd() * 0.35;
+        d = new THREE.Vector3(Math.cos(az) * Math.sin(el), Math.cos(el), Math.sin(az) * Math.sin(el)).normalize();
+      } else { const axis = new THREE.Vector3().crossVectors(dir3, ru()).normalize(); d = dir3.clone().applyAxisAngle(axis, 0.45 + trnd() * 0.6); d.y += 0.1; d.normalize(); }
+      grow(end, d, len * (depth >= 6 ? 0.85 + trnd() * 0.2 : 0.66 + trnd() * 0.14), rEnd * (depth >= 6 ? 0.82 : i === 0 ? 1 : 0.78), depth - 1);
+    }
+    if (depth <= 4 && trnd() < 0.7) { const axis = new THREE.Vector3().crossVectors(dir, ru()).normalize(); grow(m1, dir.clone().applyAxisAngle(axis, 0.9 + trnd() * 0.5), len * 0.45, rMid * 0.5, Math.max(0, depth - 2)); }
+  }
+  const R0 = 0.3 * size;
+  grow(new THREE.Vector3(0, -0.1, 0), new THREE.Vector3(trnd() * 0.12 - 0.06, 1, trnd() * 0.12 - 0.06).normalize(), 1.55 * size, R0, 6);
+  for (let k = 0; k < 6; k++) {                                   // radici che affiorano dalla neve
+    const a = k / 6 * 6.28 + trnd() * 0.6, d = new THREE.Vector3(Math.cos(a), -0.35 - trnd() * 0.25, Math.sin(a)).normalize();
+    const s0 = new THREE.Vector3(Math.cos(a) * R0 * 0.5, 0.25 * size, Math.sin(a) * R0 * 0.5);
+    seg(s0, d, (0.7 + trnd() * 0.5) * size, R0 * 0.45, R0 * 0.12, false);
+  }
+  { const m = new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI / 2), mp = m.attributes.position, rr = mulberry32(seed + 3);   // cumulo tondo attorno al tronco
+    for (let i = 0; i < mp.count; i++) { const px = mp.getX(i), pz = mp.getZ(i), a = Math.atan2(pz, px), k = 1 + 0.18 * Math.sin(a * 3 + seed) + 0.1 * Math.sin(a * 7);
+      mp.setXYZ(i, px * R0 * 3.2 * k, Math.pow(mp.getY(i), 1.6) * 0.2 * size, pz * R0 * 3.2 * k); }
+    m.computeVertexNormals(); snow.push(m); }
+  for (let k = 0; k < 6; k++) { const a = trnd() * 6.28, dd = R0 * (2 + trnd() * 2.5), pg = pillow(0.25 + trnd() * 0.3, 0.08 + trnd() * 0.08, 0.2 + trnd() * 0.25, seed + 9 + k, 6); pg.rotateY(trnd() * 3); pg.translate(Math.cos(a) * dd, 0, Math.sin(a) * dd); snow.push(pg); }
+  const strip = a => { for (const g of a) for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k); return a.map(g => g.index ? g.toNonIndexed() : g); };
+  const t = new THREE.Group();
+  const bm = new THREE.Mesh(mergeGeometries(strip(bark), false), treeBarkMat); bm.castShadow = true; bm.receiveShadow = true; t.add(bm);
+  const sm = new THREE.Mesh(mergeGeometries(strip(snow), false), plainSnowMat); sm.castShadow = false; sm.receiveShadow = true; t.add(sm);
+  t.position.set(x, groundH(x, z), z); world.add(t);
+  CIRCLES.push([x, z, 0.5 * size]);
+}
+/* ---------- B15. Carrello della spesa dell'универсам: griglia di filo arrugginita, rotelle, neve ---------- */
+const wireMat = new THREE.MeshStandardMaterial({ color: 0x6a5446, roughness: 0.75, metalness: 0.55, map: rustTex });
+function makeCart(x, z, rot, opts = {}) {
+  const put = Bucket(), r = mulberry32(Math.abs(Math.round(x * 41 + z * 29)) + 5);
+  const rod = (a, b, rad = 0.005) => { const v = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), len = v.length();
+    const g = new THREE.CylinderGeometry(rad, rad, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UPV, v.normalize())); put('wire', g, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); };
+  // cesto: fondo 0.82×0.48 a 0.45 m, bordo 0.92×0.54 a 0.95 m (si allarga in alto); x = lunghezza (avanti +x)
+  const b0 = 0.45, b1 = 0.95, L0 = 0.82, L1 = 0.92, W0 = 0.48, W1 = 0.54;
+  const P = (t, y, s) => { const k = (y - b0) / (b1 - b0), L = lerp(L0, L1, k), W = lerp(W0, W1, k); return [lerp(-L / 2, L / 2, t) - 0.05 * k, y, s * W / 2]; };
+  for (const y of [b0, 0.62, 0.79, b1]) {                                    // anelli orizzontali
+    const c = [P(0, y, -1), P(1, y, -1), P(1, y, 1), P(0, y, 1)]; for (let i = 0; i < 4; i++) rod(c[i], c[(i + 1) % 4], y === b1 ? 0.011 : 0.006);
+  }
+  for (let i = 0; i <= 16; i++) { const t = i / 16; for (const s of [-1, 1]) rod(P(t, b0, s), P(t, b1, s)); }       // fili verticali sui fianchi
+  for (let i = 0; i <= 9; i++) { const w = i / 9 * 2 - 1; for (const t of [0, 1]) { const a = P(t, b0, 1), b = P(t, b1, 1); rod([a[0], b0, a[2] * w], [b[0], b1, b[2] * w]); } }   // testa e coda
+  for (let i = 0; i <= 12; i++) { const t = i / 12; rod(P(t, b0, -1), P(t, b0, 1)); }                           // fondo a griglia
+  for (let i = 0; i <= 6; i++) { const w = i / 6 * 2 - 1; rod([-L0 / 2, b0, w * W0 / 2], [L0 / 2, b0, w * W0 / 2]); }
+  put('steel', new THREE.BoxGeometry(0.22, 0.008, 0.36), -0.35, 0.86, 0, 0, 0, 0.6);                             // ribaltina del seggiolino
+  // telaio a U, maniglione, rotelle piroettanti
+  const ft = 0.014;
+  rod([-0.5, b1 + 0.08, -0.26], [-0.42, b0 - 0.05, -0.24], ft); rod([-0.5, b1 + 0.08, 0.26], [-0.42, b0 - 0.05, 0.24], ft);
+  put('handle', new THREE.CylinderGeometry(0.022, 0.022, 0.6, 8), -0.52, b1 + 0.1, 0, Math.PI / 2, 0, 0);
+  for (const s of [-1, 1]) { rod([-0.42, 0.12, s * 0.24], [0.42, 0.12, s * 0.2], ft); rod([-0.42, 0.12, s * 0.24], [-0.42, b0 - 0.05, s * 0.24], ft); rod([0.15, 0.12, s * 0.21], [0.05, b0 - 0.02, s * 0.22], ft * 0.8); }
+  rod([0.42, 0.12, -0.2], [0.42, 0.12, 0.2], ft); for (let i = 1; i < 4; i++) rod([-0.4 + i * 0.2, 0.13, -0.22], [-0.4 + i * 0.2, 0.13, 0.22], 0.005);   // ripiano basso
+  for (const [wx, wz] of [[-0.38, -0.22], [-0.38, 0.22], [0.38, -0.18], [0.38, 0.18]]) {
+    put('steel', new THREE.BoxGeometry(0.03, 0.06, 0.05), wx, 0.09, wz);
+    put('rubber', new THREE.CylinderGeometry(0.048, 0.048, 0.025, 12), wx + 0.02, 0.05, wz, Math.PI / 2, 0, 0);
+  }
+  put('snow', pillow(0.06, 0.02, 0.56, 1, 6), -0.52, b1 + 0.12, 0);
+  put('snow', pillow(0.7, 0.05, 0.42, 2, 10), 0, b0 + 0.005, 0);
+  if (opts.load) {                                                           // valigie e una coperta: la fila degli evacuati
+    put('bag', new THREE.BoxGeometry(0.5, 0.32, 0.14), -0.05, b0 + 0.17, -0.1, 0, 0.2, 0.1); put('bag', new THREE.BoxGeometry(0.4, 0.26, 0.16), 0.15, b0 + 0.3, 0.12, 0, -0.3, -0.2);
+    put('cloth', pillow(0.6, 0.18, 0.45, 3, 8), 0.0, b0 + 0.38, 0.0); put('snow', pillow(0.5, 0.06, 0.36, 4, 8), 0.0, b0 + 0.55, 0.0);
+  }
+  const g = put.build({ wire: wireMat, steel: PROPM.steel, handle: CARM.rubber, rubber: CARM.rubber, snow: plainSnowMat,
+    bag: new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 0.8 }), cloth: new THREE.MeshStandardMaterial({ color: 0x7a3a34, roughness: 1 }) }, new Set(['wire', 'snow', 'steel']));
+  if (opts.tipped) { g.rotation.x = Math.PI / 2 - 0.12; g.position.y = 0.3; }  // rovesciato su un fianco
+  const w = new THREE.Group(); w.add(g); w.position.set(x, groundH(x, z) - (opts.tipped ? 0.05 : 0), z); w.rotation.y = rot;
+  if (opts.tipped) { const pg = pillow(1.1, 0.25, 0.7, 7, 10); const sm = new THREE.Mesh(pg, plainSnowMat); sm.position.set(0.1, 0, 0.3); sm.receiveShadow = true; w.add(sm); }
+  shadowAll(w); world.add(w);
+  addOBB(x, z, 0.5, opts.tipped ? 0.5 : 0.32, rot);
+  return w;
+}
+/* ---------- B16. Cassonetto di metallo con due coperchi, maniglie, rotelle, adesivi del ЖЭК ---------- */
+function makeDumpster(x, z, rot, opts = {}) {
+  const put = Bucket(), r = mulberry32(Math.abs(Math.round(x * 19 + z * 23)) + 9), L = 1.45, D = 1.0, H = 1.0;
+  put('paint', new THREE.BoxGeometry(L, H - 0.12, D - 0.08), 0, 0.12 + (H - 0.12) / 2, 0);
+  for (const y of [0.3, 0.68]) { put('paint', new THREE.BoxGeometry(L + 0.03, 0.05, D - 0.05), 0, y, 0); }                       // nervature
+  put('paint', new THREE.BoxGeometry(L + 0.08, 0.06, D + 0.02), 0, H + 0.0, 0);                                                    // bordo superiore
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) put('paint', new THREE.BoxGeometry(0.06, H - 0.1, 0.06), sx * (L / 2 - 0.01), 0.12 + (H - 0.1) / 2, sz * (D / 2 - 0.05));
+  for (const sx of [-1, 1]) { put('steel', new THREE.CylinderGeometry(0.018, 0.018, 0.6, 8), sx * (L / 2 + 0.09), 0.78, 0, Math.PI / 2, 0, 0);
+    for (const sz of [-0.28, 0.28]) put('steel', new THREE.BoxGeometry(0.1, 0.04, 0.03), sx * (L / 2 + 0.05), 0.78, sz); }
+  put('steel', new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8), 0, 0.95, D / 2 + 0.06, 0, 0, Math.PI / 2);                         // maniglia frontale
+  for (const sx of [-0.55, 0.55]) for (const sz of [-0.32, 0.32]) {
+    put('steel', new THREE.BoxGeometry(0.05, 0.08, 0.06), sx, 0.1, sz);
+    put('rubber', new THREE.CylinderGeometry(0.07, 0.07, 0.04, 12), sx, 0.07, sz + 0.03, Math.PI / 2, 0, 0); }
+  // coperchi a costole, incernierati dietro
+  const lid = (cx, open) => {
+    const g = new THREE.BoxGeometry(L / 2 - 0.02, 0.05, D + 0.06); const parts = [g];
+    for (let k = 0; k < 3; k++) { const rib = new THREE.BoxGeometry(L / 2 - 0.12, 0.03, 0.07); rib.translate(0, 0.035, -0.3 + k * 0.3); parts.push(rib); }
+    const m = mergeGeometries(parts.map(p => p.toNonIndexed()), false);
+    m.translate(0, 0, (D + 0.06) / 2); m.applyMatrix4(_cm4.makeRotationX(open ? -1.95 : 0)); put('lid', m, cx, H + 0.06, -(D + 0.06) / 2);
+    if (!open) put('snow', pillow(L / 2 - 0.1, 0.08 + r() * 0.08, D - 0.1, (r() * 99) | 0, 10), cx, H + 0.1, 0);
+  };
+  lid(-L / 4, false); lid(L / 4, !!opts.open);
+  if (opts.open) { for (let k = 0; k < 4; k++) put('bagb', new THREE.SphereGeometry(0.18 + r() * 0.08, 8, 6), L / 4 + (r() - 0.5) * 0.4, H - 0.05 + r() * 0.1, (r() - 0.5) * 0.5); put('snow', pillow(0.6, 0.06, 0.7, 12, 8), L / 4, H + 0.12, 0); }
+  snowSkirt(put, 0.6, 1.05, (r() * 999) | 0, 6);
+  for (let k = 0; k < 8; k++) { const len = 0.05 + r() * 0.12; put('ice', new THREE.ConeGeometry(0.01, len, 4), (r() - 0.5) * L, H - 0.03 - len / 2, D / 2 + 0.02, Math.PI, 0, 0); }
+  const g = put.build({ paint: carPaint(0x3e4a45, 61), lid: carPaint(0x34403c, 62), steel: PROPM.steel, rubber: CARM.rubber, snow: plainSnowMat, slush: PROPM.slush, ice: CARM.ice,
+    bagb: new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.4, metalness: 0.2 }) }, new Set(['snow', 'slush', 'ice', 'steel', 'rubber']));
+  // adesivi e scritte: МУСОР, ЖЭК, un avviso strappato
+  const sticker = (lines, w, h, px, py, bg, fg, font, tilt) => { const t = textTex(lines, 256, Math.round(256 * h / w), bg, fg, font);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 })); m.position.set(px, py, D / 2 - 0.035); m.rotation.z = tilt; g.add(m); };
+  sticker(['МУСОР'], 0.5, 0.14, -0.35, 0.82, '#d8d2c0', '#2a2622', 'bold 60px monospace', 0.02);
+  sticker(['ЖЭК № 4', 'ул. Энергетиков'], 0.34, 0.16, 0.38, 0.5, '#c9c1a8', '#1c3f78', 'bold 30px monospace', -0.05);
+  sticker(['НЕ БРОСАТЬ', 'ГОРЯЧУЮ ЗОЛУ'], 0.3, 0.13, -0.2, 0.47, '#b8a888', '#7a1a12', 'bold 26px monospace', 0.08);
+  ink(g);
+  const w = new THREE.Group(); w.add(g); w.position.set(x, groundH(x, z), z); w.rotation.y = rot; world.add(w);
+  addOBB(x, z, L / 2 + 0.12, D / 2 + 0.06, rot);
+  return w;
+}
+
 /* ---------- B5. Panchina ---------- */
 
 /* ---------- B6. Bidone del fuoco (checkpoint, calore, protezione dalle figure) ---------- */
@@ -2124,7 +2249,7 @@ function makeNPC(o) {
   npcs.push(N);
   whenDM(() => {
     const root = skClone(DM.root);
-    const kill = []; root.traverse(ob => { if (ob.userData.isTorch) kill.push(ob); }); kill.forEach(k => k.parent.remove(k));
+    const kill = []; root.traverse(ob => { if (ob.userData.isTorch || (o.noOutline && ob.isSkinnedMesh && ob.material === DM.outMat)) kill.push(ob); }); kill.forEach(k => k.parent.remove(k));   // per le comparse lontane si risparmia il contorno
     const B = {}; let sk = null;
     root.traverse(ob => { if (ob.isBone) B[ob.name] = ob; if (ob.isSkinnedMesh && ob.material !== DM.outMat) sk = ob; if (ob.isSkinnedMesh) ob.frustumCulled = false; });
     sk.material = DM.sk.material.clone();
@@ -2932,6 +3057,7 @@ const CH1 = {
     const Bk = makeBlock({ L: 22, D: 11, cols: 6, entrances: [1, 4], balconyCols: [0, 2, 3, 5], seed: 202,
       pos: new THREE.Vector3((L1.B.x0 + L1.B.x1) / 2, 0, (L1.B.z0 + L1.B.z1) / 2), rotY: Math.PI / 2 });
     A.candles([17, 40]); Bk.candles([9]);
+    makeDumpster(-3.6, -9.9, 0.04); makeDumpster(-1.8, -9.95, -0.05, { open: true }); makeDumpster(-19.6, 6.2, Math.PI / 2 + 0.1);
     const back = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.5), new THREE.MeshBasicMaterial({ color: 0x030405 }));
     back.position.set((L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2, 1.75, L1.A.z0 + 0.6); world.add(back);
     addBox(L1.A.x0, L1.TUNNEL.x0, L1.A.z0, L1.A.z1); addBox(L1.TUNNEL.x1, L1.A.x1, L1.A.z0, L1.A.z1);
@@ -3435,6 +3561,7 @@ const CH2 = {
     makeCar({ x: -20.5, z: -3.6, rot: 3.05, color: 0x5a4a3a, buried: 0.8 });
     [[-22, 9.2, 81, 0.9], [-1.5, 9.4, 83, 0.85], [9, 9.3, 87, 0.95], [26.5, 9.0, 89, 0.85], [-30, -9.2, 91, 0.8]].forEach(([x, z, s, k]) => makeTree(x, z, s, k));
     makeBench(-17.5, 8.6, Math.PI);
+    makeCart(-15.2, -9.8, 0.4); makeCart(-17.6, -8.3, 2.2, { tipped: true }); makeDumpster(-21.5, -10.3, 0.05);
     this.barrel = makeFireBarrel(L2.BARREL.x, L2.BARREL.z);
     // scintille dei cavi sotto tensione
     this.sparkPts = [[14.6, -2.6], [15.6, 3.4], [16.4, -6.2], [15.1, 8.4], [13.4, 1.1], [16.8, -0.4]].map(([x, z]) => new THREE.Vector3(x, groundH(x, z) + 0.12, z));
@@ -3835,13 +3962,14 @@ const CH3 = {
       const sn = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.08, 0.14), plainSnowMat); sn.position.y = 2.08; g.add(sn);
       shadowAll(g); ink(g); g.position.set(Bd.x, groundH(Bd.x, Bd.z), Bd.z); world.add(g); addBox(Bd.x - 1, Bd.x + 1, Bd.z - 0.15, Bd.z + 0.15); }
     makeCar({ x: -23.5, z: 2.4, rot: 0.1, color: 0x8a8478, buried: 0.8 });
+    makeCart(0.4, -1.7, 0.15, { load: true }); makeCart(-9.2, -2.9, 1.2, { tipped: true }); makeDumpster(22.4, -5.6, -0.1, { open: true }); makeDumpster(-24.5, -8.8, 0.08);
     makeCar({ x: -6.5, z: 3.9, rot: 3.0, color: 0x6a2a24, buried: 0.6 });
     makeCar({ x: 3.4, z: -2.8, rot: 0.6, color: 0x3a4a5a, buried: 0.5 });
     [[-27, 9.0, 101, 0.9], [-19, -9.4, 103, 0.85], [-2, 9.2, 107, 0.95], [27, 9.4, 109, 0.85], [-30, -9.4, 111, 0.8]].forEach(([x, z, sd, k]) => makeTree(x, z, sd, k));
     this.fire2 = makeFireBarrel(15.6, 6.2);
     // i soldati: due al varco, uno di ronda lungo il reticolato. Maschere antigas, nessun fiato.
-    this.guards = [[L3.GATE.x - 0.6, -2.0], [L3.GATE.x - 0.6, 2.0], [11.2, -1.0]].map(([x, z]) => makeNPC({ x, z, heading: -Math.PI / 2, tint: TINT.soldier, pose: POSE.guard, mask: true, rifle: true, bulk: 1.04 }));
-    this.patrol = makeNPC({ x: L3.PATROL.x0, z: L3.PATROL.z, heading: Math.PI / 2, tint: TINT.soldier, mask: true, rifle: true, walk: true });
+    this.guards = [[L3.GATE.x - 0.6, -2.0], [L3.GATE.x - 0.6, 2.0], [11.2, -1.0]].map(([x, z]) => makeNPC({ x, z, heading: -Math.PI / 2, tint: TINT.soldier, pose: POSE.guard, mask: true, rifle: true, bulk: 1.04, noOutline: true }));
+    this.patrol = makeNPC({ x: L3.PATROL.x0, z: L3.PATROL.z, heading: Math.PI / 2, tint: TINT.soldier, mask: true, rifle: true, walk: true, noOutline: true });
     this.px = L3.PATROL.x0; this.pdir = 1; this.pwait = 0;
     { const sp = new THREE.SpotLight(0xdde8ff, 0, 11, 0.42, 0.5, 1.4); sp.position.set(0.15, 1.3, 0.35); sp.target.position.set(0, 0, 6); this.patrol.group.add(sp, sp.target); this.pLight = sp;
       const cg = new THREE.ConeGeometry(1.6, 6.5, 18, 1, true); cg.rotateX(-Math.PI / 2); cg.translate(0, 0, 3.25); this.pMat = coneMat(0xdde8ff); this.pCone = new THREE.Mesh(cg, this.pMat);
@@ -4397,7 +4525,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { Music, DM, knockDown, world, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { Music, DM, knockDown, world, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
