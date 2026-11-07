@@ -5413,6 +5413,8 @@ const CH4 = {
       for (let k = 0; k < 3; k++) { const v = new THREE.Sprite(new THREE.SpriteMaterial({ map: steam, transparent: true, depthWrite: false, opacity: 0 })); v.userData.ph = k / 3; world.add(v); this.vapor.push(v); } }
     makeCar({ x: 21.5, z: -5.6, rot: 0.3, color: 0x15171b, buried: 1, kind: 'volga', state: 'ok' });
     this.lamp = makeLamp(17, 6.2, -1, -0.5, true);
+    { const c = document.createElement('canvas'); c.width = 64; c.height = 128; const m = c.getContext('2d'); m.fillStyle = '#e0c890'; m.fillRect(0, 0, 64, 128); m.fillStyle = '#0a0a0a'; m.beginPath(); m.ellipse(32, 40, 9, 11, 0, 0, 7); m.fill(); m.beginPath(); m.moveTo(14, 128); m.lineTo(18, 62); m.lineTo(46, 62); m.lineTo(50, 128); m.fill();
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; this.winFig = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.6), new THREE.MeshBasicMaterial({ map: t })); this.winFig.rotation.y = Math.PI / 2; this.winFig.position.set(L4.FAC_X + 0.2, 5.4, 3.2); this.winFig.visible = false; world.add(this.winFig); }
     this.barrel = makeFireBarrel(L4.BARREL.x, L4.BARREL.z);
     [[19.5, 9.2, 131, 0.95], [29, -8.6, 133, 0.85], [24.5, 9.6, 137, 0.8]].forEach(([x, z, sd, k]) => makeTree(x, z, sd, k));
     makeDumpster(26, -9.0, 0.1, { open: true }); makeBench(18.5, -9.2, 0);
@@ -5432,7 +5434,8 @@ const CH4 = {
     return [
       { id: 'fuoco', x: L4.BARREL.x + 0.7, z: L4.BARREL.z + 0.8, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit,
         use() { if (self.barrel.lit) { say('Il fuoco crepita contro la colonna. Il marmo si scalda appena.'); return; }
-          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L4.BARREL.x + 0.9, z: L4.BARREL.z + 1.0 }; say('Ancora brace sul fondo. Mi basta un fiammifero.'); } },
+          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L4.BARREL.x + 0.9, z: L4.BARREL.z + 1.0 }; say('Ancora brace sul fondo. Mi basta un fiammifero.');
+          setTimeout(() => { self.lampOff = 2.4; self.winFig.visible = true; dreadSpike = 1; Sound.glitch(); setTimeout(() => { self.winFig.visible = false; tell('winfig', 'Per un istante, dietro una finestra del secondo piano, una sagoma. Quando la luce torna, la finestra è vuota.'); }, 1700); }, 3500); } },
       { id: 'volga', x: 21.5 + 1.3, z: -5.6 + 1.4, r: 1.7, marker: false, label: 'Guarda la Volga',
         use() { say('Una Volga nera, sepolta fino ai finestrini. Il motore è freddo da mesi.'); } },
       { id: 'impronte', x: 16.4, z: 1.4, r: 1.3, marker: false, kneel: true, label: 'Esamina le impronte',
@@ -5442,8 +5445,11 @@ const CH4 = {
       { id: 'scorte', x: -4.7, z: 5.8, r: 1.4, my: 0.6, pick: true, label: 'Guarda dietro la colonna', gone: () => S.flags.supply,
         use() { S.flags.supply = true; S.cans += 1; addBattery(35); self.supply.visible = false; say('Qualcuno ha nascosto delle scorte qui dietro: una scatoletta e una pila quadrata.'); } },
       { id: 'lenin', x: 2, z: 4.6, r: 1.4, marker: false, label: 'Esamina il busto',
-        use() { say('Il busto ha gli occhi coperti di brina. Sul piedistallo, una «В» incisa col cacciavite.'); } },
-      { id: 'nina', x: L4.NINA.x, z: L4.COUNTER_Z + 0.75, r: 1.8, my: 1.8, label: 'Parla con Nina Petrovna', done: () => S.flags.nina, gone: () => S.flags.ninaGone,
+        use() { say('Il busto di Lenin è coperto di brina. Sul piedistallo, qualcuno ha inciso una lettera: «В».'); } },
+      { id: 'mosaico', x: 0, z: -3.0, r: 1.6, my: 2.4, marker: false, label: 'Il mosaico', use() { say(['Operai, atomi, un sole di tessere dorate. ' + Q('«СЛАВА ТРУДУ!»') + ' — Gloria al lavoro!', 'Il pavimento a scacchi è coperto da un velo di neve. Dentro.']); } },
+      { id: 'lanterna', x: L4.NINA.x, z: L4.COUNTER_Z + 0.75, r: 1.6, my: 1.4, pick: true, label: 'Prendi la lanterna', gone: () => !S.flags.ninaGone || G.has('lanterna'), use() {
+          G.add('lanterna'); self.nina.lantern.visible = false; self.nina.light.intensity = 0; self.ninaFire.lit = false; say('La fiamma è ferma, nonostante il freddo. Fa poca luce, ma non consuma batterie.'); } },
+      { id: 'nina', x: L4.NINA.x, z: L4.COUNTER_Z + 0.75, r: 1.8, my: 1.8, label: 'Parla con Nina Petrovna', done: () => S.flags.nina, gone: () => S.flags.ninaGone || S.flags.nina,
         use() { if (S.flags.nina) { say(S.flags.coat ? 'Nina mi guarda senza dire nulla. Le mani giunte, il respiro che non si vede.' : 'Il tuo cappotto è sul fondo, Dimočka. Gancio quattrocentodiciassette.', S.flags.coat ? '' : 'NINA PETROVNA'); return; } self.talkNina(); } },
       { id: 'gancio', x: L4.HOOK.x, z: L4.HOOK.z, r: 1.3, my: 1.7, pick: true, label: 'Gancio 417', done: () => S.flags.coat, gone: () => S.flags.coat,
         use() { self.takeCoat(); } },
@@ -5454,11 +5460,17 @@ const CH4 = {
           if (!S.items.has('chiaveCabina')) { say(['La porta della cabina di proiezione. Chiusa. Dentro, il ticchettio del proiettore.', 'Mi serve una chiave.']); return; }
           S.flags.boothOpen = true; self.boothDoorBox.off = true; self.boothDoor.position.z += 1.0; self.boothDoor.rotation.y = 1.3; Sound.clunk();
           say('La chiavetta trovata nel cappotto gira al primo colpo. La cabina sa di pellicola bruciata.'); } },
-      { id: 'proiettore', x: L4.PROJ.x + 0.9, z: L4.PROJ.z - 0.2, r: 1.4, my: 1.7, clue: true, label: 'Ferma il proiettore', done: () => S.flags.projOff,
+      { id: 'proiettore', x: L4.PROJ.x + 0.9, z: L4.PROJ.z - 0.2, r: 1.4, my: 1.7, label: 'Il proiettore', done: () => S.flags.projOff || !!self.film,
         use() { self.stopProjector(); } },
       { id: 'uscita', x: L4.EXIT.x, z: L4.EXIT.z + 0.6, r: 1.6, my: 2.6, label: 'Uscita di servizio',
         use() { if (!S.items.has('chiaveUscita')) { say(['СЛУЖЕБНЫЙ ВЫХОД — БОЛЬНИЦА № 3.', 'Chiusa a doppia mandata. Porta sul retro, verso l\'ospedale.']); return; }
-          Sound.clunk(); self.exitDoor.position.x += 0.9; self.exitDoor.rotation.y = 1.2; setTimeout(() => endChapter(), 900); } },
+          if (S.flags.exiting) return; S.flags.exiting = true;
+          act(() => { for (let k = 0; k < 24; k++) setTimeout(() => Sound.nb(Sound.master, 1700, 3, 0.03, 0.06, 'bandpass'), k * 125); });
+          say(['La chiave gira. Prima di aprire, sento di nuovo il proiettore: clack, clack, clack.', 'Ma il proiettore è fermo.', 'Il rumore continua per qualche secondo. Poi si interrompe.']);
+          act(() => { self.lastFrame = true; dreadSpike = 1; Sound.glitch(); });
+          say(['Mi giro verso lo schermo. Per un istante, sul telo bianco, c\'è una figura col mio stesso cappotto, ferma al centro della sala.', 'Guarda dritto verso di me.']);
+          act(() => { Sound.clunk(); self.exitDoor.position.x += 0.9; self.exitDoor.rotation.y = 1.2; });
+          say('Apro la porta.'); self.endPending = true; } },
     ];
   },
   talkNina() {
@@ -5470,39 +5482,67 @@ const CH4 = {
     say('Me lo dici ogni volta. Ogni volta entri, guardi quel pavimento come se vedessi i fantasmi, mi fai la stessa domanda e poi vai di là, nel buio della sala.', 'NINA PETROVNA');
     say('«Ogni volta? Quante volte sono venuto qui?»', 'DMITRI');
     say(['Ho smesso di contarle quando è finita la legna per la stufa. Prendi il tuo cappotto, è sul fondo.', 'E tieni la mia lanterna: fa poca luce, ma non ti lascerà a piedi come quella tua pila.'], 'NINA PETROVNA');
-    say('Apre il cancelletto del bancone. Posa la lanterna davanti a me. Il suo respiro non fa fumo.', '');
+    say('Apre il cancelletto del bancone. Appoggia la lanterna sul legno. Il suo respiro non fa fumo.', '');
+    say('«Nina… lei mi conosce davvero?»', 'DMITRI');
+    say('Non risponde subito.');
+    say('Ti conosco abbastanza da sapere che non mi ascolterai.', 'NINA PETROVNA');
+    say('Mi volto verso il guardaroba.');
+    act(() => { const N = this.nina; world.attach(N.lantern); N.lantern.position.set(L4.NINA.x, groundH(L4.NINA.x, L4.COUNTER_Z) + 1.18, L4.COUNTER_Z + 0.1); N.lantern.rotation.set(0, 0, 0);
+      N.group.visible = false; S.flags.ninaGone = true; this.ninaFire.x = L4.NINA.x; this.ninaFire.z = L4.COUNTER_Z; Sound.glitch(); refreshObjective(); });
+    say('Quando torno a guardarla, Nina non c\'è più. La lanterna è ancora accesa sul bancone.');
     S.flags.nina = true; this.gateBox.off = true; this.gate.rotation.y = 1.3; this.gate.position.x -= 0.3; this.gate.position.z -= 0.35;
-    S.gear.add('lanterna'); this.nina.lantern.visible = false; this.nina.light.intensity = 0; this.ninaFire.lit = false;
   },
   takeCoat() {
     const S = state;
     S.flags.coat = true; S.gear.add('cappotto'); ['calco', 'chiaveCabina'].forEach(i => S.items.add(i)); S.clues.add('biglietto'); S.clues.add('calco');
     const M = new THREE.Matrix4(); this.coats.getMatrixAt(this.coat417i, M); M.scale(new THREE.Vector3(0, 0, 0)); this.coats.setMatrixAt(this.coat417i, M); this.coats.instanceMatrix.needsUpdate = true; this.tag417.visible = false;
-    say(['Il mio cappotto pesante. Lo indosso: è ancora tiepido, come se me lo fossi tolto un minuto fa.', 'Nelle tasche c\'è qualcosa di duro e pesante.'], '');
+    say(['Il mio cappotto pesante, imbottito, ancora freddo. Sulla targhetta interna: ' + Q('«417 — ВОРОНИН Д. А.»') + '.', 'Nelle tasche c\'è qualcosa di rigido.'], '');
     say(['Un biglietto del cinema: ' + RU('ДОМ КУЛЬТУРЫ «ЭНЕРГЕТИК» — 12.02.1991. Ряд 4, Место 17. Сеанс: 23:40.'), 'Sul retro, con la mia calligrafia: ' + Q('«Не смотри на экран. Это уже было. — В.»') + ' Non guardare lo schermo. È già successo.'], 'BIGLIETTO');
     say(['Nella tasca interna, un blocco di gesso: il calco di un\'impronta di stivale, taglia 43, con un taglio obliquo sul tacco.', 'Sotto, inciso con un chiodo: ' + Q('«СЛЕД №1 — 12.02.1991. ОНИ ИДУТ ПО МОИМ СЛЕДАМ. Я ИДУ ПО СВОИМ. — ВОРОНИН 0417»'), 'Loro seguono le mie impronte. Io seguo le mie.'], 'CALCO IN GESSO');
-    say('E una chiavetta con l\'etichetta: «КИНОАППАРАТНАЯ» — la cabina di proiezione.', '');
+    say('«Non può essere…»', 'DMITRI');
+    say('E una chiavetta con la targhetta: «КИНОЗАЛ — АППАРАТНАЯ» — la cabina di proiezione.', '');
   },
   stopProjector() {
     const S = state;
-    if (S.flags.projOff) return;
-    S.flags.projOff = true; this.projOn = false; S.items.add('chiaveUscita'); this.keyMesh.visible = false; Sound.clunk(); Sound.setHum(0);
-    say(['Il proiettore gira a vuoto. Sullo schermo, in fondo alla sala, ci sono io: col mio cappotto, al centro della platea.', 'Abbasso la leva. La bobina rallenta e si ferma. Accanto al rullo, un mazzo di chiavi.'], '');
-    say(['Etichetta sulla bobina: ' + RU('АРХИВ ЗАТО-42. ЗАПИСЬ ЦИКЛА. ДУБЛЬ 14.') + ' — Archivio ZATO-42. Registrazione del ciclo. Giro 14.',
-      'Nota dell\'operatore: ' + Q('«Он снова зашёл в зал в 23:40. Сел на место 17, положил гипсовый слепок в пальто и ушёл через сцену. Плёнка крутится сама.»'),
-      'È entrato di nuovo in sala alle 23:40. Si è seduto al posto 17, ha messo il calco nel cappotto ed è uscito dal palco. La pellicola gira da sola.'], 'REGISTRO');
-    setTimeout(() => { this.lastFrame = true; dreadSpike = 1; Sound.glitch(); }, 1800);
+    if (S.flags.projOff || this.film) return;
+    say(['Bobine sparse, una sedia rovesciata. Il proiettore da 35 mm gira senza operatore.', 'Sul tavolo, una scatola di pellicola: ' + RU('АРХИВ ЗАТО-42 · ЗАПИСЬ ЦИКЛА · ДУБЛЬ 14') + ' — Archivio ZATO-42. Registrazione del ciclo. Ripresa 14.',
+      'Una nota allegata: ' + Q('«Он снова зашёл в зал в 23:40. Сел на место 17, положил гипсовый слепок в пальто и ушёл через сцену. Плёнка крутится сама.»'),
+      'È entrato di nuovo in sala alle 23:40. Si è seduto al posto 17, ha messo il calco in gesso nel cappotto ed è uscito dal palco. La pellicola gira da sola.'], 'CABINA');
+    say('«Sono stato io?»', 'DMITRI');
+    act(() => { this.film = 0.001; this.filmC = this.filmC || document.createElement('canvas'); this.filmC.width = 320; this.filmC.height = 160; this.filmTex = this.filmTex || new THREE.CanvasTexture(this.filmC); this.screenMat.map = this.filmTex; this.screenMat.needsUpdate = true;
+      let ov = $('filmOv'); if (!ov) { ov = document.createElement('div'); ov.id = 'filmOv'; ov.style.cssText = 'position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(560px,86vw);aspect-ratio:2/1;z-index:8;pointer-events:none;border:6px solid #050505;box-shadow:0 0 60px rgba(255,240,200,.25);transition:opacity .8s;opacity:0'; document.body.appendChild(ov); }
+      ov.innerHTML = ''; this.filmC.style.cssText = 'width:100%;height:100%;display:block;filter:contrast(1.1) sepia(.15)'; ov.appendChild(this.filmC); requestAnimationFrame(() => ov.style.opacity = '1'); });
+    say(['Prima che possa abbassare la leva, sullo schermo comincia una sequenza.', 'Un uomo attraversa la sala. Ha un cappotto identico al mio. Arriva alla fila quattro. Si ferma davanti al posto 17. Si siede.', 'Per qualche secondo non succede nulla.', 'Poi si volta, lentamente, verso la cabina di proiezione. Verso di me.']);
   },
-  phase() { const f = state.flags; return !this.barrel.lit ? 1 : !f.nina ? 2 : !f.coat ? 3 : !f.projOff ? 4 : 5; },
-  objective() { return ['', 'Accendi un fuoco davanti al Дом культуры', 'Segui le impronte dentro l\'atrio', 'Cerca il cappotto n. 417 nel guardaroba', 'Raggiungi la cabina di proiezione nella sala cinema', 'Apri l\'uscita di servizio dietro il palco'][this.phase()]; },
-  target() { const by = id => interactables.find(i => i.id === id), p = this.phase(); return p === 1 ? by('fuoco') : p === 2 ? by('nina') : p === 3 ? by('gancio') : p === 4 ? (state.flags.boothOpen ? by('proiettore') : by('cabina')) : by('uscita'); },
+  drawFilm(k) {
+    const m = this.filmC.getContext('2d'), W = 320, H = 160;
+    m.fillStyle = '#4a4a46'; m.fillRect(0, 0, W, H);
+    for (let r = 0; r < 6; r++) { m.fillStyle = 'rgba(25,25,24,0.8)'; for (let i = 0; i < 12; i++) m.fillRect(20 + i * 24 - r * 3, 70 + r * 14, 18, 10); }
+    const wk = Math.min(1, k / 0.45), x = 290 - wk * 150, y = k < 0.45 ? 120 - wk * 20 : 100, sit = clamp((k - 0.45) / 0.1, 0, 1);
+    m.fillStyle = '#0e0e0c'; m.beginPath(); m.ellipse(x, y - 34 + sit * 8, 5, 6, 0, 0, 7); m.fill(); m.fillRect(x - 6, y - 41 + sit * 8, 12, 4);
+    m.beginPath(); m.moveTo(x - 9, y - 28 + sit * 8); m.lineTo(x + 9, y - 28 + sit * 8); m.lineTo(x + 11, y - sit * 6); m.lineTo(x - 11, y - sit * 6); m.fill();
+    if (k > 0.7) { m.fillStyle = 'rgba(235,235,225,0.9)'; m.fillRect(x - 3, y - 35 + sit * 8, 2, 1.5); m.fillRect(x + 1, y - 35 + sit * 8, 2, 1.5); }
+    for (let i = 0; i < 900; i++) { m.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'; m.fillRect(Math.random() * W, Math.random() * H, 1, 1); }
+    if (k > 0.85) { const b = (k - 0.85) / 0.15, cx = W * 0.6, cy = H * 0.4, g = m.createRadialGradient(cx, cy, 2, cx, cy, 10 + b * 240); g.addColorStop(0, 'rgba(255,250,230,1)'); g.addColorStop(0.5, 'rgba(255,140,40,0.95)'); g.addColorStop(0.75, 'rgba(60,20,8,0.9)'); g.addColorStop(1, 'rgba(0,0,0,0)'); m.fillStyle = g; m.fillRect(0, 0, W, H); }
+    this.filmTex.needsUpdate = true;
+  },
+  filmEnd() {
+    const S = state; this.film = 0; if ($('filmOv')) $('filmOv').style.opacity = '0'; S.flags.projOff = true; S.clues.add('proiettore'); this.projOn = false; S.items.add('chiaveUscita'); this.keyMesh.visible = false; Sound.clunk(); Sound.setHum(0);
+    this.screenMat.map = this.scrTex[0]; this.screenMat.needsUpdate = true; refreshObjective();
+    say(['Il volto è indistinguibile. La pellicola si brucia. Il proiettore si arresta.', 'Accanto al rullo, un mazzo di chiavi e il registro di proiezione. Una chiave è segnata «СЛУЖЕБНЫЙ ВЫХОД».'], '');
+  },
+  phase() { const f = state.flags; return !this.barrel.lit ? 1 : !f.nina ? 2 : !f.coat ? 3 : !state.gear.has('lanterna') ? 6 : !f.projOff ? 4 : 5; },
+  objective() { return ['', 'Accendi un fuoco davanti al Дом культуры', 'Segui le impronte dentro l\'atrio', 'Cerca il cappotto n. 417 nel guardaroba', 'Raggiungi la cabina di proiezione nella sala cinema', 'Apri l\'uscita di servizio dietro il palco', 'Prendi la lanterna di Nina sul bancone'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase(); return p === 1 ? by('fuoco') : p === 2 ? by('nina') : p === 3 ? by('gancio') : p === 4 ? (state.flags.boothOpen ? by('proiettore') : by('cabina')) : p === 6 ? by('lanterna') : by('uscita'); },
   thought() { return ['', 'Sto congelando. Prima di entrare devo accendere quel bidone vicino alle colonne.', 'C\'è una luce debole dentro l\'atrio, verso il guardaroba. Nina Petrovna aveva detto il numero 417.',
-    'Il mio cappotto deve essere appeso sul fondo, al gancio 417.', 'La porta dietro il palco è chiusa, ma dalla cabina di proiezione arriva un rumore. Devo attraversare la platea facendo attenzione alle poltrone.', 'Ho la chiave. L\'uscita di servizio è dietro il sipario, sul palco.'][this.phase()]; },
+    'Il mio cappotto deve essere appeso sul fondo, al gancio 417.', 'La porta dietro il palco è chiusa, ma dalla cabina di proiezione arriva un rumore. Devo attraversare la platea facendo attenzione alle poltrone.', 'Ho la chiave. L\'uscita di servizio è dietro il sipario, sul palco.', 'La lanterna di Nina è rimasta accesa sul bancone.'][this.phase()]; },
   hint() { return ['', 'Avvicinati al bidone ai piedi della scalinata e accendilo per salvare e scaldarti.', 'Entra nell\'atrio e parla con Nina Petrovna dietro il bancone del guardaroba.',
     'Entra nel guardaroba dal cancelletto a destra ed esamina il gancio 417, sul fondo a sinistra, tra le rastrelliere.', 'Entra nella sala cinema. Usa brevi colpi di torcia per scacciare le figure sedute, raggiungi la cabina di proiezione in fondo alla sala (angolo in basso a sinistra), aprila e ferma il proiettore.',
-    'Sali sul palco dalla rampa vicino alla porta della sala e apri l\'uscita di servizio in fondo a sinistra.'][this.phase()]; },
+    'Sali sul palco dalla rampa vicino alla porta della sala e apri l\'uscita di servizio in fondo a sinistra.', 'Torna al bancone del guardaroba e prendi la lanterna.'][this.phase()]; },
   coldTip() { return this.barrel.lit ? 'Il freddo mi entra nelle ossa. Torno al bidone davanti alla scalinata.' : 'Il gelo morde. Ai piedi della scalinata c\'è un bidone: si può accendere.'; },
-  intro() { return ['L\'aria puzza di polvere bagnata e pellicola bruciata.', 'Le impronte salgono i gradini del Дом культуры senza fermarsi.', 'Anche qui, qualcuno mi ha preceduto con i miei stessi stivali.']; },
+  intro() { setTimeout(() => act(() => setTimeout(() => Sound.clunk(), 600)), 0);
+    return ['La botola alle mie spalle fuma ancora. Davanti, la facciata del ' + Q('«ДОМ КУЛЬТУРЫ «ЭНЕРГЕТИК»»') + ', l\'insegna quasi spenta.', 'Sui gradini, impronte che salgono verso l\'ingresso. Regolari, profonde. Lo stesso taglio obliquo sul tallone dei miei stivali.',
+      'Ancora quelle impronte. Non stanno cercando di nascondersi. Vogliono che le segua.', 'Dall\'interno dell\'edificio, un colpo metallico. Poi silenzio.']; },
   heroHook(dt) { return true; },
   update(dt, t) {
     const S = state, live = S.started && !S.ended, inside = smooth01((L4.FAC_X - hero.x) / 2), hall = this.inHall();
@@ -5512,7 +5552,13 @@ const CH4 = {
     for (const fd of this.fade) { const want = fd.test() ? 0.12 : 1; for (const m of fd.mats) { m.opacity = lerp(m.opacity, want, damp(5, dt)); m.depthWrite = m.opacity > 0.9; } }
     // vapore della botola, lampione e neon che sfarfallano
     this.vapor.forEach((v, k) => { const q = (t * 0.12 + v.userData.ph) % 1; v.position.set(27.6 + q * 0.5, 0.6 + q * 2.4, 8.0); v.scale.setScalar(0.8 + q * 2.2); v.material.opacity = Math.sin(q * Math.PI) * 0.35; });
-    this.lampT -= dt; if (this.lampT <= 0) { this.lampT = 0.05 + Math.random() * 0.4; this.lamp.setLevel(Math.random() < 0.7 ? 0.9 : 0.1); }
+    if (this.lampOff > 0) { this.lampOff -= dt; this.lamp.setLevel(0); }
+    else { this.lampT -= dt; if (this.lampT <= 0) { this.lampT = 0.05 + Math.random() * 0.4; this.lamp.setLevel(Math.random() < 0.7 ? 0.9 : 0.1); } }
+    if (this.film > 0) { this.film += dt / 11; if (this.film >= 1) this.filmEnd(); else { this.drawFilm(this.film); if (Math.random() < dt * 6) Sound.nb(Sound.master, 1700, 3, 0.03, 0.05, 'bandpass'); } }
+    if (S.flags.coat && S.gear.has('lanterna') && hero.x < L4.HALL_X + 5 && !S.told.rack) { tell('rack', ['Dietro di me, un appendiabiti oscilla. Un cappotto si muove lentamente.', 'Ma non c\'è vento.']); Sound.creak(); }
+    if (S.flags.coat && hall && live && !S.flags.projOff) { this.stalkT = (this.stalkT ?? 12) - dt * (hero.x > -14 ? 1.6 : 1); if (this.stalkT <= 0) { this.stalkT = 9 + Math.random() * 6; Sound.step(); setTimeout(() => Sound.burst(320, 0.8, 0.6, 0.1, 'lowpass'), 500); tell('stalkH', ['Un passo pesante. Una pausa. Un altro passo, e qualcosa che si trascina.', 'Viene dal corridoio centrale. Segue le mie impronte, non la luce.']); } }
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 1.0; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
     this.neon.emissiveIntensity = Math.random() < 0.004 ? 2.5 : this.neon.emissiveIntensity * 0.9;
     // proiettore: fascio a 24 fotogrammi, bobine che girano, il film
     const on = this.projOn;
@@ -5527,7 +5573,6 @@ const CH4 = {
     if (live && hero.x < L4.FAC_X && !hall) { this.songT -= dt; if (this.songT <= 0 && Sound.ctx) { this.songT = 20; const o = Sound.pan(-0.3);
       [440, 523, 494, 440, 392, 440, 330, 0, 349, 392, 440, 392, 330].forEach((f, i) => { if (f) Sound.glide(o, 'triangle', f * 0.5, f * 0.495, 0.9, 0.014, 520, i * 0.75); }); } }
     // Nina sparisce quando entri in sala
-    if (S.flags.coat && hall && !S.flags.ninaGone) { S.flags.ninaGone = true; this.nina.group.visible = false; setTimeout(() => tell('ninaGone', 'Mi volto verso l\'atrio. Dietro il bancone non c\'è più nessuno.'), 1200); }
     if (S.torch && hall && live) S.battery = Math.max(0, S.battery - dt * 0.9);            // il gelo della sala scarica la pila
     if (hall) tell('hall', ['La sala è un pozzo nero. Il fascio del proiettore taglia il buio sopra le poltrone.', 'Alcune poltrone sono occupate. Non si muovono finché le guardo.']);
     // le figure sedute: si alzano e avanzano quando non le guardi o sono fuori dalla luce
@@ -5553,7 +5598,7 @@ const CH4 = {
     }
   },
   ending() {
-    return { text: 'Sullo schermo lacerato, un uomo con il mio stesso cappotto si ferma al centro della sala e guarda dritto verso di me. La pellicola porta la data del 12 febbraio, ma io sono entrato qui solo cinque minuti fa.<br><br>Quando spalanco la porta sul retro, l\'odore di disinfettante taglia il gelo: davanti a me ci sono i padiglioni dell\'Ospedale n. 3.',
+    return { text: 'L\'aria cambia di colpo: l\'odore di disinfettante sostituisce quello di polvere e pellicola bruciata. Davanti a me, il complesso dell\'Ospedale n. 3.<br><br>Giro ancora una volta il biglietto. Fila 4, posto 17, ore 23:40. Sotto la frase scritta da me c\'è una seconda incisione che prima non avevo notato: «НЕ ЗАБУДЬ, КТО ОСТАЛСЯ.» — Non dimenticare chi è rimasto.<br><br>Chi è rimasto?',
       next: 5, nextLabel: 'CAPITOLO V · L\'OSPEDALE N. 3' };
   },
 };
@@ -5885,7 +5930,7 @@ function loadChapter(n, fromPrev = false) {
   sun.intensity = 3.3; C.env();
   C.snow(); hTex.needsUpdate = true; cTex.needsUpdate = true; dirty.h = dirty.c = null;
   buildTerrain();
-  Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 });
+  Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 }); if ($('filmOv')) $('filmOv').style.opacity = '0';
   if (!C._keys) C._keys = new Set(Object.keys(C)); else for (const k of Object.keys(C)) if (!C._keys.has(k)) delete C[k];   // stato del capitolo pulito a ogni partenza
   C.build();
   interactables = C.items();
