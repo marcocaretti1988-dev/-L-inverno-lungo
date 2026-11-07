@@ -226,6 +226,7 @@
     <button class="vhs ch" data-ch="2">II · LA FERMATA DEL FILOBUS<small>il silenzio della città</small></button>
     <button class="vhs ch" data-ch="3">III · IL POSTO DI BLOCCO<small>chi non respira</small></button>
     <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
+    <button class="vhs ch" data-ch="5">V · L'OSPEDALE N. 3<small>le provette</small></button>
   </div>
   <div class="menu-row"><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
   <div class="credits">ЗАТО-42, Urali · consigliate le cuffie</div>
@@ -2682,7 +2683,7 @@ function updateSurvival(dt, t) {
   if (!state.started || state.ended || state.gap || state.paused) return;
   // il freddo: più veloce da fermi, più lento correndo, quasi nullo leggendo; vicino al fuoco ci si scalda
   const k = hero.speed > 2.5 ? 0.55 : hero.speed > 0.15 ? 1 : 1.5;
-  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1);
+  let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1) * (state.gear.has('guanti') ? 0.92 : 1);
   let warm = 0;
   for (const f of fires) if (f.lit) { const d = Math.hypot(f.x - hero.x, f.z - hero.z); if (d < 3.4) warm += 10 * (1 - d / 3.4) + 2; }
   if (state.foodWarm > 0) { state.foodWarm -= dt; warm += 2.5; }
@@ -2695,7 +2696,7 @@ function updateSurvival(dt, t) {
   if (state.heat <= 0) memoryGap('freddo');
   // torcia
   if (state.torch) {
-    state.battery = Math.max(0, state.battery - 1.05 * dt);
+    state.battery = Math.max(0, state.battery - 1.05 * dt * (state.gear.has('provette') ? 0.7 : 1));
     if (state.battery <= 0) { toggleTorch(false); showMsg('La torcia si è spenta.<br>Batteria esaurita.', 3); }
   }
   // HUD
@@ -2775,6 +2776,10 @@ const ITEMS = {
   asta: { icon: null, img: astaIcon, name: 'Asta isolante', desc: 'Dal camion di pronto intervento. Serve ad aprire il sezionatore della linea.' },
   cappotto: { icon: null, img: coatIcon, name: 'Cappotto 417', desc: 'Il mio cappotto pesante, dal gancio 417 del guardaroba. Con questo addosso il freddo mi entra molto più piano.', have: () => state.gear.has('cappotto') },
   lanterna: { icon: null, img: lanternIcon, name: 'Lanterna di Nina', desc: 'Lanterna a petrolio di Nina Petrovna. Poca luce, ma non si spegne mai e scalda un poco le mani. Le figure lontane non la temono: per quelle serve la torcia.', have: () => state.gear.has('lanterna') },
+  provette: { icon: null, img: drawIcon(x => { x.fillStyle = '#555'; x.fillRect(-36, 10, 72, 8); for (const dx of [-22, 0, 22]) { x.fillStyle = '#9ad0ff'; x.fillRect(dx - 7, -34, 14, 50); x.fillStyle = '#e8f4ff'; x.fillRect(dx - 7, -6, 14, 22); } }), name: 'Provette di neve', desc: 'Neve di ZATO-42 in provette sigillate. Non si scioglie e resta tiepida: tiene calda la pila della torcia, che si scarica più piano.', have: () => state.gear.has('provette') },
+  guanti: { icon: null, img: drawIcon(x => { x.fillStyle = '#6a4a30'; x.beginPath(); x.ellipse(-12, 6, 16, 26, -0.2, 0, 7); x.fill(); x.beginPath(); x.ellipse(14, 4, 16, 26, 0.2, 0, 7); x.fill(); x.fillStyle = '#3a2a1c'; x.fillRect(-26, 24, 28, 10); x.fillRect(2, 22, 28, 10); }), name: 'Guanti da tecnico', desc: 'Guanti di cuoio imbottito trovati accanto al generatore. Dentro, a pennarello: «В». Erano miei.', have: () => state.gear.has('guanti') },
+  gasolio: { icon: null, img: drawIcon(x => { x.fillStyle = '#8a2a1a'; x.fillRect(-26, -30, 52, 64); x.fillStyle = '#5a1a10'; x.fillRect(-10, -42, 20, 14); }), name: 'Tanica di gasolio', desc: 'Gasolio invernale dall\'ambulanza. Per il generatore d\'emergenza dell\'ospedale.' },
+  chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
   chiaveUscita: { icon: null, img: keyIcon, name: 'Chiavi dell\'uscita', desc: 'Mazzo di chiavi trovato accanto al proiettore. Una è segnata «СЛУЖЕБНЫЙ ВЫХОД».' },
@@ -4553,6 +4558,7 @@ const CH4 = {
   heroHook(dt) { return true; },
   update(dt, t) {
     const S = state, live = S.started && !S.ended, inside = smooth01((L4.FAC_X - hero.x) / 2), hall = this.inHall();
+    snowLayers.forEach((L, i) => L.pts.material.opacity = lerp(i ? 0.9 : 0.75, 0.06, inside));
     // dentro è buio: la luce del cielo non entra
     hemi.intensity = lerp(this.hemiB, 0.36, inside); sun.intensity = lerp(3.3, 1.1, inside);
     for (const fd of this.fade) { const want = fd.test() ? 0.12 : 1; for (const m of fd.mats) { m.opacity = lerp(m.opacity, want, damp(5, dt)); m.depthWrite = m.opacity > 0.9; } }
@@ -4600,10 +4606,315 @@ const CH4 = {
   },
   ending() {
     return { text: 'Sullo schermo lacerato, un uomo con il mio stesso cappotto si ferma al centro della sala e guarda dritto verso di me. La pellicola porta la data del 12 febbraio, ma io sono entrato qui solo cinque minuti fa.<br><br>Quando spalanco la porta sul retro, l\'odore di disinfettante taglia il gelo: davanti a me ci sono i padiglioni dell\'Ospedale n. 3.',
-      next: 0, nextLabel: 'CAPITOLO V · L\'OSPEDALE N. 3 — in arrivo' };
+      next: 5, nextLabel: 'CAPITOLO V · L\'OSPEDALE N. 3' };
   },
 };
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4 };
+
+/* =====================================================================
+   CAPITOLO V · L'OSPEDALE N. 3 — «le provette»
+   Corsie al buio, porte che sbattono quando le figure si avvicinano, il generatore a gasolio,
+   la neve che non si scioglie a +20°C, la cartella clinica 0417 e il dottor Kovalëv.
+   ===================================================================== */
+const L5 = { FAC_X: 14, FLOOR: 0.3, BARREL: { x: 18.6, z: -6.0 }, AMB: { x: 22.5, z: -2.8, r: 0.35 }, MORGUE_X: -14, START: { x: 28, z: 6.2 },
+  GEN: { x: 3, z: 7.4 }, LAB_DOOR: -6, GEN_DOOR: 3, WARD_DOOR: -1, NURSE_DOOR: -8.2, CELL: { x: -22, z: -9.4 }, DOC: { x: -18, z: 6.4 }, EXIT: { x: -29.4, z: 3.2 } };
+function ground5(x, z) {
+  if (x < L5.FAC_X + 0.3) return L5.FLOOR;
+  let h = 0.06 * Math.sin(x * 0.23 + z * 0.17) + 0.04 * Math.sin(x * 0.51 - z * 0.27);
+  h = lerp(h, L5.FLOOR, smooth01((16.2 - x) / 2) * smooth01((3.2 - Math.abs(z)) / 0.6));
+  h += Math.exp(-((x - 14.6) ** 2) / 0.4) * 0.3 * smooth01((Math.abs(z) - 3.4) / 0.8);
+  if (z < -10.2) h += smooth01((-z - 10.3) / 1.0) * 0.4; if (z > 10.0) h += smooth01((z - 10.1) / 1.0) * 0.45;
+  return h;
+}
+const TRAIL5 = [[28, 6], [24.5, 3.2], [20, 1.2], [16, 0.3], [12, 0], [8, -0.3], [2, 0], [-4, 0.3], [-6, 1.2], [-6, 3.8], [-6.2, 1.0], [-10, 0], [-13.6, 0]];
+/* УАЗ-452 «Буханка» ambulanza: muso corto, finestrini tondeggianti, croce rossa, portelloni posteriori spalancati */
+function makeBuhanka(cx, cz, rot) {
+  const put = Bucket(), L = 4.4, hw = 0.98, FX = L / 2;
+  const box = (k, w, h, d, x, y, z, rx, ry, rz) => put(k, new THREE.BoxGeometry(w, h, d), x, y, z, rx, ry, rz);
+  const rbox = (k, w, h, d, rad, x, y, z, rx, ry, rz) => put(k, new RoundedBoxGeometry(w, h, d, 3, rad), x, y, z, rx, ry, rz);
+  const cyl = (k, r0, r1, h, seg, x, y, z, rx, ry, rz) => put(k, new THREE.CylinderGeometry(r0, r1, h, seg), x, y, z, rx, ry, rz);
+  rbox('paint', L - 0.5, 1.55, 2 * hw, 0.25, -0.25, 1.35, 0);                            // furgone «a pagnotta»
+  rbox('paint', 0.9, 1.15, 2 * hw - 0.04, 0.3, FX - 0.5, 1.15, 0);                          // muso
+  for (const s of [-1, 1]) {
+    box('glass', 0.03, 0.5, 0.86, FX - 0.18, 1.72, s * 0.46, 0, 0, -0.25);
+    box('glass', 0.7, 0.45, 0.03, FX - 0.75, 1.72, s * (hw + 0.002)); for (let k = 0; k < 2; k++) box('glass', 0.62, 0.42, 0.03, -0.5 - k * 0.85, 1.75, s * (hw + 0.002));
+    box('stripe', L - 0.4, 0.14, 0.02, -0.15, 1.12, s * (hw + 0.006));
+    const cr = (x) => { box('cross', 0.42, 0.13, 0.02, x, 1.42, s * (hw + 0.012)); box('cross', 0.13, 0.42, 0.02, x, 1.42, s * (hw + 0.012)); }; cr(-0.95);
+    put('chrome', new THREE.TorusGeometry(0.1, 0.018, 6, 16), FX + 0.02, 0.95, s * 0.68, 0, Math.PI / 2, 0); cyl('lens', 0.09, 0.09, 0.02, 14, FX + 0.01, 0.95, s * 0.68, 0, 0, Math.PI / 2);
+    box('amber', 0.04, 0.06, 0.12, FX + 0.0, 0.78, s * 0.72);
+    const d = new THREE.BoxGeometry(0.9, 1.35, 0.05); d.translate(0, 0, s * 0.45); d.applyMatrix4(_cm4.makeRotationY(-s * 1.9)); put('paint', d, -L / 2 - 0.02, 1.25, s * (hw - 0.05));   // portelloni aperti
+    for (const wx of [1.3, -1.25]) { put('rubber', new THREE.LatheGeometry([[0.24, -0.11], [0.32, -0.12], [0.42, -0.08], [0.43, 0], [0.42, 0.08], [0.32, 0.12], [0.24, 0.11]].map(([a, b]) => new THREE.Vector2(a, b)), 18), wx, 0.43, s * (hw - 0.14), Math.PI / 2, 0, 0); cyl('rim', 0.25, 0.25, 0.2, 12, wx, 0.43, s * (hw - 0.14), Math.PI / 2, 0, 0); }
+  }
+  for (let k = 0; k < 6; k++) box('plastic', 0.03, 0.04, 0.9, FX + 0.04, 0.72 + k * 0.08, 0);   // calandra a feritoie
+  rbox('plastic', 0.14, 0.12, 2 * hw + 0.05, 0.03, FX + 0.12, 0.55, 0); rbox('plastic', 0.14, 0.12, 2 * hw + 0.05, 0.03, -L / 2 - 0.1, 0.55, 0);
+  box('plastic', 0.03, 1.3, 1.85, -L / 2 + 0.08, 1.3, 0);                                 // il buio dentro il vano
+  rbox('seat', 1.9, 0.12, 0.6, 0.05, -0.9, 0.95, 0.35); rbox('seat', 0.5, 0.3, 0.5, 0.05, -1.6, 0.85, -0.5);
+  cyl('blue', 0.11, 0.13, 0.16, 12, FX - 0.7, 2.18, 0);                                   // lampeggiante spento
+  put('snow', pillow(L - 0.6, 0.28, 1.85, 501, 16), -0.25, 2.12, 0); put('snow', pillow(0.6, 0.1, 1.8, 502, 8), FX - 0.3, 1.74, 0);
+  put('snow', pillow(L + 0.6, 0.4, 0.9, 503, 18), 0, -0.02, hw + 0.25);
+  for (let k = 0; k < 12; k++) { const len = 0.05 + Math.random() * 0.2; put('ice', new THREE.ConeGeometry(0.014, len, 4), -2 + Math.random() * 3.8, 0.6 - len / 2, (k % 2 ? 1 : -1) * (hw + 0.01), Math.PI, 0, 0); }
+  const g = put.build({ paint: carPaint(0xd2cebe, 91), stripe: new THREE.MeshStandardMaterial({ color: 0xa02420, roughness: 0.6 }), cross: new THREE.MeshStandardMaterial({ color: 0xb8241e, roughness: 0.5 }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x2040a0, roughness: 0.2, transparent: true, opacity: 0.8 }), snow: plainSnowMat, ...CARM }, new Set(['snow', 'ice', 'chrome', 'lens', 'amber', 'glass', 'rim', 'seat', 'cross', 'stripe']));
+  const pt = textTex(['03 · СКОРАЯ'], 256, 56, '#e4e2da', '#a02420', 'bold 32px monospace');
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.2), new THREE.MeshStandardMaterial({ map: pt, roughness: 0.6 })); p.position.set(FX - 0.1, 2.0, 0); p.rotation.y = Math.PI / 2; p.rotation.x = -0.1; g.add(p);
+  ink(g); const wrap = new THREE.Group(); wrap.add(g); wrap.position.set(cx, groundH(cx, cz) - 0.02, cz); wrap.rotation.y = rot; world.add(wrap);
+  addOBB(cx, cz, L / 2 + 0.15, hw + 0.1, rot); return wrap;
+}
+const CH5 = {
+  id: 5, roman: 'V', name: 'L\'ospedale n. 3', clueCount: 3, cold: 0.3, attention: true, ground: ground5,
+  docs: { schedario: 'Registro dei ricoveri · 12.02.1991 · «i pazienti scompaiono alle 23:40, lasciando solo impronte bagnate»',
+    bancone: 'Rapporto di laboratorio · «Non è neve. È memoria solidificata del ciclo termico.»',
+    cella: 'Cartella clinica n. 0417 · «esposizione al ciclo: 3ª volta · memoria azzerata · ustione da valvola sul palmo destro»' },
+  start: { x: L5.START.x, z: L5.START.z, heading: -Math.PI / 2 - 0.3 }, bounds: [-29.6, 30.5, -10.1, 10.0],
+  env() { setSun(12, -0.6, 0.8); scene.fog.density = 0.013; hemi.intensity = 0.5; this.hemiB = 0.5; },
+  shelter(x) { return x < L5.FAC_X; },
+  snow() {
+    snowBase();
+    const [hx0, hz0] = toH(-30, -10.6), [hx1, hz1] = toH(L5.FAC_X, 10.6); hCtx.fillStyle = gray(150); hCtx.fillRect(hx0, hz0, hx1 - hx0, hz1 - hz0);
+    const tiles = (x0, x1, z0, z1, a, b, s = 0.5) => { for (let x = x0; x < x1; x += s) for (let z = z0; z < z1; z += s) { const [px, pz] = toC(x, z); cCtx.fillStyle = (Math.round((x - x0) / s) + Math.round((z - z0) / s)) % 2 ? a : b; cCtx.fillRect(px, pz, s * CPPU + 0.5, s * CPPU + 0.5); } };
+    tiles(-14, L5.FAC_X, -1.6, 1.6, '#8fa597', '#7c9585'); tiles(6, L5.FAC_X, -10.6, 10.6, '#8fa597', '#7c9585');
+    tiles(-6, 6, -10.6, -1.6, '#b8b6a8', '#a8a698', 0.6); tiles(-14, -6, -10.6, -1.6, '#9a9a90', '#8a8a80', 0.6);
+    tiles(-14, 0, 1.6, 10.6, '#d0d2cc', '#c2c4be', 0.4); tiles(0, 6, 1.6, 10.6, '#6a6a66', '#5c5c58', 0.8); tiles(-30, -14, -10.6, 10.6, '#8e9496', '#7e8486', 0.6);
+    for (const [x, z] of [[-3.5, -9.8], [2.5, -9.8]]) { blob(x, z + 0.8, 1.6, 205, 0.7); const [cx, cz] = toC(x, z + 0.6), g = cCtx.createRadialGradient(cx, cz, 1, cx, cz, 1.8 * CPPU); g.addColorStop(0, 'rgba(240,244,250,0.95)'); g.addColorStop(1, 'rgba(240,244,250,0)'); cCtx.fillStyle = g; cCtx.fillRect(cx - 2 * CPPU, cz - 2 * CPPU, 4 * CPPU, 4 * CPPU); }
+    bandZ(9.6, 12, L5.FAC_X, HX, 205, 0.65, 0.6); bandZ(-12.4, -10.2, L5.FAC_X, HX, 205, 0.35, 0.6);
+    carTrack(x => -2.6 + 0.2 * Math.sin(0.1 * x), 18, HX, 0.45);
+    walkTrail(polyPath(TRAIL5), 1.0, 0.82, 0.0, mulberry32(55));
+  },
+  build() {
+    this.fade = []; this.doors = [];
+    const fadeMat = (color, extra = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.92, transparent: true, opacity: 1 }, extra));
+    const box = (mat, x0, x1, y0, y1, z0, z1, parent = world) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+    const F = L5.FAC_X, H0 = L5.FLOOR, green = new THREE.MeshStandardMaterial({ color: 0x8aa293, roughness: 0.9 }), white = new THREE.MeshStandardMaterial({ color: 0xc8cac4, roughness: 0.85 });
+    const wallX = (mat, x, z0, z1, h, gaps = [], thick = 0.2) => { let z = z0; for (const [g0, g1] of [...gaps, [z1, z1]]) { if (g0 > z) { box(mat, x - thick / 2, x + thick / 2, 0, h, z, g0); addBox(x - thick / 2 - 0.05, x + thick / 2 + 0.05, z, g0); } z = g1; } };
+    const wallZ = (mat, z, x0, x1, h, gaps = [], thick = 0.2) => { let x = x0; for (const [g0, g1] of [...gaps, [x1, x1]]) { if (g0 > x) { box(mat, x, g0, 0, h, z - thick / 2, z + thick / 2); addBox(x, g0, z - thick / 2 - 0.05, z + thick / 2 + 0.05); } x = g1; } };
+    // facciata (trasparente quando entri), insegna, muri perimetrali
+    const facMat = fadeMat(0xa8b0a6), signMat = new THREE.MeshStandardMaterial({ map: textTex(['ГОРОДСКАЯ БОЛЬНИЦА № 3', 'ПРИЁМНЫЙ ПОКОЙ'], 1024, 160, '#e4e6e0', '#b0221c', 'bold 60px monospace'), roughness: 0.6, transparent: true });
+    wallX(facMat, F, -10.6, 10.6, 5.5, [[-1.6, 1.6]], 0.3); box(facMat, F - 0.15, F + 0.15, 3.0, 5.5, -1.6, 1.6);
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.95), signMat); sg.rotation.y = Math.PI / 2; sg.position.set(F + 0.17, 3.9, 0); world.add(sg);
+    { const can = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 4.2), facMat); can.position.set(F + 1.0, 3.0, 0); world.add(can); const cs = new THREE.Mesh(pillow(2.1, 0.2, 4.1, 3, 12), plainSnowMat); cs.position.set(F + 1.0, 3.08, 0); world.add(cs); }
+    this.fade.push({ mats: [facMat, signMat], test: () => hero.x < F - 0.3 });
+    box(green, -30, F, 0, 4.4, -10.9, -10.5); addBox(-30, F, -11, -10.4); box(green, -30, F, 0, 1.0, 10.5, 10.9); addBox(-30, F, 10.4, 11);
+    wallX(green, -30.2, -10.5, 10.5, 4.4, [[2.4, 4.0]]);
+    // finestre rotte del reparto bambini (sul muro nord): telaio, vetri spaccati, lama di luce fredda
+    for (const x of [-3.5, 2.5]) { box(new THREE.MeshBasicMaterial({ color: 0x8a9ab0 }), x - 0.8, x + 0.8, 1.4, 3.0, -10.48, -10.46); box(ironMat, x - 0.85, x + 0.85, 1.35, 1.42, -10.45, -10.4); box(ironMat, x - 0.03, x + 0.03, 1.4, 3.0, -10.45, -10.4);
+      const gl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.4), new THREE.MeshBasicMaterial({ color: 0xbcd0ec, transparent: true, opacity: 0.12, depthWrite: false })); gl.rotation.x = -Math.PI / 2; gl.position.set(x, H0 + 0.02, -9.0); world.add(gl); }
+    // corridoio: muro nord (porte del reparto bambini e della guardiola), parete sud bassa con vetri smerigliati (laboratorio, locale tecnico)
+    const wardWall = fadeMat(0x8aa293); wallZ(wardWall, -1.6, -14, 6, 3.3, [[L5.NURSE_DOOR - 0.6, L5.NURSE_DOOR + 0.6], [L5.WARD_DOOR - 0.7, L5.WARD_DOOR + 0.7]]);
+    this.fade.push({ mats: [wardWall], test: () => hero.z < -1.8 && hero.x < 6 && hero.x > -14 });
+    wallZ(green, 1.6, -14, 6, 1.15, [[L5.LAB_DOOR - 0.8, L5.LAB_DOOR + 0.8], [L5.GEN_DOOR - 0.6, L5.GEN_DOOR + 0.6]]);
+    const frosted = new THREE.MeshStandardMaterial({ color: 0xc8d8d4, roughness: 0.3, metalness: 0.1, transparent: true, opacity: 0.35, depthWrite: false });
+    for (const [x0, x1] of [[-14, L5.LAB_DOOR - 0.8], [L5.LAB_DOOR + 0.8, L5.GEN_DOOR - 0.6]]) box(frosted, x0, x1, 1.15, 3.0, 1.57, 1.63);
+    { const lt = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['ЛАБОРАТОРИЯ АНАЛИЗОВ'], 512, 64, '#e8eae4', '#204060', 'bold 36px monospace'), roughness: 0.6 })); lt.position.set(L5.LAB_DOOR, 2.7, 1.66); world.add(lt);
+      const dt_ = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.32), new THREE.MeshStandardMaterial({ map: textTex(['ДЕТСКОЕ ОТДЕЛЕНИЕ'], 512, 64, '#e8eae4', '#2a5a3a', 'bold 40px monospace'), roughness: 0.6 })); dt_.position.set(L5.WARD_DOOR, 2.85, -1.48); world.add(dt_); }
+    wallX(green, -6, -10.5, -1.6, 2.6); wallX(white, 0, 1.6, 10.5, 2.6);
+    const morgWall = fadeMat(0x8e9496); wallX(morgWall, L5.MORGUE_X, -10.5, 10.5, 4.0, [[-1.6, 1.6]], 0.25); box(morgWall, L5.MORGUE_X - 0.12, L5.MORGUE_X + 0.12, 2.6, 4.0, -1.6, 1.6);
+    this.fade.push({ mats: [morgWall], test: () => hero.x < L5.MORGUE_X - 0.3 });
+    { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.4), new THREE.MeshStandardMaterial({ map: textTex(['МОРГ — ПОСТОРОННИМ', 'ВХОД ВОСПРЕЩЁН'], 512, 80, '#2a2c2e', '#d8d4c8', 'bold 30px monospace'), roughness: 0.6, transparent: true })); m.rotation.y = Math.PI / 2; m.position.set(L5.MORGUE_X + 0.14, 3.1, 0); world.add(m); this.fade[this.fade.length - 1].mats.push(m.material); }
+    // porte: alcune sbattono da sole nel buio, altre sono bloccate dall'elettromagnete senza corrente
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0xb8c2bc, roughness: 0.7 }), steel = new THREE.MeshStandardMaterial({ color: 0x7c8286, roughness: 0.4, metalness: 0.7 });
+    const mkDoor = (x, z, w, axis, mat, opts = {}) => {   // axis 'x' = porta in un muro lungo x; ruota attorno al cardine
+      const pv = new THREE.Group(); pv.position.set(axis === 'x' ? x - w / 2 : x, H0, axis === 'x' ? z : z - w / 2); world.add(pv);
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(axis === 'x' ? w : 0.06, 2.2, axis === 'x' ? 0.06 : w), mat); leaf.position.set(axis === 'x' ? w / 2 : 0, 1.1, axis === 'x' ? 0 : w / 2); leaf.castShadow = true; pv.add(leaf);
+      const bx = axis === 'x' ? addBox(x - w / 2, x + w / 2, z - 0.15, z + 0.15) : addBox(x - 0.15, x + 0.15, z - w / 2, z + w / 2);
+      const D = Object.assign({ pv, bx, open: !opts.locked, ang: 0, openAng: opts.openAng ?? 1.35, slam: 0, x, z }, opts); bx.off = D.open; this.doors.push(D); return D; };
+    this.dWard = mkDoor(L5.WARD_DOOR, -1.6, 1.3, 'x', doorMat, { slams: true, openAng: -1.4 }); this.dNurse = mkDoor(L5.NURSE_DOOR, -1.6, 1.1, 'x', doorMat, { slams: true, openAng: -1.4 });
+    this.dLab = mkDoor(L5.LAB_DOOR, 1.6, 1.5, 'x', new THREE.MeshStandardMaterial({ color: 0xa8c0c0, roughness: 0.2, transparent: true, opacity: 0.6 }), { locked: true, mag: true, openAng: 1.4 });
+    this.dGen = mkDoor(L5.GEN_DOOR, 1.6, 1.1, 'x', steel, { locked: true, openAng: 1.4 });
+    this.dMorgue = mkDoor(L5.MORGUE_X, 0, 3.0, 'z', steel, { locked: true, mag: true, openAng: 1.3 });
+    // accettazione: schedari, bancone
+    const fileMat = new THREE.MeshStandardMaterial({ color: 0x5a6a5e, roughness: 0.6, metalness: 0.4 });
+    for (let k = 0; k < 5; k++) { box(fileMat, 7 + k * 1.2, 8.05 + k * 1.2, H0, H0 + 1.8, -10.4, -9.8); for (let d = 0; d < 4; d++) box(steel, 7.3 + k * 1.2, 7.75 + k * 1.2, H0 + 0.3 + d * 0.42, H0 + 0.34 + d * 0.42, -9.8, -9.76); }
+    addBox(6.9, 13, -10.5, -9.7);
+    box(new THREE.MeshStandardMaterial({ map: woodTex('#5a4636', 'rgba(20,12,8,A)', 5), roughness: 0.7 }), 9.2, 9.8, H0, H0 + 1.05, -6, -2.6); addBox(9.1, 9.9, -6.1, -2.5);
+    for (let k = 0; k < 14; k++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.01, 0.22), new THREE.MeshStandardMaterial({ color: 0xd8d0b8, roughness: 0.9 })); p.position.set(6.5 + Math.random() * 7, H0 + 0.01, -9 + Math.random() * 4); p.rotation.y = Math.random() * 3; world.add(p); }
+    // reparto bambini: lettini metallici, cavalluccio a dondolo, giocattoli, lavagna
+    const bedM = new THREE.MeshStandardMaterial({ color: 0xd8dcd8, roughness: 0.5, metalness: 0.5 }), sheet = new THREE.MeshStandardMaterial({ color: 0xe6e4dc, roughness: 1 });
+    for (let k = 0; k < 6; k++) { const x = -5 + k * 1.9, g = new THREE.Group(); g.position.set(x, H0, -8.6);
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.06, 1.5), bedM); fr.position.y = 0.5; g.add(fr); const mt = new THREE.Mesh(new RoundedBoxGeometry(0.72, 0.12, 1.42, 2, 0.04), sheet); mt.position.y = 0.58; g.add(mt);
+      const pl = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.1, 0.3, 2, 0.04), sheet); pl.position.set(0, 0.68, -0.55); g.add(pl);
+      for (const s of [-1, 1]) { for (const zz of [-0.72, 0.72]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), bedM); l.position.set(s * 0.38, 0.25, zz); g.add(l); }
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 1.5), bedM); rail.position.set(s * 0.4, 0.75, 0); g.add(rail); }
+      shadowAll(g); ink(g); world.add(g); addBox(x - 0.45, x + 0.45, -9.4, -7.8); }
+    { const g = new THREE.Group(); g.position.set(-2, H0, -5.2); g.rotation.y = 0.6; const wm = new THREE.MeshStandardMaterial({ color: 0x8a5a3a, roughness: 0.8 }), red = new THREE.MeshStandardMaterial({ color: 0x9a2a22, roughness: 0.7 });
+      for (const s of [-1, 1]) { const rk = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.03, 4, 16, 1.4), wm); rk.rotation.z = Math.PI / 2 + 0.85; rk.position.set(0, 0.62, s * 0.2); g.add(rk); }
+      const bd = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.25, 0.22, 2, 0.08), red); bd.position.y = 0.6; g.add(bd); const hd = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.35, 0.16, 2, 0.06), red); hd.position.set(0.38, 0.82, 0); hd.rotation.z = -0.4; g.add(hd);
+      this.horse = g; shadowAll(g); ink(g); world.add(g); }
+    for (let k = 0; k < 6; k++) { const t = new THREE.Mesh(k % 2 ? new THREE.SphereGeometry(0.1, 8, 6) : new THREE.BoxGeometry(0.16, 0.16, 0.16), new THREE.MeshStandardMaterial({ color: [0xb83a2a, 0x2a6ab8, 0xd8b02a][k % 3], roughness: 0.6 })); t.position.set(-4 + Math.random() * 8, H0 + 0.09, -6.5 + Math.random() * 3); world.add(t); }
+    { const b = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshStandardMaterial({ map: textTex(['Сегодня идёт', 'тёплый снег'], 512, 256, '#1e2a22', '#e8e8e0', 'italic 52px serif'), roughness: 0.9 })); b.position.set(-0.5, 2.0, -10.46); world.add(b); }
+    // guardiola: scrivania, armadietto dei farmaci
+    box(new THREE.MeshStandardMaterial({ color: 0x6a5a48, roughness: 0.8 }), -12.5, -10.5, H0, H0 + 0.8, -6, -4.8); addBox(-12.6, -10.4, -6.1, -4.7);
+    this.cab = box(new THREE.MeshStandardMaterial({ color: 0xd8dcd6, roughness: 0.4, metalness: 0.3 }), -10.2, -9.0, H0, H0 + 2.0, -10.45, -9.9); addBox(-10.3, -8.9, -10.5, -9.8);
+    { const c = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshBasicMaterial({ map: textTex(['+'], 64, 64, '#d8dcd6', '#b8241e', 'bold 60px monospace') })); c.position.set(-9.6, H0 + 1.7, -9.88); world.add(c); }
+    // laboratorio: banconi, vetrine, microscopi, centrifuga, la rastrelliera di provette che brilla
+    const benchM = new THREE.MeshStandardMaterial({ color: 0xe4e6e0, roughness: 0.5 }), dark = new THREE.MeshStandardMaterial({ color: 0x2a2e30, roughness: 0.5, metalness: 0.4 });
+    for (const [x0, x1, z0, z1] of [[-12.5, -8.5, 9.4, 10.3], [-4.5, -0.6, 9.4, 10.3], [-8.2, -3.8, 5.6, 6.6]]) { box(benchM, x0, x1, H0, H0 + 0.95, z0, z1); addBox(x0 - 0.05, x1 + 0.05, z0 - 0.05, z1 + 0.05); }
+    for (const [x, z] of [[-11.5, 9.85], [-3.2, 9.85]]) { box(dark, x - 0.12, x + 0.12, H0 + 0.95, H0 + 1.3, z - 0.12, z + 0.12); const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.3, 8), dark); tb.position.set(x, H0 + 1.42, z - 0.05); tb.rotation.x = 0.4; world.add(tb); }
+    box(dark, -10.2, -9.4, H0 + 0.95, H0 + 1.35, 9.5, 10.2);
+    const glassC = new THREE.MeshStandardMaterial({ color: 0x9ab8c0, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.35, depthWrite: false });
+    for (const x of [-13.4, -0.8]) { box(new THREE.MeshStandardMaterial({ color: 0xd0d4d0, roughness: 0.5 }), x - 0.4, x + 0.4, H0, H0 + 2.1, 3, 7); box(glassC, x - 0.42, x + 0.42, H0 + 0.1, H0 + 2.0, 2.98, 7.02); addBox(x - 0.45, x + 0.45, 2.9, 7.1); }
+    this.tubeMat = new THREE.MeshStandardMaterial({ color: 0xbfe0ff, emissive: 0x4a9aff, emissiveIntensity: 0.6, roughness: 0.1, transparent: true, opacity: 0.85 });
+    this.rack = new THREE.Group(); this.rack.position.set(-6, H0 + 0.95, 6.1); world.add(this.rack);
+    { const fr = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.05, 0.16), steel); fr.position.y = 0.12; this.rack.add(fr); for (let k = 0; k < 6; k++) { const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 8), this.tubeMat); tb.position.set(-0.25 + k * 0.1, 0.12, 0); this.rack.add(tb); } }
+    // locale tecnico: generatore diesel, taniche, i guanti marchiati «В»
+    { const g = new THREE.Group(); g.position.set(L5.GEN.x, H0, L5.GEN.z); const gm = new THREE.MeshStandardMaterial({ color: 0x4e5a3e, roughness: 0.6, metalness: 0.4 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.3, 1.2), gm); b.position.y = 0.75; g.add(b); const tk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.3, 12), gm); tk.rotation.z = Math.PI / 2; tk.position.set(0, 1.65, -0.2); g.add(tk);
+      const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4, 8), PROPM.rust); ex.position.set(-1.1, 2.3, 0.3); g.add(ex);
+      for (let k = 0; k < 8; k++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.9, 1.0), dark); f.position.set(0.5 + k * 0.08, 0.8, 0); g.add(f); }
+      const pn = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.4), new THREE.MeshStandardMaterial({ map: textTex(['ДИЗЕЛЬ-', 'ГЕНЕРАТОРНАЯ'], 256, 128, '#e6c84a', '#1a1a1a', 'bold 30px monospace'), roughness: 0.6 })); pn.position.set(-0.5, 1.0, 0.61); g.add(pn);
+      shadowAll(g); ink(g); world.add(g); addBox(L5.GEN.x - 1.4, L5.GEN.x + 1.4, L5.GEN.z - 0.75, L5.GEN.z + 0.75); this.genBody = b; }
+    for (const [x, z] of [[5.2, 9.6], [5.6, 9.2]]) { const c = new THREE.Mesh(new RoundedBoxGeometry(0.35, 0.5, 0.25, 2, 0.04), new THREE.MeshStandardMaterial({ color: 0x8a2a1a, roughness: 0.6, metalness: 0.3 })); c.position.set(x, H0 + 0.25, z); world.add(c); }
+    // obitorio: parete di celle frigorifere (una col mio numero), tavoli d'acciaio, il dottore sulla sedia a rotelle
+    for (let col = 0; col < 8; col++) for (let row = 0; row < 3; row++) { const x = -28 + col * 1.4, y = H0 + 0.35 + row * 0.95;
+      box(steel, x - 0.6, x + 0.6, y, y + 0.85, -10.45, -10.25); box(dark, x + 0.35, x + 0.45, y + 0.35, y + 0.5, -10.25, -10.18); }
+    addBox(-28.8, -16.2, -10.5, -10.1);
+    { const t = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.16), new THREE.MeshStandardMaterial({ map: textTex(['0417'], 128, 48, '#e8e4d8', '#1a1a1a', 'bold 36px monospace'), roughness: 0.6 })); t.position.set(L5.CELL.x - 0.1, H0 + 1.75, -10.17); world.add(t); }
+    for (const [x, z] of [[-25, -3.5], [-21, -3.5], [-25, 3.0]]) { box(steel, x - 1.0, x + 1.0, H0 + 0.85, H0 + 0.92, z - 0.45, z + 0.45); for (const [dx, dz] of [[-0.9, -0.4], [0.9, -0.4], [-0.9, 0.4], [0.9, 0.4]]) box(steel, x + dx - 0.03, x + dx + 0.03, H0, H0 + 0.85, z + dz - 0.03, z + dz + 0.03); addBox(x - 1.05, x + 1.05, z - 0.5, z + 0.5); }
+    box(new THREE.MeshStandardMaterial({ color: 0xc8c8c0, roughness: 0.6, metalness: 0.3 }), -19.5, -16.5, H0 + 0.1, H0 + 0.9, 10.2, 10.4);    // termosifone freddo
+    { const wc = new THREE.Group(), wm = new THREE.MeshStandardMaterial({ color: 0x3a3e42, metalness: 0.5, roughness: 0.4 }); wc.position.set(L5.DOC.x, H0, L5.DOC.z); wc.rotation.y = Math.PI;
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.5), wm); st.position.y = 0.5; wc.add(st); const bk = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.05), wm); bk.position.set(0, 0.8, -0.25); wc.add(bk);
+      for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 20), wm); w.rotation.y = Math.PI / 2; w.position.set(s * 0.3, 0.32, -0.05); wc.add(w); }
+      shadowAll(wc); world.add(wc); CIRCLES.push([L5.DOC.x, L5.DOC.z, 0.5]); }
+    this.doc = makeNPC({ x: L5.DOC.x, z: L5.DOC.z, heading: Math.PI, tint: { key: 'labcoat', fn: recolor(205, 208, 200, 1.6, 0.55) }, pose: POSE.sit, dim: 0.85 });
+    this.doc.group.position.y = H0 + 0.22;
+    // ambulanza, bidone, lampione, alberi
+    makeBuhanka(L5.AMB.x, L5.AMB.z, L5.AMB.r);
+    this.barrel = makeFireBarrel(L5.BARREL.x, L5.BARREL.z);
+    this.lamp = makeLamp(18, 6.4, -1, -0.3, true); this.lamp.setLevel(0.7);
+    [[26, 9.4, 141, 0.9], [29, -8.8, 143, 0.85], [16.5, 9.6, 147, 0.8]].forEach(([x, z, sd, k]) => makeTree(x, z, sd, k));
+    makeDumpster(25.5, -9.0, 0.1); makeCart(20.5, 7.6, 2.4, { tipped: true });
+    // luci: emergenza rossa (prima), neon verdi-bianchi (dopo il generatore)
+    // solo tre luci reali (leggero su iPhone): rosse d'emergenza prima, neon dopo; il resto sono plafoniere emissive
+    this.zoneL = [[3, 2.8, -1], [-6, 2.8, 5], [-22, 3.2, 0]].map(([x, y, z]) => { const l = new THREE.PointLight(0xff2a1a, 2.5, 16, 1.2); l.position.set(x, y, z); world.add(l); return l; });
+    this.tubeMatN = new THREE.MeshStandardMaterial({ color: 0x334040, emissive: 0xdaf2e4, emissiveIntensity: 0 }); this.redMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
+    for (const [x, y, z] of [[10, 3.4, -4], [10, 3.4, 4], [2, 3.4, 0], [-8, 3.4, 0], [-3, 3.4, -6], [-10, 3.4, -6], [-6, 3.0, 6], [3, 3.0, 6], [-22, 3.8, -3], [-22, 3.8, 4]]) { const t = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.12), this.tubeMatN); t.position.set(x, y, z); world.add(t); }
+    for (const [x, z] of [[8, 0], [-4, 0], [-10, -5], [-22, 0]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.12), this.redMat); r.position.set(x, 3.2, z); world.add(r); }
+    // figure: quattro in fondo al reparto bambini e dietro i vetri del laboratorio
+    const fm = () => new THREE.MeshBasicMaterial({ color: 0x07090c, transparent: true, opacity: 0.92 });
+    this.shades = [[-4.5, -9.6, 'ward'], [4.8, -9.6, 'ward'], [-12.2, 8.2, 'lab'], [-2.2, 8.4, 'lab']].map(([x, z, zone]) => { const g = new THREE.Group(), m = fm();
+      const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.25, 4, 10), m); b.position.y = 0.9; b.scale.set(1, 1, 0.75); const h = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), m); h.position.y = 1.83; g.add(b, h); world.add(g);
+      return { g, x, z, hx: x, hz: z, zone, state: 'idle', burn: 0, t: 0 }; });
+    makeFigure('stalker', { cool: 30 });
+    this.power = false; this.powerT = 0;
+  },
+  items() {
+    const S = state, self = this, amb = loc(L5.AMB.x, L5.AMB.z, L5.AMB.r, -2.9, 0);
+    return [
+      { id: 'fuoco', x: L5.BARREL.x + 0.7, z: L5.BARREL.z + 0.8, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit,
+        use() { if (self.barrel.lit) { say('Il fuoco scoppietta tra le scatole di cartone. Dall\'ambulanza esce un odore di disinfettante gelato.'); return; }
+          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L5.BARREL.x + 0.9, z: L5.BARREL.z + 1.0 }; say('Legna secca e scatole di cartone medico. Prenderà subito.'); } },
+      { id: 'ambulanza', x: amb.x, z: amb.z, r: 1.8, my: 1.4, pick: true, label: 'Fruga nell\'ambulanza', done: () => S.items.has('gasolio'), gone: () => S.items.has('gasolio'),
+        use() { S.items.add('gasolio'); say('Portellone spalancato. Dentro c\'è ancora una tanica di gasolio invernale.'); } },
+      { id: 'schedario', x: 9.5, z: -9.0, r: 1.6, my: 1.6, clue: true, label: 'Apri lo schedario',
+        use() { say(['Migliaia di cartelle cliniche. Portano tutte la stessa data di ricovero: 12 febbraio 1991.', 'Il registro generale è aperto sul ripiano:',
+          Q('«ЖУРНАЛ ПОСТУПЛЕНИЯ БОЛЬНЫХ — 12.02.1991. Все жители сектора А, Б, В. Диагноз: острая потеря памяти, гипотермия. Примечание: пациенты исчезают из палат ровно в 23:40, оставляя только мокрые следы на полу.»'),
+          'Tutti i residenti dei settori A, B e V. Perdita di memoria, ipotermia. I pazienti spariscono dalle corsie alle 23:40, lasciando solo impronte bagnate sul pavimento.'], 'REGISTRO'); } },
+      { id: 'lettini', x: 0.5, z: -6.8, r: 1.6, marker: false, label: 'Guarda i lettini',
+        use() { say(['I cuscini sono intatti. Nessuno ci ha dormito.', 'Sulla lavagna, col gesso: ' + Q('«Сегодня идёт тёплый снег»') + ' — Oggi nevica caldo.']); } },
+      { id: 'armadietto', x: -9.6, z: -9.1, r: 1.4, my: 1.5, pick: true, label: 'Armadietto dei farmaci', done: () => S.items.has('chiaveGen'), gone: () => S.items.has('chiaveGen'),
+        use() { S.items.add('chiaveGen'); S.cans += 1; addBattery(35); say('Bende ghiacciate. Sul ripiano in basso, una razione d\'emergenza, una pila e una chiave con la targhetta «ДГУ».'); } },
+      { id: 'portaGen', x: L5.GEN_DOOR, z: 0.9, r: 1.3, my: 1.6, label: () => self.dGen.open ? 'Locale tecnico' : 'Porta del locale tecnico', done: () => self.dGen.open,
+        use() { if (self.dGen.open) return; if (!S.items.has('chiaveGen')) { say(['ДИЗЕЛЬ-ГЕНЕРАТОРНАЯ. Porta di lamiera, chiusa a chiave.', 'L\'infermiera di turno avrà le chiavi, nella guardiola del reparto.']); return; }
+          self.openDoor(self.dGen); Sound.clunk(); say('La chiave «ДГУ» apre il locale del generatore.'); } },
+      { id: 'generatore', x: L5.GEN.x, z: L5.GEN.z - 1.3, r: 1.5, my: 1.6, label: 'Generatore diesel', done: () => self.power,
+        use() { if (self.power) { say('Il diesel romba. Il pavimento vibra sotto gli stivali.'); return; }
+          if (!S.items.has('gasolio')) { say(['Il serbatoio è asciutto, ma il motore è ancora tiepido… come se si fosse spento da poco.', 'Serve del gasolio. L\'ambulanza nel cortile, forse.']); return; }
+          self.powerOn(); } },
+      { id: 'bancone', x: -6, z: 4.9, r: 1.5, my: 1.5, clue: true, pick: true, label: 'Esamina le provette', needs: () => self.power,
+        use() { S.gear.add('provette'); self.rack.visible = false;
+          say(['Decine di provette sigillate. Dentro c\'è la neve della città. Qui ci sono venti gradi, e non si scioglie.', 'Accanto, il rapporto del laboratorio:',
+            Q('«ЛАБОРАТОРИЯ № 3 — ОБРАЗЕЦ ОСАДКОВ «ЗИМА». Вещество в пробирках не является водой. При +20°C кристаллы сохраняют структуру и излучают слабое остаточное тепло. Это не снег. Это застывшая память теплового цикла.»'),
+            'Non è acqua. A venti gradi i cristalli restano interi ed emettono un debole calore. Non è neve. È memoria solidificata del ciclo termico.', 'Prendo la rastrelliera. Le provette sono tiepide: scaldano la pila della torcia.'], 'LABORATORIO N. 3'); } },
+      { id: 'cella', x: L5.CELL.x, z: L5.CELL.z + 0.6, r: 1.4, my: 1.7, clue: true, kneel: false, label: 'Cella frigorifera n. 0417',
+        use() { Sound.clunk(); say(['Lo sportello ha il mio numero di tesserino. Dentro non c\'è un corpo… c\'è solo una cartella clinica.',
+          Q('«МЕДИЦИНСКАЯ КАРТА № 0417 — ВОРОНИН ДМИТРИЙ А. Дата поступления: 12.02.1991. Воздействие цикла: 3-й раз. Память: обнулена. Примечание врача: пациент снова пришёл сам. Ищет пробирки. На правой ладони — старый ожог от вентиля.»'),
+          'Esposizione al ciclo: terza volta. Memoria: azzerata. «Il paziente è tornato di nuovo da solo. Cerca le provette. Sul palmo destro, una vecchia ustione da valvola.»'], 'CARTELLA 0417'); } },
+      { id: 'dottore', x: L5.DOC.x, z: L5.DOC.z - 1.2, r: 1.7, my: 1.6, label: 'Parla con il dottore', done: () => S.flags.doc,
+        use() { if (S.flags.doc) { say(self.docDead ? 'Il dottore non respira più. Stringe ancora il portacampioni vuoto.' : 'Prendi le provette e sali alla torre radio, Voronin.', self.docDead ? '' : 'DOTTOR KOVALËV'); return; } self.talkDoc(); } },
+      { id: 'uscita', x: L5.EXIT.x + 0.8, z: L5.EXIT.z, r: 1.6, my: 1.6, label: 'Rampa di carico',
+        use() { if (!S.gear.has('provette')) { say('Non posso andarmene senza le provette del laboratorio.'); return; } Sound.clunk(); endChapter(); } },
+    ];
+  },
+  openDoor(D) { D.open = true; D.locked = false; D.bx.off = true; },
+  powerOn() {
+    this.power = true; this.powerT = 0; state.flags.power = true; state.gear.add('guanti'); Sound.clunk(); Sound.ignite();
+    for (const D of this.doors) if (D.mag) this.openDoor(D);
+    say(['Verso il gasolio nel serbatoio. Tiro la corda dell\'avviamento: una volta, due… al terzo strappo il diesel tossisce e prende a rombare.',
+      'Il ronzio dei neon corre lungo il corridoio. Le serrature magnetiche scattano: il laboratorio e l\'obitorio sono aperti.',
+      'Sullo scaffale accanto al motore, un paio di guanti da tecnico in cuoio imbottito. Dentro, a pennarello: «В». Li infilo.'], '');
+  },
+  talkDoc() {
+    state.flags.doc = true;
+    say('Non toccare i termosifoni… sono freddi. L\'unico calore rimasto è dentro quel vetro.', 'DOTTOR KOVALËV');
+    say('«Dottore? Lei respira. È rimasto qui dal 12 febbraio?»', 'DMITRI');
+    say(['È ancora il 12 febbraio, Voronin. Guarda l\'orologio sul muro.', 'Ho provato a bollirla, quella neve. Ho provato con l\'acido. Non si scioglie. Trattiene tutto quello che tocca.'], 'DOTTOR KOVALËV');
+    say('«Nella mia cartella c\'è scritto "esposizione al ciclo: terza volta". Cosa significa?»', 'DMITRI');
+    say(['Significa che la tua mente si cancella ogni volta che il cielo si spegne, ma il tuo corpo ricorda la strada.', 'Guardati la mano destra, sotto il guanto. Quella bruciatura circolare non te la sei fatta oggi.'], 'DOTTOR KOVALËV');
+    say('«È la forma di un volantino… una valvola.»', 'DMITRI');
+    say('Prendi le provette dal bancone e sali alla torre radio. Qualcuno trasmette sulla frequenza di emergenza della centrale… e ha la tua stessa voce.', 'DOTTOR KOVALËV');
+  },
+  phase() { return !this.barrel.lit ? 1 : !state.items.has('gasolio') ? 2 : !this.power ? 3 : !state.gear.has('provette') ? 4 : 5; },
+  objective() { return ['', 'Accendi il fuoco nel cortile dell\'ospedale', 'Trova il carburante per il generatore d\'emergenza', 'Trova la chiave e riattiva il generatore a gasolio', 'Esamina i campioni nel laboratorio di analisi', 'Raggiungi l\'uscita attraverso l\'obitorio'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase();
+    return p === 1 ? by('fuoco') : p === 2 ? by('ambulanza') : p === 3 ? (!state.items.has('chiaveGen') ? by('armadietto') : !this.dGen.open ? by('portaGen') : by('generatore')) : p === 4 ? by('bancone') : (!state.clues.has('cella') ? by('cella') : !state.flags.doc ? by('dottore') : by('uscita')); },
+  thought() { return ['', 'Devo scaldarmi al bidone vicino all\'ambulanza prima di entrare.', 'Le porte in fondo sono bloccate elettricamente. Nell\'ambulanza potrebbe esserci del gasolio per il generatore.',
+    'Il locale del generatore è chiuso a chiave. Devo cercare nella guardiola degli infermieri, facendo attenzione alle porte che sbattono.', 'Ora che c\'è corrente, posso entrare nel laboratorio di analisi al centro del corridoio.', 'La porta dell\'obitorio in fondo adesso è sbloccata.'][this.phase()]; },
+  hint() { return ['', 'Accendi il bidone del fuoco accanto al furgone ambulanza nel cortile.', 'Esamina il retro dell\'ambulanza (i portelloni aperti) per prendere la tanica di gasolio.',
+    'Entra nell\'ospedale, usa la torcia per bloccare le figure, prendi la chiave nell\'armadietto della guardiola (porta a nord del corridoio, a sinistra del reparto bambini) e apri il locale tecnico (porta a sud del corridoio, vicino all\'ingresso) per avviare il generatore.',
+    'Entra nel laboratorio illuminato (porta a vetri a sud del corridoio) e raccogli le provette sul bancone centrale.', 'Attraversa l\'obitorio in fondo al corridoio, esamina la cella 0417 sulla parete di sportelli e parla con il medico prima di uscire dalla rampa di carico a ovest.'][this.phase()]; },
+  coldTip() { return this.barrel.lit ? 'Le mani non rispondono più. Torno al bidone accanto all\'ambulanza.' : 'Fa un freddo che spacca le ossa. Accanto all\'ambulanza c\'è un bidone.'; },
+  intro() { return ['Le corsie dell\'Ospedale n. 3 odorano di etere e ferro ghiacciato.', 'Le mie impronte entrano dritte dall\'ingresso delle ambulanze, senza esitare.', 'Chiunque io fossi ieri, sapeva già in quale reparto cercare.']; },
+  heroHook() { return true; },
+  update(dt, t) {
+    const S = state, live = S.started && !S.ended, inside = smooth01((L5.FAC_X - hero.x) / 2), pw = this.power;
+    this.powerT += dt;
+    const lit = pw ? smooth01(this.powerT / 1.5) : 0;
+    snowLayers.forEach((L, i) => L.pts.material.opacity = lerp(i ? 0.9 : 0.75, 0.06, inside));   // dentro non nevica
+    hemi.intensity = lerp(this.hemiB, lerp(0.34, 0.7, lit), inside); sun.intensity = lerp(3.3, lerp(1.0, 1.6, lit), inside);
+    for (const fd of this.fade) { const want = fd.test() ? 0.12 : 1; for (const m of fd.mats) { m.opacity = lerp(m.opacity, want * (m.userData.base ?? 1), damp(5, dt)); m.depthWrite = m.opacity > 0.9; } }
+    const fl = pw ? (this.powerT < 2.2 ? (Math.random() < 0.5 ? 1 : 0) : (Math.random() < 0.004 ? 0.3 : 1)) : 0, rp = Math.sin(t * 2) > -0.2 ? 1 : 0.2;
+    this.zoneL.forEach(l => { if (pw) { l.color.setHex(0xdaf2e4); l.intensity = 10 * fl; } else { l.color.setHex(0xff2a1a); l.intensity = 3 * rp; } });
+    this.tubeMatN.emissiveIntensity = 2 * fl; this.redMat.color.setScalar(pw ? 0.15 : rp); if (!pw) this.redMat.color.r = rp;
+    if (Sound.ctx) Sound.setHum(live && pw && hero.x < L5.FAC_X ? 0.02 : 0);
+    this.tubeMat.emissiveIntensity = 0.7 + Math.sin(t * 2.3) * 0.35;
+    this.horse.rotation.z = Math.sin(t * 0.9) * 0.08 * (pw ? 0.3 : 1);
+    // porte: si aprono/chiudono con un'animazione; sbattono da sole se una figura è vicina nel buio
+    for (const D of this.doors) {
+      if (D.slam > 0) { D.slam -= dt; if (D.slam <= 0) { D.bx.off = true; } }
+      const want = (D.open && D.slam <= 0) ? D.openAng : 0; D.ang = lerp(D.ang, want, damp(want === 0 && D.slam > 0 ? 25 : 4, dt)); D.pv.rotation.y = D.ang;
+    }
+    // le figure: avanzano quando non le guardi; la torcia le scioglie; con la corrente spariscono dalle zone illuminate
+    const active = live && !S.gap && !downed() && !reading() && hero.x < L5.FAC_X;
+    for (const Fg of this.shades) {
+      if (Fg.state === 'gone') { Fg.g.visible = false; Fg.t -= dt; if (Fg.t <= 0 && !(pw && Fg.zone === 'lab') && Math.hypot(hero.x - Fg.hx, hero.z - Fg.hz) > 8) { Fg.state = 'idle'; Fg.x = Fg.hx; Fg.z = Fg.hz; } continue; }
+      if (pw && Fg.zone === 'lab') { Fg.state = 'gone'; Fg.t = 1e9; Sound.glitch(); continue; }
+      Fg.g.visible = true;
+      const d = Math.hypot(hero.x - Fg.x, hero.z - Fg.z), tl = live && torchHits(Fg.x, Fg.z);
+      if (tl) { Fg.burn += dt; if (Fg.burn > 0.4) { Fg.state = 'gone'; Fg.t = 25; Sound.glitch(); continue; } } else Fg.burn = Math.max(0, Fg.burn - dt);
+      let a = Math.atan2(Fg.x - hero.x, Fg.z - hero.z) - hero.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
+      const watched = tl || (Math.abs(a) < 1.3 && d < (S.gear.has('lanterna') ? 2.9 : 1.6));
+      if (active && !watched && d < 16) { const sp = pw ? 0.3 : 0.45, dx = hero.x - Fg.x, dz = hero.z - Fg.z, dd = d || 1; Fg.x += dx / dd * sp * dt; Fg.z += dz / dd * sp * dt; }
+      if (active && d < 0.85) { this.shades.forEach(o => { o.x = o.hx; o.z = o.hz; }); memoryGap('figura'); break; }
+      if (active && !pw && d < 8) {                                     // SLAM: la porta più vicina si chiude di colpo
+        for (const D of this.doors) if (D.slams && D.open && D.slam <= 0 && Math.hypot(hero.x - D.x, hero.z - D.z) < 4.5 && (D.cool || 0) <= t) {
+          D.slam = 3.5; D.cool = t + 9; D.bx.off = false; Sound.thud(); Sound.nb(Sound.master, 900, 1, 0.3, 0.25, 'lowpass'); shake = Math.max(shake, 0.3); dreadSpike = 1;
+          tell('slam', 'La porta si chiude da sola, con un colpo di ferro. Qualcosa, nel buio, si è avvicinato.'); break; }
+      }
+      if (active && d < 5) dreadSpike = Math.max(dreadSpike, 0.4);
+      Fg.g.position.set(Fg.x, groundH(Fg.x, Fg.z), Fg.z); Fg.g.rotation.y = Math.atan2(hero.x - Fg.x, hero.z - Fg.z);
+    }
+    // il dottore: respira finché non prendi la cartella e ti allontani
+    const W = this.doc; if (W && W.ready) {
+      if (S.clues.has('cella') && S.flags.doc && !this.docDead && Math.hypot(hero.x - W.x, hero.z - W.z) > 4) this.docDead = true;
+      this.wB = (this.wB || 1) - dt;
+      if (!this.docDead && this.wB <= 0) { this.wB = 2.2 + Math.random(); const b = breath.find(b => b.life <= 0); if (b) { const hp = new THREE.Vector3(); W.B.Head.getWorldPosition(hp); b.life = 1.2; b.s.visible = true; b.s.position.set(hp.x, hp.y - 0.05, hp.z - 0.2); b.s.scale.setScalar(0.07); } }
+    }
+    if (live && hero.x < L5.FAC_X && !pw) tell('dark5', ['Dentro è buio. Solo le luci d\'emergenza, rosse, che respirano piano sul soffitto.', 'Le porte delle corsie sono socchiuse. Qualcuno, in fondo al reparto bambini, è in piedi accanto ai lettini.']);
+  },
+  ending() {
+    return { text: 'Mi tolgo il guanto destro: sul palmo c\'è davvero una cicatrice rossa, la bruciatura perfetta di una valvola rovente. La neve nelle provette non si scioglie nemmeno se la stringo nel pugno.<br><br>Fuori dall\'obitorio, in cima alla collina spazzata dal vento, la luce rossa della torre radio lampeggia nella tormenta.',
+      next: 0, nextLabel: 'CAPITOLO VI · LA STAZIONE RADIO — in arrivo' };
+  },
+};
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
@@ -4618,7 +4929,7 @@ function disposeWorld() {
 }
 function loadChapter(n, fromPrev = false) {
   disposeWorld();
-  C = CHAPTERS[n]; state.chapter = n;
+  C = CHAPTERS[n]; state.chapter = n; snowLayers.forEach((L, i) => L.pts.material.opacity = i ? 0.9 : 0.75);
   reseed(1991 + n * 1000);
   BOXES = []; CIRCLES = []; lamps = []; blocks = []; fires = []; figures = []; interactables = [];
   stepCells.clear();
