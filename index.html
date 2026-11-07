@@ -2755,17 +2755,37 @@ function updateTorch(dt, t) {
   torch.cone.position.copy(_tv);
   _tv2.set(hero.x + fx * 8, hero.y + 0.1, hero.z + fz * 8);
   torch.cone.lookAt(_tv2);
+  if (torch.flick > 0.02) {                                       // il cono visibile si ferma al primo muro
+    let w = 8; for (const da of [0, -0.22, 0.22]) { const c = Math.cos(da), s = Math.sin(da); w = Math.min(w, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 8) / (da ? Math.cos(da) : 1)); }
+    torch.reach = lerp(torch.reach || 8, clamp(w / 8, 0.08, 1), damp(20, dt));
+    torch.cone.scale.setScalar(torch.reach);
+  }
   torch.mat.uniforms.uOpacity.value = 0.11 * torch.flick;
   torch.cone.visible = torch.flick > 0.02;
   hero.R.lensMat.emissiveIntensity = 3 * torch.flick;
 }
-/* il fascio della torcia colpisce (x,z)? */
+/* distanza dal muro più vicino lungo una direzione (raggio 2D contro i box di collisione, mobili bassi esclusi) */
+function rayWall(ox, oz, dx, dz, maxD) {
+  let best = maxD;
+  for (const b of BOXES) {
+    if (b.off || b.low) continue;
+    const rx = ox - b.cx, rz = oz - b.cz, lx = rx * b.c - rz * b.s, lz = rx * b.s + rz * b.c;
+    if (Math.abs(lx) < b.hx && Math.abs(lz) < b.hz) continue;
+    const vx = dx * b.c - dz * b.s, vz = dx * b.s + dz * b.c;
+    let t0 = 0, t1 = best;
+    if (Math.abs(vx) < 1e-6) { if (Math.abs(lx) > b.hx) continue; } else { let a = (-b.hx - lx) / vx, c = (b.hx - lx) / vx; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); }
+    if (Math.abs(vz) < 1e-6) { if (Math.abs(lz) > b.hz) continue; } else { let a = (-b.hz - lz) / vz, c = (b.hz - lz) / vz; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); }
+    if (t0 <= t1 && t0 < best) best = t0;
+  }
+  return best;
+}
+/* il fascio della torcia colpisce (x,z)? (i muri lo fermano) */
 function torchHits(x, z) {
   if (!state.torch || state.battery <= 0) return false;
   const dx = x - hero.x, dz = z - hero.z, d = Math.hypot(dx, dz);
   if (d > 15 || d < 0.3) return false;
   let a = Math.atan2(dx, dz) - hero.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
-  return Math.abs(a) < 0.42;
+  return Math.abs(a) < 0.42 && rayWall(hero.x, hero.z, dx / d, dz / d, d) >= d - 0.3;
 }
 
 /* ---------- C5b. Zaino: oggetti trovati, scatolette da mangiare, documenti ---------- */
@@ -3160,7 +3180,7 @@ const CH1 = {
     const X = x => AX + x;
     this.walls = [];
     const tex = { paper: aptTex('paper'), kitchen: aptTex('kitchen'), tiles: aptTex('tiles'), parquet: aptTex('parquet'), lino: aptTex('lino') };
-    const box = (mat, x0, x1, y0, y1, z0, z1, solid = true) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat); mm.position.set(X((x0 + x1) / 2), (y0 + y1) / 2, (z0 + z1) / 2); mm.castShadow = true; mm.receiveShadow = true; world.add(mm); if (solid) addBox(X(x0), X(x1), z0, z1); return mm; };
+    const box = (mat, x0, x1, y0, y1, z0, z1, solid = true) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat); mm.position.set(X((x0 + x1) / 2), (y0 + y1) / 2, (z0 + z1) / 2); mm.castShadow = true; mm.receiveShadow = true; world.add(mm); if (solid) addBox(X(x0), X(x1), z0, z1).low = y1 - y0 < 1.7; return mm; };
     const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o));
     // il buio intorno: un pavimento nero, così la nebbia non mostra il vuoto
     const voidM = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: 0x07090c })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(AX, -0.02, 0); world.add(voidM);
@@ -3175,12 +3195,13 @@ const CH1 = {
       const geos = []; let s = 0;
       const seg = (a, b, y0, y1) => { const g = horiz ? new THREE.BoxGeometry(b - a, y1 - y0, 0.12) : new THREE.BoxGeometry(0.12, y1 - y0, b - a); g.translate(horiz ? X(ax + (a + b) / 2) : X(ax), F + (y0 + y1) / 2, horiz ? az : az + (a + b) / 2);
         const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (b - a) / rep, (y0 + uv.getY(i) * (y1 - y0)) / Hh); geos.push(g); };
-      for (const [g0, g1, top = 2.1] of [...gaps, [L, L, Hh]]) { if (g0 > s) { seg(s, g0, 0, h); if (horiz) addBox(X(ax + s), X(ax + g0), az - 0.1, az + 0.1); else addBox(X(ax) - 0.1, X(ax) + 0.1, az + s, az + g0); } if (g1 > g0) seg(g0, g1, top, h); s = g1; }
+      const col = (a, b) => horiz ? addBox(X(ax + a), X(ax + b), az - 0.1, az + 0.1) : addBox(X(ax) - 0.1, X(ax) + 0.1, az + a, az + b);
+      for (const [g0, g1, top = 2.1, bot = 0] of [...gaps, [L, L, Hh]]) { if (g0 > s) { seg(s, g0, 0, h); col(s, g0); } if (g1 > g0) { seg(g0, g1, top, h); if (bot > 0) { seg(g0, g1, 0, bot); col(g0, g1); } } s = g1; }
       const mesh = new THREE.Mesh(mergeGeometries(geos), m); mesh.castShadow = true; mesh.receiveShadow = true; world.add(mesh);
       this.walls.push({ m, ax: X(ax), az, bx: X(bx), bz });
       return mesh;
     };
-    wall(tex.kitchen, 0, -4.5, 6, -4.5, [[2.6, 4.0, 2.2]]);  wall(tex.paper, -6, -4.5, 0, -4.5, [[2.2, 3.8, 2.2]]);    // nord, finestre sbarrate
+    wall(tex.kitchen, 0, -4.5, 6, -4.5, [[2.6, 4.0, 2.2, 0.88]]);  wall(tex.paper, -6, -4.5, 0, -4.5, [[2.2, 3.8, 2.2, 0.88]]);    // nord, finestre sbarrate
     wall(tex.paper, -6, -4.5, -6, 2);  wall(tex.tiles, -6, 2, -6, 4.5);                                                // ovest
     wall(tex.kitchen, 6, -4.5, 6, 0.5); wall(tex.paper, 6, 0.5, 6, 2, [[0.05, 1.45]]); wall(tex.paper, 6, 2, 6, 6.6);   // est, porta d'ingresso
     wall(tex.tiles, -6, 4.5, -3, 4.5); wall(tex.paper, -3, 4.5, 2.5, 4.5); wall(tex.kitchen, 2.5, 4.5, 6, 4.5, [[2.1, 2.9, 1.25]]);   // sud, la botola
@@ -3204,7 +3225,7 @@ const CH1 = {
     { const cl = new THREE.Mesh(new THREE.CircleGeometry(0.22, 24), new THREE.MeshBasicMaterial({ map: clockTex() })); cl.position.set(X(1.2), F + 1.9, -4.43); world.add(cl); }
     const tableTop = box(mat(0x6a5038, { roughness: 0.7 }), 2.2, 3.4, F + 0.72, F + 0.77, -2.2, -1.4, false);
     for (const [x, z] of [[2.28, -2.12], [3.32, -2.12], [2.28, -1.48], [3.32, -1.48]]) box(mat(0x4a3826), x - 0.03, x + 0.03, F, F + 0.72, z - 0.03, z + 0.03, false);
-    addBox(X(2.2), X(3.4), -2.2, -1.4);
+    addBox(X(2.2), X(3.4), -2.2, -1.4).low = true;
     box(mat(0xb8b4a0), 2.25, 3.35, F + 0.775, F + 0.78, -2.15, -1.45, false);   // tovaglia cerata
     const plateM = mat(0xe8e6de, { roughness: 0.35 });
     for (const [x, z, food] of [[2.6, -1.62, false], [3.0, -1.98, true]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.02, 18), plateM); p.position.set(X(x), F + 0.79, z); world.add(p);
@@ -3215,7 +3236,7 @@ const CH1 = {
       for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.45, 0.035), cm); l.position.set(lx, 0.225, lz); g.add(l); }
       g.position.set(X(x), F, z); g.rotation.y = rot; shadowAll(g); ink(g); world.add(g); return g; };
     this.chairA = chair(2.6, -1.05, Math.PI); this.chairB = chair(3.0, -2.55, 0);
-    this.chairBox = addOBB(X(3.0), -2.55, 0.24, 0.24, 0);
+    this.chairBox = addOBB(X(3.0), -2.55, 0.24, 0.24, 0); this.chairBox.low = true;
     // stufa a legna (буржуйка) con la canna fumaria che entra nel muro
     { const g = new THREE.Group(), iron = mat(0x1e2022, { metalness: 0.7, roughness: 0.45 });
       const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.75, 18), iron); body.position.y = 0.6; g.add(body);
@@ -3246,12 +3267,12 @@ const CH1 = {
       const tv = new THREE.Mesh(new RoundedBoxGeometry(0.55, 0.55, 0.7, 2, 0.04), mat(0x3a2a1c, { roughness: 0.5 })); tv.position.y = 0.83; g.add(tv);
       this.tvC = document.createElement('canvas'); this.tvC.width = 64; this.tvC.height = 48; this.tvTex = new THREE.CanvasTexture(this.tvC);
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.36), new THREE.MeshBasicMaterial({ map: this.tvTex })); scr.rotation.y = Math.PI / 2; scr.position.set(0.28, 0.85, -0.06); g.add(scr);
-      g.position.set(X(-5.55), F, -1.6); shadowAll(g); world.add(g); addBox(X(-5.85), X(-5.25), -2.1, -1.1);
+      g.position.set(X(-5.55), F, -1.6); shadowAll(g); world.add(g); addBox(X(-5.85), X(-5.25), -2.1, -1.1).low = true;
       this.tvLight = new THREE.PointLight(0x9ab4ff, 2, 6, 1.6); this.tvLight.position.set(X(-4.9), F + 0.9, -1.6); world.add(this.tvLight); }
     { const sofa = new THREE.Group(), fab = mat(0x5a3a32, { roughness: 1 });
       const seat = new THREE.Mesh(new RoundedBoxGeometry(0.8, 0.42, 1.9, 2, 0.08), fab); seat.position.y = 0.21; sofa.add(seat);
       const back = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.85, 1.9, 2, 0.08), fab); back.position.set(0.32, 0.42, 0); sofa.add(back);
-      sofa.position.set(X(-2.4), F, -1.6); shadowAll(sofa); ink(sofa); world.add(sofa); addBox(X(-2.8), X(-2.0), -2.55, -0.65); }
+      sofa.position.set(X(-2.4), F, -1.6); shadowAll(sofa); ink(sofa); world.add(sofa); addBox(X(-2.8), X(-2.0), -2.55, -0.65).low = true; }
     box(mat(0x7a2a24, { roughness: 1 }), -4.6, -3.0, F, F + 0.012, -2.6, -0.6, false);                       // tappeto
     { const lp = new THREE.Group(); const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 0.26, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xd8b060, emissive: 0xc08a30, emissiveIntensity: 0.8, side: THREE.DoubleSide }));
       sh.position.y = 1.45; lp.add(sh); const st = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 6), mat(0x2a2620)); st.position.y = 0.7; lp.add(st);
@@ -3266,7 +3287,7 @@ const CH1 = {
       this.handset = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.05, 0.06, 2, 0.02), mat(0x8a1a16, { roughness: 0.4 })); this.handset.position.y = 0.07; ph.add(this.handset);
       ph.position.set(X(-0.52), F + 0.67, 0); world.add(ph); }
     // CORRIDOIO: la porta d'ingresso, tre mandate
-    { const door = box(mat(0x6a4a32, { roughness: 0.6 }), 5.9, 5.96, F, F + 2.05, 0.6, 1.9, false);
+    { const door = box(mat(0x6a4a32, { roughness: 0.6 }), 5.9, 5.96, F, F + 2.05, 0.6, 1.9, false); addBox(X(5.84), X(6.12), 0.5, 2.0);
       for (let k = 0; k < 3; k++) box(mat(0xb0a080, { metalness: 0.8, roughness: 0.3 }), 5.84, 5.9, F + 0.9 + k * 0.22, F + 0.98 + k * 0.22, 0.72, 0.8, false);
       this.doorSnow = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.55), new THREE.MeshStandardMaterial({ color: 0xe8eef4, roughness: 0.9, transparent: true, opacity: 0 })); this.doorSnow.rotation.x = -Math.PI / 2; this.doorSnow.position.set(X(5.62), F + 0.006, 1.25); world.add(this.doorSnow); }
     box(mat(0x3e2c1e), -5.9, -5.4, F, F + 1.9, 0.6, 1.9);                                                     // attaccapanni
@@ -3431,7 +3452,7 @@ const CH1 = {
     cable([-21, 9.2, 10], [-14, 9.5, -11.0], 1.6);
     cable([-14.5, 2.2, 9.0], [-7.5, 2.2, 9.6], 0.25, 0.012);
     this.barrel = makeFireBarrel(L1.BARREL.x, L1.BARREL.z);
-    addBox(-3, 0, 6.5, 9.5);
+    addBox(-3, 0, 6.5, 9.5).low = true;
     CIRCLES.push([7.5, 6, 1.6], [0.6, 4, 0.25], [3.4, 4, 0.25]);
     // presenze: la sagoma sotto il lampione, l'uomo che zoppica
     this.lampFig = makeFigure('ghost', { timer: 1e9 });
