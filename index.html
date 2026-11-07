@@ -230,7 +230,7 @@
   <div class="chap">COLD CYCLE</div>
   <div class="chapters">
     <button class="vhs ch" data-ch="1">I · IL CORTILE<small>qualcuno è uscito prima di te</small></button>
-    <button class="vhs ch" data-ch="2">II · LA FERMATA DEL FILOBUS<small>il silenzio della città</small></button>
+    <button class="vhs ch" data-ch="2">II · LA FERMATA<small>il prossimo passaggio è già avvenuto</small></button>
     <button class="vhs ch" data-ch="3">III · IL POSTO DI BLOCCO<small>chi non respira</small></button>
     <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
     <button class="vhs ch" data-ch="5">V · L'OSPEDALE N. 3<small>le provette</small></button>
@@ -245,7 +245,7 @@
   <div class="bag-docs"><div class="lbl">DOCUMENTI E INDIZI</div><div id="bagDocs"></div></div>
 </div></div>
 <div id="tp" class="screen hide"><div class="bag-panel">
-  <div class="bag-head"><span>ТП-4 · ЩИТ</span><button class="vhs" id="tpClose" aria-label="Chiudi il quadro">✕</button></div>
+  <div class="bag-head"><span id="tpTitle">ТП-4 · ЩИТ</span><button class="vhs" id="tpClose" aria-label="Chiudi il quadro">✕</button></div>
   <canvas id="tpSchema" width="560" height="230"></canvas>
   <div class="tp-sw" id="tpSw"></div>
   <div class="bag-desc" id="tpMsg"></div>
@@ -2822,6 +2822,11 @@ const ITEMS = {
   legna: { icon: null, img: drawIcon(x => { x.fillStyle = '#6a4a2a'; for (let k = 0; k < 3; k++) { x.fillRect(-34, -22 + k * 16, 68, 12); x.fillStyle = k % 2 ? '#6a4a2a' : '#7a5a34'; } x.fillStyle = '#c8a070'; x.beginPath(); x.arc(-34, -16, 6, 0, 7); x.fill(); }), name: 'Legna', desc: 'Pezzi di legna piccoli e secchi, dalla cassa del ripostiglio.' },
   radioCampo: { icon: null, img: drawIcon(x => { x.fillStyle = '#3f4a35'; x.fillRect(-34, -18, 68, 40); x.fillStyle = '#1a1e18'; x.beginPath(); x.arc(-14, 2, 11, 0, 7); x.fill(); x.fillStyle = '#9a9a8a'; x.fillRect(6, -8, 20, 6); x.fillRect(24, -44, 3, 28); }), name: 'Radio da campo', desc: 'Senza batterie. Il selettore è bloccato su una frequenza sconosciuta. Una volta ha detto il mio cognome.', have: () => state.items.has('radioCampo') || state.chapter > 1 },
   chiaveGarage: { icon: null, img: keyIcon, name: 'Chiave «ГАРАЖ №4»', desc: 'Fredda, macchiata di ruggine. Sul retro della targhetta è inciso 0417.' },
+  cartaRete: { icon: null, img: drawIcon(x => { x.fillStyle = '#d8d0b8'; x.fillRect(-36, -28, 72, 56); x.strokeStyle = '#2a3a6a'; x.lineWidth = 3; x.beginPath(); x.moveTo(-30, 10); x.lineTo(-6, -14); x.lineTo(20, 4); x.lineTo(32, -20); x.stroke(); x.strokeStyle = '#a02a20'; x.beginPath(); x.moveTo(-30, -20); x.lineTo(30, 20); x.stroke(); }), name: 'Cartina della rete', desc: 'Dall\'УАЗ militare. La rete elettrica dei filobus, con i numeri dei cavi. Sul retro: «Segui quello che manca.»' },
+  leva: { icon: null, img: drawIcon(x => { x.fillStyle = '#5a5e62'; x.save(); x.rotate(-0.6); x.fillRect(-6, -40, 12, 80); x.restore(); }), name: 'Leva manuale', desc: 'Dal vano attrezzi del filobus. Serve a sollevare le saracinesche bloccate.' },
+  tesseraAntonov: { icon: null, img: paperIcon, name: 'Tessera di Antonov', desc: 'Tessera di servizio di Sergej Antonov, conducente. Sul retro: «Non far partire dopo le 23:40.»' },
+  planimetria: { icon: null, img: paperIcon, name: 'Planimetria dei percorsi', desc: 'I percorsi urbani dello ЗАТО-42. Il percorso 6 arriva fino alla Casa della Cultura.' },
+  bigliettoBus: { icon: null, img: paperIcon, name: 'Biglietto · posto 17', desc: '«МЕСТО 17 — ВОРОНИН». Sul retro: «ТЫ УЖЕ ЕХАЛ.» Sei già salito.' },
   piantina: { icon: null, img: drawIcon(x => { x.fillStyle = '#d8d0b8'; x.beginPath(); x.moveTo(-34, -28); x.lineTo(34, -28); x.lineTo(30, 6); x.lineTo(10, 28); x.lineTo(-34, 28); x.fill(); x.strokeStyle = '#3a3630'; x.lineWidth = 3; x.strokeRect(-26, -20, 20, 14); x.strokeRect(-26, 4, 40, 10); x.fillStyle = '#b0221c'; x.beginPath(); x.arc(18, -12, 6, 0, 7); x.fill(); }), name: 'Piantina del cortile', desc: 'Incompleta, manca un pezzo del foglio. Un segno rosso sulla cabina elettrica «ТП-4».' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
@@ -3574,7 +3579,7 @@ const CH1 = {
     say(['Il cancello si apre con uno strattone.', 'Ma davanti a me, nella neve, c\'è una serie di impronte profonde. Partono dal cancello e attraversano il cortile, verso il palazzo.']);
   },
   openTP() {
-    if (!$('tp')) return; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); this.renderTP(); this.drawSchema();
+    if (!$('tp')) return; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); $('tpTitle').textContent = 'ТП-4 · ЩИТ'; $('tpDrawer').style.display = ''; $('tpSw').style.gridTemplateColumns = ''; this.renderTP(); this.drawSchema();
   },
   closeTP() { $('tp').classList.add('hide'); state.paused = false; },
   drawSchema() {
@@ -3826,7 +3831,7 @@ const CH1 = {
   },
   ending() {
     return { text: 'La camera si abbassa verso i miei stivali. La suola è identica.<br><br>Non ho trovato le tracce di qualcuno che mi precede. Ho trovato le tracce di qualcuno che sa esattamente dove andrò.',
-      next: 2, nextLabel: 'CAPITOLO II · LA FERMATA DEL FILOBUS' };
+      next: 2, nextLabel: 'CAPITOLO II · LA FERMATA' };
   },
 };
 
@@ -3835,7 +3840,9 @@ const CH1 = {
    Il viale Энергетиков. Un filobus intrappolato sotto i cavi crollati, ancora sotto tensione.
    I primi vuoti di memoria, le prime figure ferme nella nebbia.
    ===================================================================== */
-const L2 = { TROLL: { x: 2, z: -2.2, r: 0.12 }, TRUCK: { x: -18, z: 3.6, r: -0.3 }, LADA: { x: -2.5, z: 3.9, r: 2.9 },
+const L2 = { UAZ: { x: -24.5, z: 2.0 }, BOOTH: { x: -23.8, z: -10.5 }, SIGN: { x: -20.5, z: -7.4 }, MAIL: { x: -18.6, z: -11.75 }, BOARD: { x: -2.4, z: -9.0 }, PAY: { x: -9.0, z: -9.9 },
+  PANEL: { x: 6.4, z: 7.6 }, ROOM: { x0: 20.5, x1: 25.5, z0: -11.3, z1: -7.6 }, NINA: { x: -5.0, z: -9.9 },
+  TROLL: { x: 2, z: -2.2, r: 0.12 }, TRUCK: { x: -18, z: 3.6, r: -0.3 }, LADA: { x: -2.5, z: 3.9, r: 2.9 },
   SHELTER: { x0: -8, x1: -3, z0: -11.1, z1: -8.7 }, KIOSK: { x: -12.75, z: -9.7 }, BARREL: { x: -10, z: -7.4 },
   POLES: [-28, -12, 4, 20], WIRE_Y: 5.9, CABLE_X: [14.4, 17.6], EXIT_X: 27.5 };
 function ground2(x, z) {
@@ -3869,7 +3876,8 @@ function makeTrolleybus(cx, cz, r) {
   add(new THREE.BoxGeometry(3, 0.4, 1.6), grayM, -2.2, 2.95, 0);
   add(new RoundedBoxGeometry(11.2, 0.26, 2.42, 2, 0.1), plainSnowMat, 0, 2.9, 0);
   add(new THREE.BoxGeometry(0.06, 1.0, 2.2), glass, 5.72, 2.0, 0);
-  const rt7 = textTex(['7'], 128, 64, '#101318', '#ffd27a', 'bold 48px monospace');
+  const rt7 = textTex(['6'], 128, 64, '#101318', '#ffd27a', 'bold 48px monospace');
+  add(new THREE.PlaneGeometry(0.9, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['0417'], 128, 44, '#d8cfb8', '#1a1a1a', 'bold 34px monospace') }), 2.2, 0.95, 1.262);
   add(new THREE.BoxGeometry(0.06, 0.32, 1.1), new THREE.MeshStandardMaterial({ map: rt7, emissive: 0x332200, roughness: 0.6 }), 5.74, 2.62, 0);
   for (const dx of [-3.4, 0.4, 4.2]) add(new THREE.BoxGeometry(1.1, 1.95, 0.06), new THREE.MeshBasicMaterial({ color: 0x030405 }), dx, 1.4, 1.27);   // porte aperte
   const wg = new THREE.CylinderGeometry(0.5, 0.5, 0.32, 18); wg.rotateX(Math.PI / 2);
@@ -3932,9 +3940,11 @@ function mosaicTex() {
 }
 
 const CH2 = {
-  id: 2, roman: 'II', name: 'La fermata del filobus', clueCount: 3, cold: 0.27, attention: true,
-  docs: { pass: 'Tesserino n. 0417 · Voronin D. A. · valido dal 1° marzo 1991', giornale: 'Правда del 12 febbraio 1991 · «prova conclusa con successo»',
-    filobus: 'Cassetta del filobus n. 7 · la mia voce: «non tornare indietro sulla tua strada»' },
+  id: 2, roman: 'II', name: 'La fermata', clueCount: 5, cold: 0.27, attention: true,
+  docs: { pass: 'Tesserino n. 0417 · Voronin D. A. · ТЭЦ, servizio di esercizio', giornale: 'Правда del 12 febbraio 1991 · un tecnico della ТЭЦ scomparso nel turno di notte · il nome è strappato',
+    nastro: 'Cassetta del filobus 0417 · la mia voce: «Controlla il numero del mezzo. Se è lo stesso… scendi.» In fondo, tre colpi metallici.',
+    registro: 'Registro delle corse · 12.02.1991 · 23:40 · Маршрут 6 · filobus 0417 · «ВОРОНИН Д. А. — ПАССАЖИР»',
+    armadietto: 'Documento 417 · «НОМЕР 417 — ВОСТРЕБОВАТЬ» · numero 417, da ritirare. Nessun nome, nessun edificio.' },
   start: { x: -26.5, z: -8.6, heading: Math.PI / 2 }, bounds: [-30.5, 30.5, -11.4, 10.6],
   env() { setSun(16, -0.55, 0.83); scene.fog.density = 0.0125; hemi.intensity = 0.52; },
   shelter(x, z) { const S = L2.SHELTER; return x > S.x0 && x < S.x1 && z > S.z0 && z < S.z1 + 0.6; },
@@ -3956,6 +3966,9 @@ const CH2 = {
     walkTrail(t => ({ x: -12 + Math.cos(t * Math.PI * 4) * 1.5, z: 7.2 + Math.sin(t * Math.PI * 4) * 1.5 }), 0.85, 0.82, 0.0, trnd);
     // vecchie tracce di chi è fuggito verso ovest
     for (let k = 0; k < 3; k++) walkTrail(polyPath([[2 + k, -1], [-6, 1 + k], [-20, 2 - k], [-31, 3 + k * 0.5]]), 0.35, 0.9, 0.4);
+    // una traccia di sangue che finisce contro un muro senza aperture
+    { const pp = polyPath([[-24.6, -6.4], [-27.4, -9.2], [-29.1, -11.7]]), r = mulberry32(77);
+      for (let t = 0; t <= 1; t += 0.012) { const p = pp(t), [cx, cy] = toC(p.x + (r() - 0.5) * 0.3, p.z + (r() - 0.5) * 0.3); cCtx.fillStyle = `rgba(${80 + r() * 30},14,12,${0.45 + r() * 0.35})`; cCtx.beginPath(); cCtx.arc(cx, cy, (0.03 + r() * 0.06) * CPPU, 0, 7); cCtx.fill(); } }
   },
   build() {
     // palazzi lungo il lato nord (dietro rispetto alla camera: non coprono la visuale)
@@ -4055,10 +4068,10 @@ const CH2 = {
     cable([4, 4.7, 6.95], [4, WY, 2.6], 0.2, 0.015);
     this.truck = makeRepairTruck(L2.TRUCK.x, L2.TRUCK.z, L2.TRUCK.r);
     // filobus, auto abbandonate
-    makeTrolleybus(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r);
+    this.bus = makeTrolleybus(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r); this.busBox = BOXES[BOXES.length - 1];
     makeCar({ x: L2.LADA.x, z: L2.LADA.z, rot: L2.LADA.r, color: 0x7a2a22, buried: 0.4, kind: 'lada', state: 'ok' });
     makeCar({ x: 10.2, z: -4.4, rot: 0.45, color: 0x3d5a46, buried: 0.6 });
-    makeCar({ x: -24.5, z: 2.0, rot: 0.08, color: 0xbab6aa, buried: 0.9 });
+    makeCar({ x: L2.UAZ.x, z: L2.UAZ.z, rot: 0.08, color: 0x4a5a3a, buried: 0.25, kind: 'uaz' });
     makeCar({ x: 23.5, z: 3.4, rot: -0.2, color: 0x45505a, buried: 0.7 });
     makeCar({ x: -20.5, z: -3.6, rot: 3.05, color: 0x5a4a3a, buried: 0.8 });
     [[-22, 9.2, 81, 0.9], [-1.5, 9.4, 83, 0.85], [9, 9.3, 87, 0.95], [26.5, 9.0, 89, 0.85], [-30, -9.2, 91, 0.8]].forEach(([x, z, s, k]) => makeTree(x, z, s, k));
@@ -4077,135 +4090,316 @@ const CH2 = {
     const roofFig = makeFigure('watcher', { x: 4.4, z: -2.5, yOff: groundH(2, -2.2) + 3.0, timer: 0, need: () => state.clues.has('pass') });
     makeFigure('stalker', { cool: 25 });
     this.roofFig = roofFig;
-    this.nina = makeNina(25.5, 1.0); this.nina.group.visible = false; this.ninaState = 'hidden';
-    this.ninaFire = { x: 25.5, z: 1.0, lit: false, lantern: true, update() {} }; fires.push(this.ninaFire);   // la lanterna scalda e tiene lontane le figure
-    this.ninaCircle = [25.5, 1.0, 0]; CIRCLES.push(this.ninaCircle);
+    this.nina = makeNina(L2.NINA.x, L2.NINA.z); this.nina.group.visible = false; this.ninaState = 'hidden';
+    this.ninaFire = { x: L2.NINA.x, z: L2.NINA.z, lit: false, lantern: true, update() {} }; fires.push(this.ninaFire);
+    this.ninaCircle = [L2.NINA.x, L2.NINA.z, 0]; CIRCLES.push(this.ninaCircle);
+    // ---- nuovo Capitolo II: la fermata del percorso 6
+    const mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.7 }, o));
+    // cabina telefonica col ricevitore sollevato, vicino al garage
+    { const B = L2.BOOTH, g = new THREE.Group(); g.position.set(B.x, groundH(B.x, B.z), B.z);
+      const fr = mt(0xa82a20, { metalness: 0.3 }), gl = new THREE.MeshStandardMaterial({ color: 0x9ab0b8, roughness: 0.1, transparent: true, opacity: 0.35 });
+      for (const [x, z] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.3, 0.08), fr); p.position.set(x, 1.15, z); g.add(p); }
+      const rf = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 1.1), fr); rf.position.y = 2.35; g.add(rf);
+      const rsn = new THREE.Mesh(pillow(1.0, 0.14, 1.0, 211, 8), plainSnowMat); rsn.position.y = 2.42; g.add(rsn);
+      for (const [w, d, x, z] of [[1, 0.02, 0, -0.5], [0.02, 1, -0.5, 0], [0.02, 1, 0.5, 0]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(w, 1.9, d), gl); p.position.set(x, 1.2, z); g.add(p); }
+      const ph = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.15), mt(0x2a2c2e, { metalness: 0.5 })); ph.position.set(0, 1.4, -0.42); g.add(ph);
+      const hs = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.06), mt(0x1a1a1a)); hs.position.set(0.1, 0.75, -0.3); hs.rotation.z = 0.3; g.add(hs);   // il ricevitore penzola
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.18), new THREE.MeshStandardMaterial({ map: textTex(['ТЕЛЕФОН'], 256, 52, '#a82a20', '#f2f0e8', 'bold 34px monospace') })); sign.position.set(0, 2.15, 0.56); g.add(sign);
+      shadowAll(g); world.add(g); addBox(B.x - 0.55, B.x + 0.55, B.z - 0.55, B.z + 0.25); }
+    // cartello stradale verso la fermata 6, cassetta postale
+    { const g = new THREE.Group(); g.position.set(L2.SIGN.x, groundH(L2.SIGN.x, L2.SIGN.z), L2.SIGN.z);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), ironMat); p.position.y = 1.2; g.add(p);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.42), new THREE.MeshStandardMaterial({ map: textTex(['ОСТАНОВКА  →', 'МАРШРУТ 6'], 256, 84, '#1a3a8a', '#f2f0e8', 'bold 26px monospace'), side: THREE.DoubleSide })); s.position.set(0.5, 2.2, 0); g.add(s);
+      shadowAll(g); world.add(g); CIRCLES.push([L2.SIGN.x, L2.SIGN.z, 0.12]); }
+    { const mb = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.6, 0.25, 2, 0.05), mt(0x2a4a8a, { metalness: 0.3 })); mb.position.set(L2.MAIL.x, groundH(L2.MAIL.x, L2.MAIL.z) + 1.1, L2.MAIL.z); world.add(mb); }
+    // il tabellone della fermata e il telefono pubblico
+    { this.boardC = document.createElement('canvas'); this.boardC.width = 256; this.boardC.height = 96; this.boardTex = new THREE.CanvasTexture(this.boardC);
+      const g = new THREE.Group(); g.position.set(L2.BOARD.x, groundH(L2.BOARD.x, L2.BOARD.z), L2.BOARD.z);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), ironMat); p.position.y = 1.0; g.add(p);
+      const bx = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.48, 0.12), mt(0x1a1c1e)); bx.position.y = 2.2; g.add(bx);
+      const sc = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.4), new THREE.MeshBasicMaterial({ map: this.boardTex })); sc.position.set(0, 2.2, 0.065); g.add(sc);
+      shadowAll(g); world.add(g); CIRCLES.push([L2.BOARD.x, L2.BOARD.z, 0.12]); this.drawBoard(false); }
+    { const g = new THREE.Group(); g.position.set(L2.PAY.x, groundH(L2.PAY.x, L2.PAY.z), L2.PAY.z);
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.6, 0.12), ironMat); p.position.y = 0.8; g.add(p);
+      const hood = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), mt(0x8a8a80, { metalness: 0.4 })); hood.position.set(0, 1.55, 0.12); g.add(hood);
+      const ph = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.1), mt(0x2a2c2e)); ph.position.set(0, 1.45, 0.3); g.add(ph);
+      shadowAll(g); world.add(g); CIRCLES.push([L2.PAY.x, L2.PAY.z, 0.2]); }
+    // il quadro secondario della linea, dietro il filobus
+    { const g = new THREE.Group(); g.position.set(L2.PANEL.x, groundH(L2.PANEL.x, L2.PANEL.z), L2.PANEL.z);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.4, 0.45), mt(0x5a6a5a, { metalness: 0.5 })); b.position.y = 0.7; g.add(b);
+      const t = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshStandardMaterial({ map: textTex(['⚡ ШР-6'], 128, 52, '#e6c84a', '#1a1a1a', 'bold 28px monospace') })); t.position.set(0, 1.15, -0.231); t.rotation.y = Math.PI; g.add(t);
+      const sn = new THREE.Mesh(pillow(0.85, 0.12, 0.42, 212, 8), plainSnowMat); sn.position.y = 1.42; g.add(sn);
+      shadowAll(g); ink(g); world.add(g); addBox(L2.PANEL.x - 0.45, L2.PANEL.x + 0.45, L2.PANEL.z - 0.23, L2.PANEL.z + 0.23); }
+    this.stopLamp = makeLamp(-5.5, -7.6, 0.2, -1, true, 70);
+    // il locale di servizio oltre i cavi: saracinesca bloccata, registro, telefono interno, armadietto
+    { const R = L2.ROOM, wm = new THREE.MeshStandardMaterial({ color: 0x8d8a80, roughness: 0.95 });
+      const H = 2.8, add = (x0, x1, z0, z1, y0 = 0, y1 = H, m = wm) => { const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); b.position.set((x0 + x1) / 2, groundH(R.x0, R.z0) + (y0 + y1) / 2, (z0 + z1) / 2); b.castShadow = b.receiveShadow = true; world.add(b); return b; };
+      add(R.x0, R.x1, R.z0, R.z0 + 0.15); addBox(R.x0, R.x1, R.z0, R.z0 + 0.15);
+      add(R.x0, R.x0 + 0.15, R.z0, R.z1); addBox(R.x0, R.x0 + 0.15, R.z0, R.z1); add(R.x1 - 0.15, R.x1, R.z0, R.z1); addBox(R.x1 - 0.15, R.x1, R.z0, R.z1);
+      this.roomFront = new THREE.MeshStandardMaterial({ color: 0x8d8a80, roughness: 0.95, transparent: true });
+      add(R.x0, R.x0 + 1.0, R.z1 - 0.15, R.z1, 0, H, this.roomFront); add(R.x1 - 1.0, R.x1, R.z1 - 0.15, R.z1, 0, H, this.roomFront); add(R.x0 + 1.0, R.x1 - 1.0, R.z1 - 0.15, R.z1, 2.3, H, this.roomFront);
+      addBox(R.x0, R.x0 + 1.0, R.z1 - 0.15, R.z1); addBox(R.x1 - 1.0, R.x1, R.z1 - 0.15, R.z1);
+      this.roomRoof = new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9, transparent: true }); this.roomRoofS = new THREE.MeshStandardMaterial({ color: 0xe6ecf2, roughness: 0.95, transparent: true });
+      add(R.x0 - 0.1, R.x1 + 0.1, R.z0 - 0.1, R.z1 + 0.1, H, H + 0.14, this.roomRoof); add(R.x0, R.x1, R.z0, R.z1, H + 0.14, H + 0.4, this.roomRoofS);
+      this.shutter = new THREE.Mesh(new THREE.BoxGeometry(R.x1 - R.x0 - 2.0, 2.3, 0.06), mt(0x6a6e6a, { metalness: 0.6, roughness: 0.5 })); this.shutter.position.set((R.x0 + R.x1) / 2, groundH(R.x0, R.z1) + 1.15, R.z1 + 0.02); world.add(this.shutter); shadowAll(this.shutter);
+      this.shutterBox = addBox(R.x0 + 1.0, R.x1 - 1.0, R.z1 - 0.15, R.z1 + 0.1);
+      const st = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.32), new THREE.MeshStandardMaterial({ map: textTex(['ДИСПЕТЧЕРСКАЯ · МАРШРУТ 6'], 512, 90, '#d8d4c4', '#1a3a8a', 'bold 34px monospace'), transparent: true })); st.position.set((R.x0 + R.x1) / 2, groundH(R.x0, R.z1) + 2.55, R.z1 + 0.04); world.add(st); this.roomSign = st.material;
+      const desk = add(R.x0 + 0.4, R.x0 + 2.0, R.z0 + 0.3, R.z0 + 1.0, 0, 0.8, mt(0x5a4632)); addBox(R.x0 + 0.4, R.x0 + 2.0, R.z0 + 0.3, R.z0 + 1.0).low = true;
+      add(R.x0 + 0.7, R.x0 + 1.2, R.z0 + 0.5, R.z0 + 0.85, 0.8, 0.84, mt(0x8a2a20));                       // il registro
+      add(R.x1 - 0.8, R.x1 - 0.2, R.z0 + 0.25, R.z0 + 0.75, 0, 1.9, mt(0x5a6a62, { metalness: 0.5 })); addBox(R.x1 - 0.8, R.x1 - 0.2, R.z0 + 0.25, R.z0 + 0.75);
+      add(R.x0 + 0.16, R.x0 + 0.22, R.z0 + 1.6, R.z0 + 1.9, 1.2, 1.55, mt(0x2a2c2e));                      // telefono a muro
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.9), new THREE.MeshStandardMaterial({ map: textTex(['СХЕМА МАРШРУТОВ', '— 1 — 3 — 6 —', '          ·  ·  ·'], 256, 160, '#d8d0b8', '#2a3a6a', 'bold 20px monospace') }));
+      pl.position.set((R.x0 + R.x1) / 2 + 0.5, groundH(R.x0, R.z0) + 1.6, R.z0 + 0.16); world.add(pl);
+      this.roomLight = new THREE.PointLight(0xffc070, 0, 6, 1.6); this.roomLight.position.set((R.x0 + R.x1) / 2, groundH(R.x0, R.z0) + 2.3, (R.z0 + R.z1) / 2); world.add(this.roomLight); }
+    // il passeggero dell'ultima fila (quando sbagli circuito)
+    this.rider = makeFigure('watcher', { x: L2.TROLL.x - 4.6, z: L2.TROLL.z + 0.4, yOff: groundH(2, -2.2) + 0.55, timer: 1e9 });
+    this.ticketMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.01, 0.06), new THREE.MeshStandardMaterial({ color: 0xe8e0c0, emissive: 0x302a10 })); this.ticketMesh.visible = false; world.add(this.ticketMesh);
+    this.uazT = 0;
   },
   items() {
-    const S = state, self = this;
-    const door = loc(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r, 0.4, 2.0);
-    const lada = loc(L2.LADA.x, L2.LADA.z, L2.LADA.r, 0.2, 1.5);
-    const rodP = loc(L2.TRUCK.x, L2.TRUCK.z, L2.TRUCK.r, -3.4, 0.4);
+    const S = state, self = this, have = k => state.items.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    const door = loc(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r, 0.4, 2.0), cab = loc(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r, 4.6, 1.9), tools = loc(L2.TROLL.x, L2.TROLL.z, L2.TROLL.r, -5.2, 1.8);
+    const uaz = loc(L2.UAZ.x, L2.UAZ.z, 0.08, 0.3, 1.7), lada = loc(L2.LADA.x, L2.LADA.z, L2.LADA.r, 0.2, 1.5), rodP = loc(L2.TRUCK.x, L2.TRUCK.z, L2.TRUCK.r, -3.4, 0.4), R = L2.ROOM;
     return [
-      { id: 'pass', x: -5.1, z: -9.7, r: 1.6, my: 0.9, label: 'Raccogli il tesserino', clue: true, pick: true,
-        use() { Sound.pick(); self.badge.visible = false;
-          say(['Sotto la pensilina le impronte si fermano. Tre metri più avanti ricominciano. Nessun segno in mezzo.',
-            'Sulla panchina, un tesserino plastificato. ' + RU('ПРОПУСК № 0417 · ВОРОНИН Д. А. · ТЭЦ, служба эксплуатации'),
-            'Valido dal 1° marzo 1991. Ma il mio ultimo ricordo è febbraio.', 'Nella foto sono io. Sorrido. Non ricordo di aver mai sorriso così.'], 'TESSERINO'); } },
-      { id: 'impronte', x: -3.4, z: -8.7, r: 1.3, label: 'Esamina le impronte', marker: false, kneel: true,
-        use() { say(['Mi inginocchio dove le impronte ricominciano. Nessun segno di salto, nessuna neve smossa: cominciano e basta.', 'Appoggio il mio scarpone accanto a una di loro. Combacia. Perfettamente.']); } },
-      { id: 'giornale', x: L2.KIOSK.x, z: L2.KIOSK.z + 1.6, r: 1.5, label: 'Guarda i giornali', clue: true,
-        use() { say(['Nella vetrina dell\'edicola, la Правда del 12 febbraio 1991. In basso, una colonna:', Q('«ЗАТО-42: la prova del ciclo termico si è conclusa con successo. Nessun disagio per la popolazione.»'),
-          'Tutti i giornali esposti hanno la stessa data. Tutti. Anche quelli che dovrebbero essere di oggi.'], 'СОЮЗПЕЧАТЬ'); } },
-      { id: 'fuoco', x: L2.BARREL.x + 0.9, z: L2.BARREL.z + 0.7, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit,
-        use() {
+      // l'uscita dal garage: tre cose fuori posto
+      { id: 'uaz', x: uaz.x, z: uaz.z, r: 1.8, pick: true, label: 'Fruga nell\'УАЗ militare', done: () => have('cartaRete'), use() {
+          if (have('cartaRete')) { say('Il motore è ancora tiepido. Nessuna impronta intorno, tranne le mie.'); return; }
+          S.items.add('cartaRete'); say(['Un УАЗ militare. Il cofano è tiepido: il motore si è spento da poco. Ma non c\'è nessuno, e nessuna impronta intorno.',
+            'Sul sedile, una cartina della rete elettrica dei filobus. Sul retro, a matita:', Q('«Не иди по указанному пути. Иди по тому, которого нет.»'), 'Non seguire il percorso indicato. Segui quello che manca.']); } },
+      { id: 'cabina', x: L2.BOOTH.x, z: L2.BOOTH.z + 0.9, r: 1.3, marker: false, label: 'Cabina telefonica', use() {
+          act(() => Sound.breath(4)); say(['Il ricevitore penzola dal filo. Lo avvicino all\'orecchio.', 'Dall\'altra parte qualcuno respira. Piano. Poi riattacca.']); } },
+      { id: 'cartello', x: L2.SIGN.x + 0.6, z: L2.SIGN.z + 0.4, r: 1.2, marker: false, label: 'Cartello stradale', use() { say('«Fermata — percorso 6». La freccia indica il viale, verso est.'); } },
+      { id: 'posta', x: L2.MAIL.x, z: L2.MAIL.z + 0.7, r: 1.2, marker: false, label: 'Cassetta postale', use() { say(['Lettere ghiacciate, tutte timbrate il 12 febbraio. Indirizzate a gente di questo palazzo.', 'Sulle buste, a timbro: ' + Q('«ЭВАКУИРОВАН»') + '. Evacuato. Tutti.']); } },
+      { id: 'sangue', x: -29.0, z: -11.0, r: 1.3, marker: false, kneel: true, label: 'Esamina la traccia', use() { say(['Gocce scure nella neve. Finiscono qui, contro il muro del palazzo.', 'Nessuna porta. Nessuna finestra. La traccia entra nel muro e basta.']); } },
+      // la fermata
+      { id: 'pass', x: -5.1, z: -9.7, r: 1.6, my: 0.9, label: 'Raccogli il tesserino', clue: true, pick: true, use() {
+          Sound.pick(); self.badge.visible = false;
+          say(['Sulla panchina della pensilina, un tesserino plastificato. ' + RU('ПРОПУСК № 0417 · ВОРОНИН Д. А. · ТЭЦ, служба эксплуатации'),
+            'Il mio numero: 0417. Nella foto sono io. Non ricordo di essermela fatta.'], 'TESSERINO'); } },
+      { id: 'tabellone', x: L2.BOARD.x, z: L2.BOARD.z + 0.9, r: 1.4, my: 2.5, label: 'Tabellone degli orari', done: () => f.board, use() {
+          f.board = true; say(f.finale ? ['Il tabellone è cambiato.', Q('«МАРШРУТ 6 — ДОМ КУЛЬТУРЫ · 23:40»'), 'Percorso 6, Casa della Cultura. Partenza: 23:40.'] : [Q('«ПОСЛЕДНИЙ РЕЙС — 23:40»'), 'Ultima corsa: 23:40. L\'ora che segna il mio orologio. L\'ora che segna ogni orologio.']); } },
+      { id: 'giornale', x: L2.KIOSK.x, z: L2.KIOSK.z + 1.6, r: 1.5, label: 'Guarda i giornali', clue: true, use() {
+          say(['Nella vetrina dell\'edicola, la Правда del 12 febbraio 1991. In basso, un trafiletto:', Q('«Scomparso durante il turno di notte un tecnico della ТЭЦ. Chiunque abbia notizie di ████████ è pregato di…»'),
+            'Il nome è strappato via. Tutti i giornali esposti hanno la stessa data.'], 'СОЮЗПЕЧАТЬ'); } },
+      { id: 'telefono', x: L2.PAY.x, z: L2.PAY.z + 0.8, r: 1.3, my: 1.6, label: () => f.call0417 ? 'Telefono pubblico' : 'Telefono pubblico', done: () => f.call0417, use() {
+          if (f.call0417) { say('Il telefono è muto. Funziona solo quando vuole lui.'); return; }
+          if (!S.clues.has('pass')) { say(['Il telefono ha il segnale. Funzionerà per pochi secondi.', 'Ma che numero dovrei chiamare?']); return; }
+          f.call0417 = true; act(() => { Sound.click(); setTimeout(() => Sound.click(), 250); setTimeout(() => Sound.click(), 500); setTimeout(() => Sound.click(), 750); setTimeout(() => Sound.radio(0.8), 1200); });
+          say(['Il segnale c\'è. Compongo l\'unico numero che ho: quello del tesserino. Zero, quattro, uno, sette.', 'Squilla una volta. Risponde una voce d\'uomo.']);
+          say('«Не садись в троллейбус.» Non prendere il filobus.', 'VOCE');
+          say('Poi un rumore di fondo, e la linea muore.'); } },
+      // il filobus 0417
+      { id: 'nastro', x: door.x, z: door.z, r: 1.7, label: () => S.clues.has('nastro') ? 'Riascolta la cassetta' : 'Sali sul filobus', clue: true, repeat: true, needs: () => S.torch, done: () => f.tape2, use() {
+          if (!S.torch) { S.clues.delete('nastro'); say(['Le porte del filobus sono aperte. Dentro è buio pesto.', S.battery > 0 ? RU('[Accendi la torcia: tasto T o pulsante TORCIA]') : 'La torcia è scarica. Mi serve una pila: forse in una delle auto.']); return; }
+          Sound.tape();
+          if (!f.tape) { f.tape = true;
+            say(['Il riscaldamento è spento, ma i vetri sono appannati dall\'interno. Sul cruscotto, un registratore «Электроника». Premo PLAY.',
+              Q('«Se sei arrivato fin qui, significa che non hai ascoltato. Non guardare il tabellone. Controlla il numero del mezzo. Se è lo stesso… scendi.»'),
+              'È la mia voce. Sul fianco del filobus, il numero di matricola: 0417.'], 'FILOBUS 0417'); return; }
+          f.tape2 = true; act(() => setTimeout(() => Sound.knock(0), 1800));
+          say(['Riavvolgo il nastro e lo riascolto. Stesse parole.', 'Ma in fondo, dove prima sentivo solo fruscio, c\'è dell\'altro: tre colpi metallici.', 'Gli stessi tre colpi che mi hanno svegliato.']); } },
+      { id: 'guida', x: cab.x, z: cab.z, r: 1.4, label: 'Posto di guida', needs: () => S.torch, gone: () => !f.tape, done: () => have('tesseraAntonov'), use() {
+          if (have('tesseraAntonov')) { say('Sul sedile del conducente, la neve fresca non si scioglie.'); return; }
+          S.items.add('tesseraAntonov'); say(['Sul sedile del conducente c\'è neve fresca. Come se qualcuno fosse appena sceso.', 'Infilata nel parasole, una tessera di servizio: ' + Q('«АНТОНОВ СЕРГЕЙ — ВОДИТЕЛЬ»') + '. Sul retro, a penna:', Q('«Не запускать после 23:40.»') + ' — Non far partire dopo le 23:40.']); } },
+      { id: 'attrezzi', x: tools.x, z: tools.z, r: 1.5, pick: true, label: 'Vano attrezzi del filobus', gone: () => have('leva') || !f.tape, use() { S.items.add('leva'); say('Nello sportello posteriore, il vano attrezzi. Una leva manuale per le saracinesche, di ferro pieno.'); } },
+      // i cavi caduti
+      { id: 'batteria', x: lada.x, z: lada.z, r: 1.6, label: 'Fruga nella ВАЗ rossa', pick: true, marker: false, gone: () => f.bat2, use() { f.bat2 = true; addBattery(55); say('Nel cassetto della ВАЗ c\'è una pila quadrata da 4,5 volt, ancora buona.'); } },
+      { id: 'cibo', x: -12.4, z: -11.0, r: 1.5, my: 1.2, label: 'Entra nel ГАСТРОНОМ', pick: true, marker: false, gone: () => f.food2, use() { f.food2 = true; S.cans += 3; eat(['Scavalco la vetrina sfondata del ГАСТРОНОМ. Scaffali pieni di scatolette tutte uguali, «Килька в томате».', 'Nessuno ha saccheggiato niente. Ne mangio una e altre tre finiscono nello zaino.']); } },
+      { id: 'fuoco', x: L2.BARREL.x + 0.9, z: L2.BARREL.z + 0.7, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit, use() {
           if (self.barrel.lit) { say('Il fuoco crepita. Finché resto nella sua luce, niente si avvicina.'); return; }
           self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L2.BARREL.x + 1.2, z: L2.BARREL.z + 0.9 };
-          say(['Qualcuno ha lasciato un bidone pronto, con legna asciutta. Chi aspettava il filobus si scaldava qui.', 'Accendo. Se dovessi perdere di nuovo i sensi… mi ritroverò qui.']);
-        } },
-      { id: 'cibo', x: -12.4, z: -11.0, r: 1.5, my: 1.2, label: 'Entra nel ГАСТРОНОМ', pick: true, gone: () => S.flags.food2,
-        use() { S.flags.food2 = true; S.cans += 3; eat(['Scavalco la vetrina sfondata del ГАСТРОНОМ. Gli scaffali sono pieni: file di scatolette tutte uguali, «Килька в томате».',
-          'Nessuno ha saccheggiato niente. Come se la gente fosse sparita a metà di un gesto. Ne mangio una e altre tre finiscono nello zaino.']); } },
-      { id: 'filobus', x: door.x, z: door.z, r: 1.7, label: 'Sali sul filobus n. 7', clue: true, needs: () => S.torch,
-        use() {
-          if (!S.torch) { say(['Le porte del filobus numero 7 sono aperte. Dentro è buio pesto.', S.battery > 0 ? RU('[Accendi la torcia: tasto T o pulsante TORCIA]') : 'La torcia è scarica. Mi serve una pila: forse in una delle auto.']); return; }
-          Sound.tape();
-          say(['Il fascio della torcia scivola sui sedili: borse, guanti, un cappello. Lasciati a metà viaggio. Il conducente non c\'è.',
-            'Sul cruscotto, un registratore a cassette «Электроника». Premo PLAY.',
-            Q('«…se stai ascoltando, Dmitri, hai già perso il conto. Non fidarti delle impronte. Non fidarti del tuo passo. Non tornare indietro sulla tua strada: loro la seguono…»'),
-            'È la mia voce.'], 'FILOBUS N. 7');
-          setTimeout(() => { tell('cables0', 'Le impronte escono dal filobus e vanno verso est, dove i cavi sono crollati sul viale.'); }, 400);
-        } },
-      { id: 'batteria', x: lada.x, z: lada.z, r: 1.6, label: 'Fruga nella ВАЗ rossa', pick: true, gone: () => S.flags.bat2,
-        use() { S.flags.bat2 = true; addBattery(55); say('Nel cassetto della ВАЗ c\'è una pila quadrata da 4,5 volt, ancora buona. E un biglietto del filobus, obliterato il 12 febbraio.'); } },
-      { id: 'cavi', x: 13.2, z: 0.2, r: 2.2, marker: false, label: 'Esamina i cavi',
-        use() { S.flags.cables = true; say(S.flags.powerOff ? 'I cavi sono morti. Posso passare.' : ['I fili del filobus sono crollati sul viale e lo sbarrano da un marciapiede all\'altro. Sfrigolano, scintillano: la linea è ancora sotto tensione.', 'Per passare devo togliere corrente a questa sezione. Ci deve essere un sezionatore su uno dei pali.']); } },
-      { id: 'asta', x: rodP.x, z: rodP.z, r: 1.7, label: 'Prendi l\'asta dal camion', pick: true, gone: () => S.items.has('asta'),
-        use() { Sound.pick(); S.items.add('asta'); self.truck.rod.visible = false;
-          say(['Il camion della squadra di pronto intervento della rete filoviaria. Sul pianale, un\'asta isolante a strisce.',
-            'Legato all\'asta, un biglietto: ' + Q('«Sezionatore n. 3 — palo davanti al filobus, lato sud. Non aprire senza il permesso del dispatcher.»'), 'Il dispatcher non risponderà mai più.'], 'АВАРИЙНАЯ'); } },
-      { id: 'sezionatore', x: 4.0, z: 6.2, r: 1.6, my: 3.5, label: 'Sezionatore sul palo', done: () => S.flags.powerOff,
-        use() {
-          if (S.flags.powerOff) { say('La leva è abbassata. Silenzio.'); return; }
-          if (!S.items.has('asta')) { say(['Sul palo, a quattro metri, una cassetta con una leva rossa e un anello: il sezionatore della linea.', 'Non ci arrivo, e toccarlo a mani nude sarebbe la fine. Serve un\'asta isolante.']); return; }
-          self.switchOff(); } },
+          say(['Qualcuno ha lasciato un bidone pronto, con legna asciutta. Chi aspettava il filobus si scaldava qui.', 'Se dovessi perdere di nuovo i sensi… mi ritroverò qui.']); } },
+      { id: 'asta', x: rodP.x, z: rodP.z, r: 1.7, label: 'Prendi l\'asta dal camion', pick: true, gone: () => have('asta'), use() {
+          S.items.add('asta'); self.truck.rod.visible = false; say(['Il camion della squadra di pronto intervento. Sul pianale, un\'asta isolante a strisce.', 'Con questa si possono spostare i fili. Ma solo se non c\'è corrente.'], 'АВАРИЙНАЯ'); } },
+      { id: 'quadro', x: L2.PANEL.x, z: L2.PANEL.z - 0.8, r: 1.4, label: 'Quadro secondario della linea', done: () => f.powerOff, use() {
+          if (f.powerOff) { say('La linea 6 è disalimentata. Le altre leve le lascio stare.'); return; }
+          self.openTP('quadro'); } },
+      { id: 'cavi', x: 13.2, z: 0.2, r: 2.2, label: () => f.cablesMoved ? 'I cavi' : f.powerOff ? 'Sposta i cavi' : 'Esamina i cavi', done: () => f.cablesMoved, use() {
+          f.cables = true;
+          if (f.cablesMoved) { say('I fili morti sono ammucchiati contro il marciapiede.'); return; }
+          if (!f.powerOff) { say(['I fili del filobus sono crollati sul viale. Sfrigolano: la linea è ancora sotto tensione.', 'Dietro il filobus, sul marciapiede sud, c\'è un quadro secondario. Devo capire quale circuito alimenta questi cavi.']); return; }
+          if (!have('asta')) { say(['I cavi sono morti. Ma toccarli a mani nude, con questo freddo, non mi piace. E se qualcuno riattacca la corrente?', 'Serve un\'asta isolante. Il camion giallo della squadra di pronto intervento.']); return; }
+          f.cablesMoved = true; self.cableWall.off = true; Sound.clunk(); say(['Con l\'asta sollevo i fili uno per uno e li trascino contro il marciapiede. Il passaggio è libero.', 'Oltre i cavi, un locale di servizio. ' + Q('«ДИСПЕТЧЕРСКАЯ»') + '. La saracinesca è abbassata.']); } },
+      // il locale di servizio
+      { id: 'saracinesca', x: (R.x0 + R.x1) / 2, z: R.z1 + 0.9, r: 1.5, label: () => f.shutter ? 'Locale di servizio' : 'Saracinesca', done: () => f.shutter, use() {
+          if (f.shutter) return;
+          if (!have('leva')) { say(['La saracinesca è bloccata. Il meccanismo è congelato.', 'Mi servirebbe una leva. Nei filobus c\'è sempre un vano attrezzi.']); return; }
+          f.shutter = true; self.shutterBox.off = true; self.shutT = 0.001; Sound.clunk(); Sound.creak(); say('Infilo la leva sotto la saracinesca e spingo. Il ghiaccio si spacca, la lamiera sale.'); } },
+      { id: 'registro', x: R.x0 + 1.2, z: R.z0 + 1.6, r: 1.2, clue: true, label: 'Registro delle corse', needs: () => f.shutter, gone: () => !f.shutter, use() {
+          say(['Il registro delle corse. L\'ultima pagina:', Q('«12.02.1991 — 23:40 — Маршрут 6 · ТРОЛЛЕЙБУС 0417 · ВОРОНИН Д. А. — ПАССАЖИР»'),
+            'Voronin D. A. — passeggero. In fondo alla pagina, una firma. Sembra la mia.', 'E il conducente risulta aver preso servizio alle 23:52. Dodici minuti dopo la partenza.'], 'REGISTRO'); } },
+      { id: 'armadietto', x: R.x1 - 0.5, z: R.z0 + 1.4, r: 1.2, clue: true, label: 'Armadietto personale', needs: () => f.shutter, gone: () => !f.shutter, use() {
+          S.items.add('planimetria');
+          say(['Nell\'armadietto, una planimetria dei percorsi urbani e un modulo con un timbro viola:', Q('«НОМЕР 417 — ВОСТРЕБОВАТЬ»'), 'Numero 417 — da ritirare. Nessun nome. Nessun edificio.', 'Nina ha detto la verità. Ma non mi ha detto dov\'è il guardaroba.'], 'DOCUMENTO 417'); } },
+      { id: 'interno', x: R.x0 + 0.9, z: R.z0 + 1.75, r: 1.0, label: 'Telefono interno', needs: () => f.shutter, gone: () => !f.shutter, done: () => f.called, use() { self.openTP('telefono'); } },
+      // il finale
+      { id: 'biglietto', x: door.x, z: door.z + 0.1, r: 1.6, pick: true, label: () => have('bigliettoBus') ? 'Sali sul filobus' : 'Il posto 17', gone: () => !f.finale, use() {
+          if (!have('bigliettoBus')) { S.items.add('bigliettoBus'); say(['Le porte sono aperte e dentro c\'è luce. Sul sedile 17, un biglietto:', Q('«МЕСТО 17 — ВОРОНИН»'), 'Sul retro: ' + Q('«ТЫ УЖЕ ЕХАЛ.»') + ' Sei già salito.', 'Guardo il posto di guida. Non c\'è nessuno.']); return; }
+          self.board(); } },
     ];
   },
-  switchOff() {
-    state.flags.powerOff = true; this.cableWall.off = true;
-    Sound.clunk(); Sound.zap(0.6); dreadSpike = 1;
-    this.switchLever.rotation.z = -0.6;
-    say(['Aggancio l\'anello con l\'asta e tiro. Un lampo azzurro. Poi silenzio.', 'Nel silenzio sento qualcosa. Passi sulla neve, dietro di me. Sulla mia strada.']);
+  drawBoard(final) {
+    const m = this.boardC.getContext('2d'); m.fillStyle = '#100c06'; m.fillRect(0, 0, 256, 96); m.fillStyle = '#ffb030'; m.font = 'bold 22px monospace';
+    if (final) { m.fillText('МАРШРУТ 6', 14, 32); m.fillText('ДОМ КУЛЬТУРЫ', 14, 60); m.fillText('23:40', 180, 86); }
+    else { m.fillText('ПОСЛЕДНИЙ РЕЙС', 14, 38); m.fillText('23:40', 90, 74); }
+    this.boardTex.needsUpdate = true;
+  },
+  openTP(mode) {
+    this.tpMode = mode; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); $('tpDrawer').style.display = 'none';
+    $('tpTitle').textContent = mode === 'quadro' ? 'ШР-6 · ЩИТ ЛИНИИ' : 'ВНУТРЕННИЙ ТЕЛЕФОН';
+    this.sw2 = this.sw2 || [1, 1, 1]; this.drawSchema(); this.renderTP();
+  },
+  closeTP() { $('tp').classList.add('hide'); state.paused = false; $('tpDrawer').style.display = ''; },
+  drawer() {},
+  drawSchema() {
+    const c = $('tpSchema'), m = c.getContext('2d'), W = c.width, H = c.height;
+    m.fillStyle = '#d9d2b8'; m.fillRect(0, 0, W, H); m.fillStyle = '#2a2620'; m.strokeStyle = '#2a2620'; m.lineWidth = 2;
+    if (this.tpMode === 'telefono') {
+      m.font = 'bold 16px monospace'; m.fillText('ВНУТРЕННЯЯ СВЯЗЬ · МАРШРУТ 6', 16, 30); m.font = '13px monospace';
+      [['1', 'ДЕПО', 'deposito'], ['2', 'ДИСПЕТЧЕРСКАЯ ЦЕНТРАЛЬНАЯ', 'centrale operativa'], ['3', 'ТЭЦ', 'centrale termoelettrica'], ['4', 'ГОРИСПОЛКОМ', 'direzione cittadina']].forEach(([n, ru, it], i) => { m.fillText(`${n}  ${ru}`, 30, 70 + i * 38); m.font = 'italic 11px serif'; m.fillText(it, 52, 84 + i * 38); m.font = '13px monospace'; });
+      return;
+    }
+    if (!state.items.has('cartaRete')) {
+      m.font = 'bold 15px monospace'; m.fillText('ШР-6', 16, 28); m.font = 'italic 15px serif';
+      m.fillText('Tre interruttori senza etichetta. Sui cavi, solo dei numeri.', 30, 100); m.fillText('Senza uno schema della rete non so quale cavo è quale.', 30, 128); return;
+    }
+    m.font = 'bold 14px monospace'; m.fillText('СХЕМА СЕТИ — РАЙОН ЭНЕРГЕТИКОВ', 14, 22);
+    const row = (y, ru, it, cab, torn) => { m.font = 'bold 13px monospace'; m.fillText(ru, 24, y); m.font = 'italic 10px serif'; m.fillText(it, 24, y + 13);
+      m.beginPath(); m.moveTo(300, y - 4); m.lineTo(420, y - 4); m.stroke(); m.font = 'bold 13px monospace';
+      if (torn) { m.fillStyle = '#efe9d4'; m.beginPath(); m.moveTo(430, y - 22); m.lineTo(530, y - 26); m.lineTo(525, y + 12); m.lineTo(436, y + 16); m.fill(); m.fillStyle = '#2a2620'; m.font = 'italic 11px serif'; m.fillText('(strappato)', 440, y); }
+      else m.fillText('кабель ' + cab, 430, y); };
+    row(70, 'ОСВЕЩЕНИЕ ОСТАНОВКИ', 'illuminazione della fermata', 'К-4');
+    row(120, 'НАСОСНАЯ СТАНЦИЯ', 'stazione di pompaggio', 'К-17');
+    row(170, 'КОНТАКТНАЯ СЕТЬ — МАРШРУТ 6', 'linea aerea del percorso 6', '', true);
+    m.font = 'italic 12px serif'; m.fillStyle = '#5a3a20'; m.fillText('«Segui quello che manca.»', 330, 214);
+  },
+  renderTP(msg) {
+    if (this.tpMode === 'telefono') {
+      const L = [['ДЕПО', 'deposito'], ['ДИСПЕТЧЕРСКАЯ', 'centrale operativa'], ['ТЭЦ', 'centrale'], ['ГОРИСПОЛКОМ', 'direzione']];
+      $('tpSw').style.gridTemplateColumns = 'repeat(2,minmax(0,1fr))';
+      $('tpSw').innerHTML = L.map(([ru, it], k) => `<button class="vhs sw" data-k="${k}"><span class="num">${k + 1}</span><span class="tag">${ru}<i>${it}</i></span></button>`).join('');
+      $('tpSw').querySelectorAll('button').forEach(b => b.onclick = () => this.dial(+b.dataset.k));
+      $('tpMsg').innerHTML = msg || 'Il telefono interno ha ancora il segnale. Quattro linee.'; return;
+    }
+    $('tpSw').style.gridTemplateColumns = '';
+    const tags = [['К-4'], ['К-23'], ['К-17']];
+    $('tpSw').innerHTML = tags.map(([t], k) => `<button class="vhs sw${this.sw2[k] ? ' on' : ''}" data-k="${k}"><span class="lever">${this.sw2[k] ? '▲' : '▼'}</span><span class="num">${k + 1}</span><span class="tag">${t}<i>cavo</i></span></button>`).join('');
+    $('tpSw').querySelectorAll('button').forEach(b => b.onclick = () => this.pressSw(+b.dataset.k));
+    $('tpMsg').innerHTML = msg || 'Tre leve, tutte alzate. Sotto ognuna, un cavo con un numero inciso su una fascetta di piombo.';
+  },
+  pressSw(k) {
+    const S = state, f = S.flags; if (f.powerOff) return;
+    this.sw2[k] = this.sw2[k] ? 0 : 1; Sound.clunk();
+    if (k === 0) {
+      if (!this.sw2[0]) { f.stopDark = true; this.renderTP('La lampada della fermata si spegne. Il viale sprofonda nel buio. Dal filobus, alle mie spalle, arriva un rumore: qualcuno che si siede.'); f.rider = true; this.riderShow = true; dreadSpike = 1; Sound.sting(); }
+      else { f.stopDark = false; this.renderTP('La lampada della fermata torna ad accendersi.'); }
+      return;
+    }
+    if (k === 2) { this.renderTP(this.sw2[2] ? 'Lontano, una pompa riparte con un gemito.' : 'Da qualche parte, lontano, una pompa si ferma. I cavi sul viale sfrigolano ancora.'); return; }
+    if (!this.sw2[1]) { this.renderTP('Uno schiocco, poi silenzio. Sul viale le scintille si spengono: la linea del percorso 6 è morta.'); setTimeout(() => { this.closeTP(); this.powerOffNow(); }, 1500); }
+  },
+  dial(k) {
+    const S = state; Sound.click(); this.closeTP();
+    if (k === 0) { say('Squilla a vuoto. Nessuno risponde al deposito.'); return; }
+    if (k === 2) { act(() => Sound.radio(1.5)); say('Dalla centrale arriva solo un ronzio profondo, come di turbine. Nessuna voce.'); return; }
+    if (k === 3) { say(Q('«Номер не обслуживается.»') + ' — Il numero non è in servizio.'); return; }
+    S.flags.called = true;
+    say('«Линия шесть. Подтвердите местоположение.» Linea sei. Confermare posizione.', 'VOCE');
+    say('«Fermata centrale. Sono Voronin.»', 'DMITRI');
+    say('Silenzio.');
+    say('«Non risulta nessun Voronin in servizio.»', 'VOCE');
+    say('«Allora perché avete il mio numero?»', 'DMITRI');
+    say('«Il tuo numero non è un numero di servizio.»', 'VOCE');
+    say('La comunicazione si interrompe.');
+  },
+  powerOffNow() {
+    state.flags.powerOff = true; Sound.zap(0.4); dreadSpike = 1;
+    say(['La linea è morta. Ma i fili sono ancora lì, in mezzo alla strada.', 'Nel silenzio sento qualcosa. Passi sulla neve, dietro di me. Sulla mia strada.']);
     const F = figures.find(f => f.mode === 'stalker');
     setTimeout(() => { if (F && F.state === 'hidden' && !state.ended) { if (spawnStalker(F, 24)) tell('stalk', 'Si muove solo quando non lo guardo. La torcia… o il fuoco.'); } }, 6000);
   },
-  objective() {
-    const f = state.flags, c = state.clues;
-    if (f.powerOff) return 'Segui le impronte oltre i cavi';
-    if (f.cables) return state.items.has('asta') ? 'Apri il sezionatore sul palo' : 'Togli corrente alla linea aerea';
-    if (!c.has('pass')) return 'Segui le impronte';
-    if (!c.has('filobus')) return 'Le impronte portano al filobus';
-    return 'Prosegui verso est';
+  board() {
+    const S = state; S.flags.boarded = true; Sound.clunk(); hero.group.visible = false; hero.speed = 0; S.paused = true; interactables = [];
+    this.busGo = 0.001;
+    say(['Salgo. Le porte si chiudono da sole, con un sibilo.', 'Il filobus parte piano, senza conducente. Fuori, la neve sembra cadere verso l\'alto.']);
+    act(() => Sound.radio(1.6)); say('«Volk… non guardare il conducente.»', 'RADIO');
+    this.endPending = true;
   },
+  phase() {
+    const f = state.flags, c = state.clues;
+    if (!f.atStop) return 1;
+    if (!(c.has('pass') && c.has('giornale') && f.board && f.call0417)) return 2;
+    if (!f.metNina) return 3;
+    if (!f.tape) return 4;
+    if (!f.powerOff) return 5;
+    if (!f.cablesMoved) return 6;
+    if (!f.shutter) return 7;
+    if (!(c.has('registro') && c.has('armadietto') && f.called)) return 8;
+    return 9;
+  },
+  objective() { return ['', 'Raggiungi la fermata del percorso 6', 'Esamina la fermata', 'Torna alla pensilina', 'Esamina il filobus 0417', 'Togli corrente ai cavi caduti', 'Sposta i cavi con l\'asta isolante', 'Apri la saracinesca del locale di servizio', 'Esamina il locale di servizio', 'Torna al filobus'][this.phase()]; },
   target() {
-    const by = id => interactables.find(i => i.id === id), f = state.flags, c = state.clues;
-    if (f.powerOff) return this.ninaState === 'wait' ? this.nina : { x: 29, z: 0.5 };
-    if (f.cables) return state.items.has('asta') ? by('sezionatore') : by('asta');
-    if (!c.has('pass')) return by('pass');
-    if (!c.has('filobus')) return by('filobus');
-    return by('cavi');
+    const by = id => interactables.find(i => i.id === id), f = state.flags, c = state.clues, p = this.phase(), has = k => state.items.has(k);
+    if (p === 1) return { x: -6, z: -8.5 };
+    if (p === 2) return !c.has('pass') ? by('pass') : !f.board ? by('tabellone') : !c.has('giornale') ? by('giornale') : by('telefono');
+    if (p === 3) return { x: this.nina.x, z: this.nina.z };
+    if (p === 4) return by('nastro');
+    if (p === 5) return by('quadro');
+    if (p === 6) return has('asta') ? by('cavi') : by('asta');
+    if (p === 7) return has('leva') ? by('saracinesca') : by('attrezzi');
+    if (p === 8) return !c.has('registro') ? by('registro') : !c.has('armadietto') ? by('armadietto') : by('interno');
+    return by('biglietto');
   },
-  thought() {
-    const f = state.flags, c = state.clues;
-    if (f.powerOff) return 'La strada è libera. Le impronte continuano verso est, oltre i cavi.';
-    if (f.cables && state.items.has('asta')) return 'Il biglietto parlava del palo davanti al filobus, sul lato sud.';
-    if (f.cables) return 'La squadra di pronto intervento… il loro camion giallo. L\'ho visto più indietro, sul viale.';
-    if (!c.has('pass')) return 'Le impronte puntano dritte alla pensilina del filobus.';
-    if (!c.has('filobus')) return 'Il filobus ha le porte aperte. Le impronte ci salgono sopra. Mi servirà la torcia.';
-    return 'Le impronte vanno verso est, verso quel groviglio di cavi.';
-  },
-  hint() {
-    const f = state.flags, c = state.clues;
-    if (f.powerOff) return 'I cavi non sono più sotto tensione: attraversali e prosegui verso est fino in fondo al viale.';
-    if (f.cables && state.items.has('asta')) return 'Il sezionatore è sul palo del lato sud, proprio davanti al filobus. Usa l\'asta.';
-    if (f.cables) return 'Il camion giallo di pronto intervento è sul viale, verso ovest. Sul pianale c\'è un\'asta isolante.';
-    if (!c.has('pass')) return 'La pensilina con il mosaico è sul marciapiede nord, poco più avanti.';
-    if (!c.has('filobus')) return 'Il filobus è in mezzo al viale. Le porte sono sul lato sud. Accendi la torcia (T) prima di salire.';
-    return 'Prosegui verso est: i cavi crollati sbarrano il viale.';
-  },
-  coldTip() {
-    if (!this.barrel.lit) return 'Il freddo qui è peggio che nel cortile. Accanto all\'edicola c\'è un bidone per il fuoco.';
-    return 'Il freddo mi morde. Torno al bidone accanto all\'edicola.';
-  },
+  thought() { const p = this.phase(), has = k => state.items.has(k);
+    return ['', 'La freccia sul cartello indica la fermata del percorso 6, lungo il viale.', 'La pensilina, il tabellone, l\'edicola, il telefono pubblico. Qualcosa qui mi riguarda.',
+      'Torno alla pensilina. Mi è sembrato di vedere qualcuno seduto.', 'Il filobus 0417. Le porte sono aperte. Mi servirà la torcia.',
+      has('cartaRete') ? 'Il quadro dietro il filobus. Ho la cartina della rete dell\'УАЗ: posso confrontare i numeri dei cavi.' : 'Il quadro dietro il filobus ha leve senza etichette. Nell\'УАЗ militare, vicino al garage, forse c\'è uno schema.',
+      'I fili sono morti, ma devo spostarli. Il camion giallo della squadra di pronto intervento.', has('leva') ? 'La saracinesca del locale di servizio. Ho la leva.' : 'La saracinesca è bloccata. Nel vano attrezzi del filobus c\'era una leva.',
+      'Il registro, l\'armadietto, il telefono interno.', 'Il tabellone è cambiato. Il filobus ha le porte aperte.'][p]; },
+  hint() { const p = this.phase();
+    return ['', 'Segui il viale verso est: la pensilina con il mosaico è sul marciapiede nord.', 'Prendi il tesserino sulla panchina, leggi il tabellone, guarda i giornali dell\'edicola e usa il telefono pubblico: il numero è sul tesserino.',
+      'Torna vicino alla panchina della pensilina.', 'Accendi la torcia (T) e sali dalla porta sul lato sud del filobus. Riascolta la cassetta, guarda il posto di guida e il vano attrezzi in coda.',
+      'Il quadro è sul marciapiede sud, dietro il filobus. Sulla cartina dell\'УАЗ la linea del percorso 6 è quella col numero strappato: abbassa la leva del cavo che non compare (К-23). Non toccare К-4.',
+      'L\'asta isolante è sul pianale del camion giallo, a ovest. Poi usala sui cavi.', 'La leva è nel vano attrezzi in coda al filobus. La saracinesca è oltre i cavi, sul lato nord.',
+      'Dentro il locale: il registro sulla scrivania, l\'armadietto in fondo e il telefono interno (chiama la centrale operativa).', 'Torna alla porta del filobus: prendi il biglietto sul posto 17 e sali.'][p]; },
+  coldTip() { return this.barrel.lit ? 'Il freddo mi morde. Torno al bidone accanto all\'edicola.' : 'Il freddo qui è peggio che nel cortile. Accanto all\'edicola c\'è un bidone per il fuoco.'; },
   intro() {
-    return ['Dall\'altra parte del sottopasso, il viale Энергетиков. Ci passavo ogni mattina col filobus numero 7, per andare alla centrale.',
-      'Ricordo questo posto. Ma non ricordo gli ultimi mesi.',
-      'Le impronte rigide proseguono lungo il marciapiede. Le seguo.'];
+    setTimeout(() => act(() => Sound.radio(1.0)), 0);
+    return ['Esco dal garage n. 4. La strada è sepolta dalla neve.', 'In lontananza gracchia un altoparlante: ' + Q('«Внимание. Движение троллейбусов возобновится в 23:40.»') + ' — Il servizio filobus riprenderà regolarmente alle 23:40.',
+      'Guardo l\'orologio. Sono le 23:40.'];
   },
   heroHook(dt) {
     const f = state.flags;
+    if (!f.atStop && hero.x > -11) { f.atStop = true; refreshObjective(); }
     if (!f.powerOff) {
-      if (hero.x > 11 && !f.cables) { f.cables = true; tell('cables', ['I fili del filobus sono crollati sul viale e lo sbarrano da un marciapiede all\'altro. Sfrigolano: la linea è sotto tensione.', 'Devo togliere corrente a questa sezione. Ci deve essere un sezionatore su uno dei pali.']); }
+      if (hero.x > 11 && !f.cables) { f.cables = true; tell('cables', ['I fili del filobus sono crollati sul viale e lo sbarrano da un marciapiede all\'altro. Sfrigolano: la linea è sotto tensione.', 'Dietro il filobus c\'è un quadro secondario.']); }
       this.shockT = Math.max(0, this.shockT - dt);
       if (hero.x > L2.CABLE_X[0] - 0.45 && this.shockT <= 0 && !downed()) {
-        this.shockT = 3.2; state.heat = Math.max(1, state.heat - 10);
-        electrocute(-1, 0);
+        this.shockT = 3.2; state.heat = Math.max(1, state.heat - 10); electrocute(-1, 0);
         setTimeout(() => { if (msgTimer <= 0) showMsg('Una scossa!<br>La linea è sotto tensione.'); }, 500);
       }
-    } else {
-      const N = this.nina, d = Math.hypot(hero.x - N.x, hero.z - N.z);
-      if (this.ninaState === 'wait' && (d < 3.4 || hero.x > N.x - 0.5)) this.talkNina();
-      if (hero.x > L2.EXIT_X) { if (this.ninaState === 'leave' || this.ninaState === 'gone') endChapter(); else hero.x = L2.EXIT_X; }
     }
+    // Nina sulla panchina: compare quando torni alla pensilina dopo la telefonata
+    const N = this.nina, dN = Math.hypot(hero.x - N.x, hero.z - N.z);
+    if (f.call0417 && this.ninaState === 'hidden' && !reading() && dN > 7) { this.ninaState = 'wait'; N.group.visible = true; this.ninaFire.lit = true; this.ninaCircle[2] = 0.35; refreshObjective(); }
+    if (this.ninaState === 'wait' && dN < 3.2) this.talkNina();
+    // la finestra accesa che, tornando indietro, è buia
+    if (f.call0417 && !f.winOff && hero.x < -20) { f.winOff = true; const b = blocks[0]; if (b && b.lit) { b.lit[30] = 0; b.redraw(); } }
     return true;
   },
   talkNina() {
     this.ninaState = 'talk'; hero.speed = 0;
-    say('Una vecchia con una lanterna, ferma in mezzo al viale. Mi guarda come si guarda qualcuno che si conosce da sempre.', '');
-    say('Di nuovo tu, Dimočka.', 'NINA PETROVNA');
+    say('Una donna anziana è seduta sulla panchina della pensilina. Non l\'ho vista arrivare. Non sembra avere freddo.', '');
+    say('Hai fatto tardi, Dima.', 'NINA PETROVNA');
     say('«Ci conosciamo?»', 'DMITRI');
-    say(['Ogni volta mi fai la stessa domanda. Ogni volta con quella faccia.', 'Vieni al Дом культуры. Il tuo cappotto è ancora al guardaroba. Numerino quattrocentodiciassette.'], 'NINA PETROVNA');
-    say('0417. Lo stesso numero del mio tesserino.', 'DMITRI');
+    say('Tu fai sempre questa domanda.', 'NINA PETROVNA');
+    say('«Ci siamo già incontrati?»', 'DMITRI');
+    say('Non è importante quante volte ci incontriamo. È importante quello che fai dopo.', 'NINA PETROVNA');
+    say('Indica il filobus.');
+    say('Non salire davanti.', 'NINA PETROVNA');
+    say('«Perché?»', 'DMITRI');
+    say(['Perché il conducente non ama essere osservato.', 'Il tuo cappotto è ancora al guardaroba. Numero 417. Non andare a cercarlo senza il biglietto.'], 'NINA PETROVNA');
   },
   burstAt(x, z, n) {                       // scintille addosso al personaggio
     const p = new THREE.Vector3(x, groundH(x, z) + 1.0, z); let k = 0;
@@ -4213,34 +4407,49 @@ const CH2 = {
     for (const s of this.sparks) if (s.life <= 0 && k < n) { k++; s.life = 0.3 + Math.random() * 0.5; s.s.position.copy(p); s.v.set((Math.random() - 0.5) * 5, 1 + Math.random() * 3.5, (Math.random() - 0.5) * 5); }
   },
   updateNina(dt, t) {
-    const N = this.nina;
-    if (state.flags.powerOff && this.ninaState === 'hidden') { this.ninaState = 'wait'; N.group.visible = true; this.ninaFire.lit = true; this.ninaCircle[2] = 0.35; }
-    if (!N.group.visible) return;
-    N.light.intensity = 5 + Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.3;
-    N.glow.material.opacity = 0.5 + Math.sin(t * 11) * 0.05;
+    const N = this.nina; if (!N.group.visible) return;
+    N.light.intensity = 5 + Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.3; N.glow.material.opacity = 0.5 + Math.sin(t * 11) * 0.05;
     let walking = 0;
     if (this.ninaState === 'wait' || this.ninaState === 'talk') {
       const want = Math.atan2(hero.x - N.x, hero.z - N.z); let dh = want - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(3, dt);
-      if (this.ninaState === 'talk' && !reading()) {
-        this.ninaState = 'leave'; state.flags.metNina = true; this.ninaCircle[2] = 0;
-        setTimeout(() => tell('ninaGone', ['Si volta e se ne va nella nebbia, verso il centro, senza fretta.', 'Guardo la neve dove è passata. Nessuna impronta. Nemmeno una.']), 2500);
-      }
+      if (this.ninaState === 'talk' && !reading()) { this.ninaState = 'leave'; state.flags.metNina = true; this.ninaCircle[2] = 0; refreshObjective(); }
     } else if (this.ninaState === 'leave') {
-      walking = 1; let dh = Math.PI / 2 - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(3, dt);
-      N.x += Math.sin(N.heading) * 0.75 * dt; N.z += Math.cos(N.heading) * 0.75 * dt;
-      if (N.x > 33) { this.ninaState = 'gone'; N.group.visible = false; this.ninaFire.lit = false; }
+      walking = 1; let dh = Math.PI - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(3, dt);
+      N.x -= 0.6 * dt; N.z -= 0.15 * dt;
+      if (N.x < L2.SHELTER.x0 - 0.6 || Math.hypot(hero.x - N.x, hero.z - N.z) > 9) { this.ninaState = 'gone'; N.group.visible = false; this.ninaFire.lit = false; setTimeout(() => tell('ninaGone', ['Se ne va dietro la pensilina. La seguo.', 'Non c\'è nessuno. E nella neve, nessuna impronta.']), 600); }
     }
     const ph = t * 4.2;
     N.feet[0].position.z = 0.03 + Math.sin(ph) * 0.1 * walking; N.feet[1].position.z = 0.03 - Math.sin(ph) * 0.1 * walking;
-    N.lantern.rotation.z = Math.sin(t * 1.3) * 0.06 + Math.sin(ph) * 0.12 * walking;
-    N.lantern.rotation.x = Math.sin(t * 0.9) * 0.05;
-    N.head.rotation.x = 0.1 + Math.sin(t * 0.7) * 0.03;
+    N.lantern.rotation.z = Math.sin(t * 1.3) * 0.06 + Math.sin(ph) * 0.12 * walking; N.lantern.rotation.x = Math.sin(t * 0.9) * 0.05; N.head.rotation.x = 0.1 + Math.sin(t * 0.7) * 0.03;
     N.group.position.set(N.x, groundH(N.x, N.z) + Math.abs(Math.sin(ph)) * 0.02 * walking, N.z); N.group.rotation.y = N.heading;
     this.ninaFire.x = N.x; this.ninaFire.z = N.z; this.ninaCircle[0] = N.x; this.ninaCircle[1] = N.z;
   },
   update(dt, t) {
+    const S = state, f = S.flags;
     this.updateNina(dt, t);
-    const live = !state.flags.powerOff;
+    // il motore tiepido dell'УАЗ
+    this.uazT -= dt; if (this.uazT <= 0) { this.uazT = 1.3 + Math.random(); const b = breath.find(b => b.life <= 0); if (b) { b.life = 1.6; b.s.visible = true; b.s.position.set(L2.UAZ.x - 2.1, groundH(L2.UAZ.x, L2.UAZ.z) + 0.45, L2.UAZ.z + 0.5); b.s.scale.setScalar(0.12); } }
+    // la lampada della fermata (spenta se hai abbassato la leva sbagliata)
+    this.stopLamp.setLevel(f.stopDark ? 0 : 0.85 + (Math.random() < 0.03 ? -0.6 : 0));
+    // il passeggero dell'ultima fila: sparisce sotto la torcia
+    const Rf = this.rider;
+    if (!this.riderShow && Rf.state === 'hidden') Rf.timer = 1e9;
+    if (this.riderShow && Rf.state === 'hidden') { Rf.state = 'show'; Rf.op = 0; Rf.az0 = camAz; }
+    if (Rf.state === 'show') { this.riderShow = false; const dx = Rf.x - hero.x, dz = Rf.z - hero.z, d = Math.hypot(dx, dz); let a = Math.atan2(dx, dz) - hero.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
+      if (S.torch && d < 16 && Math.abs(a) < 0.45) { Rf.state = 'vanish'; Rf.timer = 1e9; Sound.glitch(); tell('rider', 'Punto la torcia sull\'ultima fila del filobus. Non c\'è nessuno.'); } }
+    // saracinesca, il locale di servizio
+    if (this.shutT > 0 && this.shutT < 1) { this.shutT = Math.min(1, this.shutT + dt * 0.7); this.shutter.position.y = groundH(L2.ROOM.x0, L2.ROOM.z1) + 1.15 + smooth01(this.shutT) * 2.0; this.shutter.scale.y = 1 - smooth01(this.shutT) * 0.85; }
+    const R = L2.ROOM, inRoom = hero.x > R.x0 && hero.x < R.x1 && hero.z > R.z0 && hero.z < R.z1 + 0.3;
+    for (const m of [this.roomRoof, this.roomRoofS, this.roomFront, this.roomSign]) { m.opacity = lerp(m.opacity, inRoom ? 0.08 : 1, damp(6, dt)); m.depthWrite = m.opacity > 0.9; }
+    this.roomLight.intensity = f.shutter ? 2.2 + Math.sin(t * 13) * 0.2 : 0;
+    // uscendo dal locale, il tabellone è cambiato e il filobus ha le porte aperte
+    if (this.phase() === 9 && !f.finale && !inRoom && !reading()) { f.finale = true; this.drawBoard(true); Sound.tone(880, 0.2, 0.05, 'triangle'); this.bus.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x10151c) { o.material = o.material.clone(); o.material.emissive.setHex(0x6a5a30); o.material.emissiveIntensity = 1.2; } });
+      say(['Quando esco dal locale, la fermata è cambiata.', 'Il tabellone ora dice: ' + Q('«МАРШРУТ 6 — ДОМ КУЛЬТУРЫ»') + '. E dentro il filobus si è accesa la luce.']); }
+    // il filobus riparte
+    if (this.busGo > 0) { this.busGo += dt; this.busBox.off = true; const sp = Math.min(6, this.busGo * 1.2); this.bus.position.x += Math.cos(L2.TROLL.r) * sp * dt; this.bus.position.z -= Math.sin(L2.TROLL.r) * sp * dt; hero.x = this.bus.position.x; hero.z = this.bus.position.z + 1.6; }
+    if (this.endPending && !reading() && this.busGo > 2.5) { this.endPending = false; this.endT = 1.5; }
+    if (this.endT > 0 && !reading()) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; S.paused = false; endChapter(); } }
+    const live = !f.powerOff;
     // scintille
     let near = 1e9; for (const p of this.sparkPts) near = Math.min(near, Math.hypot(p.x - hero.x, p.z - hero.z));
     Sound.setBuzz(live && state.started ? clamp(1 - near / 15, 0, 1) * 0.06 : 0);
@@ -4263,8 +4472,8 @@ const CH2 = {
     this.steam.forEach(s => { const k = (t * 0.04 + s.userData.ph) % 1; s.position.set(-16 + k * 18, 80 + k * 22, -66 + k * 4); s.scale.setScalar(8 + k * 26); s.material.opacity = Math.sin(k * Math.PI) * 0.45; });
   },
   ending() {
-    return { text: 'Oltre i cavi, il viale scende verso il centro. Le impronte proseguono dritte, verso la cupola del Дом культуры, dove una vecchia che non lascia impronte custodisce il mio cappotto.<br><br>Per la prima volta mi accorgo che il passo che seguo ha esattamente la lunghezza del mio.',
-      next: 3, nextLabel: 'CAPITOLO III · IL POSTO DI BLOCCO' };
+    return { text: 'Il filobus scivola nella tormenta, senza conducente. Nel vetro anteriore, accanto al mio riflesso, c\'è quello di qualcuno seduto al posto di guida.<br><br>Non mi volto.',
+      next: 3, nextLabel: 'CAPITOLO III · IL ПОСТ БЛОК' };
   },
 };
 
@@ -5404,6 +5613,7 @@ function loadChapter(n, fromPrev = false) {
   sun.intensity = 3.3; C.env();
   C.snow(); hTex.needsUpdate = true; cTex.needsUpdate = true; dirty.h = dirty.c = null;
   buildTerrain();
+  Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 });
   C.build();
   interactables = C.items();
   addSparkles();
@@ -5418,7 +5628,7 @@ function loadChapter(n, fromPrev = false) {
   state.paused = false; $('bag').classList.add('hide'); $('tp').classList.add('hide');
   state.torch = false; $('torchBtn').classList.remove('on');
   hero.x = C.start.x; hero.z = C.start.z; hero.heading = C.start.heading; hero.y = groundH(hero.x, hero.z);
-  hero.speed = 0; hero.trail.length = 0; hero.snowAcc = 0.35;
+  hero.speed = 0; hero.trail.length = 0; hero.snowAcc = 0.35; hero.group.visible = true;
   hero.group.position.set(hero.x, hero.y, hero.z); hero.group.rotation.y = hero.heading;
   state.checkpoint = { x: C.start.x, z: C.start.z };
   camTarget.set(hero.x, hero.y + 0.8, hero.z);
