@@ -153,6 +153,13 @@
   #end .row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center}
   #bag{background:rgba(5,7,10,.72);z-index:12;transition:opacity .25s;padding:16px}
   #bag.hide{opacity:0}
+  #tp{background:rgba(5,7,10,.72);z-index:12;transition:opacity .25s;padding:16px} #tp.hide{opacity:0}
+  #tpSchema{width:100%;height:auto;display:block;border:1px solid rgba(223,230,238,.25)}
+  .tp-sw{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+  .tp-sw .sw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px}
+  .tp-sw .sw.on{color:var(--warm);border-color:rgba(255,183,102,.65)}
+  .tp-sw .lever{font-size:30px;line-height:1} .tp-sw .num{font-size:15px;color:var(--dim)}
+  .tp-sw .tag{font-size:16px;color:#f1e6cf;background:rgba(200,180,140,.12);padding:2px 6px;border:1px dashed rgba(241,230,207,.35)} .tp-sw .tag i{display:block;font-size:13px;color:var(--dim);font-style:normal}
   .bag-panel{width:min(560px,94vw);max-height:86vh;overflow-y:auto;background:rgba(14,18,26,.94);border:1px solid rgba(223,230,238,.35);padding:14px 14px 16px;text-align:left}
   .bag-head{display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.3em;margin-bottom:12px}
   .bag-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -222,7 +229,7 @@
   <div class="big">ЗИМА</div>
   <div class="chap">COLD CYCLE</div>
   <div class="chapters">
-    <button class="vhs ch" data-ch="1">I · IL CORTILE<small>il risveglio</small></button>
+    <button class="vhs ch" data-ch="1">I · IL CORTILE<small>qualcuno è uscito prima di te</small></button>
     <button class="vhs ch" data-ch="2">II · LA FERMATA DEL FILOBUS<small>il silenzio della città</small></button>
     <button class="vhs ch" data-ch="3">III · IL POSTO DI BLOCCO<small>chi non respira</small></button>
     <button class="vhs ch" data-ch="4">IV · IL ДОМ КУЛЬТУРЫ<small>il guardaroba</small></button>
@@ -236,6 +243,13 @@
   <div class="bag-grid" id="bagGrid"></div>
   <div class="bag-desc" id="bagDesc"></div>
   <div class="bag-docs"><div class="lbl">DOCUMENTI E INDIZI</div><div id="bagDocs"></div></div>
+</div></div>
+<div id="tp" class="screen hide"><div class="bag-panel">
+  <div class="bag-head"><span>ТП-4 · ЩИТ</span><button class="vhs" id="tpClose" aria-label="Chiudi il quadro">✕</button></div>
+  <canvas id="tpSchema" width="560" height="230"></canvas>
+  <div class="tp-sw" id="tpSw"></div>
+  <div class="bag-desc" id="tpMsg"></div>
+  <button class="vhs" id="tpDrawer">CASSETTO INFERIORE · FUSIBILI</button>
 </div></div>
 <div id="fade"></div>
 <div id="end" class="screen">
@@ -764,6 +778,9 @@ const Sound = {
   radio(dur = 3) { for (let i = 0; i < dur * 8; i++) this.burst(1500 + Math.random() * 900, 3.5, 0.12 + Math.random() * 0.1, 0.06 + Math.random() * 0.1, 'bandpass', i / 8); this.tone(880, 0.25, 0.04, 'square', 0.2); },
   tape() { this.tone(180, 0.08, 0.1, 'square'); for (let i = 0; i < 30; i++) this.burst(3000, 1, 0.1, 0.025, 'highpass', i / 10); },
   clunk() { this.tone(70, 0.6, 0.35, 'sine'); this.burst(300, 1, 0.3, 0.35, 'lowpass'); },
+  knock(delay = 0) { if (!this.ctx) return; for (let k = 0; k < 3; k++) { const d = delay + k * 0.42; this.tone(150, 0.12, 0.28, 'square', d); this.burst(1100, 1.5, 0.09, 0.4, 'bandpass', d); this.burst(180, 1, 0.16, 0.35, 'lowpass', d); } },
+  rattle() { if (!this.ctx) return; for (let k = 0; k < 7; k++) { this.burst(2400 + Math.random() * 900, 4, 0.05, 0.13, 'bandpass', k * 0.09 + (k > 3 ? 0.3 : 0)); this.tone(330, 0.04, 0.04, 'square', k * 0.09 + (k > 3 ? 0.3 : 0)); } },
+  breath(dur = 5) { if (!this.ctx) return; for (let i = 0; i < dur / 1.7; i++) { this.burst(650, 0.7, 0.9, 0.06, 'bandpass', i * 1.7); this.burst(420, 0.7, 0.75, 0.045, 'bandpass', i * 1.7 + 0.95); } },
   click() { this.tone(2400, 0.03, 0.08, 'square'); },
   pick() { this.tone(1320, 0.18, 0.06, 'triangle'); this.tone(1760, 0.25, 0.05, 'triangle', 0.08); },
   eat() { this.burst(600, 2, 0.2, 0.15, 'bandpass'); this.tone(520, 0.4, 0.04, 'sine', 0.15); },
@@ -2521,8 +2538,10 @@ function say(lines, who = '', pic) {
   (Array.isArray(lines) ? lines : [lines]).forEach(t => queue.push({ t, who, pic }));
   if (!typing && !boxEl.classList.contains('show')) nextLine();
 }
+function act(fn) { queue.push({ fx: fn }); if (!typing && !boxEl.classList.contains('show')) nextLine(); }
 function nextLine() {
-  const item = queue.shift();
+  let item = queue.shift();
+  while (item && item.fx) { try { item.fx(); } catch (e) { console.error(e); } item = queue.shift(); }
   if (!item) { boxEl.classList.remove('show'); $('hud').classList.remove('reading'); typing = null; return; }
   boxWho.textContent = item.who === 'DMITRI' ? '' : item.who; boxEl.classList.add('show'); $('hud').classList.add('reading');
   // ritratto: Dmitri per i suoi pensieri, Nina quando parla lei, nessuno per oggetti e documenti
@@ -2779,6 +2798,11 @@ const ITEMS = {
   provette: { icon: null, img: drawIcon(x => { x.fillStyle = '#555'; x.fillRect(-36, 10, 72, 8); for (const dx of [-22, 0, 22]) { x.fillStyle = '#9ad0ff'; x.fillRect(dx - 7, -34, 14, 50); x.fillStyle = '#e8f4ff'; x.fillRect(dx - 7, -6, 14, 22); } }), name: 'Provette di neve', desc: 'Neve di ZATO-42 in provette sigillate. Non si scioglie e resta tiepida: tiene calda la pila della torcia, che si scarica più piano.', have: () => state.gear.has('provette') },
   guanti: { icon: null, img: drawIcon(x => { x.fillStyle = '#6a4a30'; x.beginPath(); x.ellipse(-12, 6, 16, 26, -0.2, 0, 7); x.fill(); x.beginPath(); x.ellipse(14, 4, 16, 26, 0.2, 0, 7); x.fill(); x.fillStyle = '#3a2a1c'; x.fillRect(-26, 24, 28, 10); x.fillRect(2, 22, 28, 10); }), name: 'Guanti da tecnico', desc: 'Guanti di cuoio imbottito trovati accanto al generatore. Dentro, a pennarello: «В». Erano miei.', have: () => state.gear.has('guanti') },
   gasolio: { icon: null, img: drawIcon(x => { x.fillStyle = '#8a2a1a'; x.fillRect(-26, -30, 52, 64); x.fillStyle = '#5a1a10'; x.fillRect(-10, -42, 20, 14); }), name: 'Tanica di gasolio', desc: 'Gasolio invernale dall\'ambulanza. Per il generatore d\'emergenza dell\'ospedale.' },
+  giornale: { icon: null, img: drawIcon(x => { x.fillStyle = '#d8d0b8'; x.fillRect(-34, -26, 68, 52); x.fillStyle = '#3a3630'; x.fillRect(-28, -20, 56, 8); for (let k = 0; k < 5; k++) x.fillRect(-28, -6 + k * 7, 26, 3); x.fillRect(4, -6, 24, 30); }), name: 'Giornali', desc: 'Vecchie copie della «Правда». Per accendere la stufa.' },
+  legna: { icon: null, img: drawIcon(x => { x.fillStyle = '#6a4a2a'; for (let k = 0; k < 3; k++) { x.fillRect(-34, -22 + k * 16, 68, 12); x.fillStyle = k % 2 ? '#6a4a2a' : '#7a5a34'; } x.fillStyle = '#c8a070'; x.beginPath(); x.arc(-34, -16, 6, 0, 7); x.fill(); }), name: 'Legna', desc: 'Pezzi di legna piccoli e secchi, dalla cassa del ripostiglio.' },
+  radioCampo: { icon: null, img: drawIcon(x => { x.fillStyle = '#3f4a35'; x.fillRect(-34, -18, 68, 40); x.fillStyle = '#1a1e18'; x.beginPath(); x.arc(-14, 2, 11, 0, 7); x.fill(); x.fillStyle = '#9a9a8a'; x.fillRect(6, -8, 20, 6); x.fillRect(24, -44, 3, 28); }), name: 'Radio da campo', desc: 'Senza batterie. Il selettore è bloccato su una frequenza sconosciuta. Una volta ha detto il mio cognome.', have: () => state.items.has('radioCampo') || state.chapter > 1 },
+  chiaveGarage: { icon: null, img: keyIcon, name: 'Chiave «ГАРАЖ №4»', desc: 'Fredda, macchiata di ruggine. Sul retro della targhetta è inciso 0417.' },
+  piantina: { icon: null, img: drawIcon(x => { x.fillStyle = '#d8d0b8'; x.beginPath(); x.moveTo(-34, -28); x.lineTo(34, -28); x.lineTo(30, 6); x.lineTo(10, 28); x.lineTo(-34, 28); x.fill(); x.strokeStyle = '#3a3630'; x.lineWidth = 3; x.strokeRect(-26, -20, 20, 14); x.strokeRect(-26, 4, 40, 10); x.fillStyle = '#b0221c'; x.beginPath(); x.arc(18, -12, 6, 0, 7); x.fill(); }), name: 'Piantina del cortile', desc: 'Incompleta, manca un pezzo del foglio. Un segno rosso sulla cabina elettrica «ТП-4».' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -3035,16 +3059,20 @@ function endChapter() {
    ##################################################################### */
 
 /* =====================================================================
-   CAPITOLO I · IL CORTILE
-   Ti risvegli nel cortile dei khrushchyovki. Impari a sopravvivere (fuoco, cibo, torcia)
-   e segui le prime impronte: sembrano tue, ma il passo è più rigido.
+   CAPITOLO I · IL CORTILE — «Qualcuno è uscito prima di te»
+   Ti risvegli sul pavimento della cucina, l'appartamento sbarrato dall'interno, le 23:40 ferme sull'orologio.
+   Stufa, quaderno verde, radio, chiave del garage n. 4. Poi il cortile: la cabina ТП-4, il cancello,
+   le impronte identiche ai tuoi stivali, la figura che zoppica. E un foglio datato domani.
    ===================================================================== */
 const L1 = {
   A: { x0: -20, x1: 24, z0: -22, z1: -11 }, B: { x0: -32, x1: -21, z0: -8, z1: 14 },
   TUNNEL: { x0: -16.62, x1: -13.23 }, GAR: { x0: 0, x1: 19.2, z0: 10, z1: 16, open: 3, n: 6 },
-  TP: { x0: 15.5, x1: 19.5, z0: -5.5, z1: -2 }, CAR: { x: 8, z: -8.6 }, DRIVE_Z: -8.5, BARREL: { x: -9.2, z: -1.6 },
+  TP: { x0: 15.5, x1: 19.5, z0: -5.5, z1: -2 }, CAR: { x: 8, z: -8.6 }, CAR2: { x: 13.4, z: -8.3 }, DRIVE_Z: -8.5, BARREL: { x: -9.2, z: -1.6 },
+  AX: 60, ARRIVE: { x: 2.0, z: -9.3 }, GATE_Z: -11.3, FAR_LAMP: { x: -11.5, z: 13.5 },
 };
+const APT_FLOOR = 0.05;
 function ground1(x, z) {
+  if (x > 40) return APT_FLOOR;                                        // l'appartamento: un mondo a parte
   let h = 0.07 * Math.sin(x * 0.21 + z * 0.13) + 0.045 * Math.sin(x * 0.53 - z * 0.37) + 0.03 * Math.sin(z * 0.9 + x * 0.2);
   const drive = smooth01(1 - Math.abs(z - L1.DRIVE_Z) / 2.6);
   h *= 1 - drive * 0.85;
@@ -3053,18 +3081,62 @@ function ground1(x, z) {
   if (x > L1.GAR.x0 - 0.6 && x < L1.GAR.x1 + 0.6) h += smooth01((z - (L1.GAR.z0 - 1.0)) / 1.0) * (z < L1.GAR.z0 + 0.2 ? 0.32 : 0);
   return h;
 }
-// le impronte misteriose: partono sotto le altalene, passo lungo e rigidissimo
-const TRAIL1 = [[2.4, 3.2], [0.2, 2.5], [-3.4, 1.4], [-6.6, 1.5], [-6.2, 3.4], [-2.5, 5.6], [2.6, 7.4], [7.5, 9.0],
-  [16, 8.8], [20.7, 10.5], [20.6, 16.4], [16, 17.2], [11.3, 16.6], [14.5, 18.0], [20.9, 15.0], [21.6, 6.5], [19.5, 0.6], [17.6, -1.2]];
-const TRAIL1B = [[17.6, -1.2], [12, -4.2], [3, -6.0], [-6, -6.3], [-12.5, -8.0], [-14.9, -10.2], [-14.9, -13]];
+// le impronte profonde: dal cancello attraverso il cortile fino alla porta del palazzo. Nessuna che torna.
+const TRAILG = [[-14.9, -11.0], [-14.2, -8.6], [-11.5, -5.6], [-7.4, -3.4], [-3.0, -3.6], [0.4, -6.0], [1.7, -8.4], [2.0, -10.1]];
+const TRAIL_LIMP = [[10.6, -8.4], [12.4, -7.5], [14.6, -6.9], [17.0, -6.5], [19.6, -6.4], [21.4, -6.1]];
+const APT_BOUNDS = [L1.AX - 5.85, L1.AX + 5.85, -4.33, 6.4], YARD_BOUNDS = [-20.4, 23.2, -21.5, 21];
+
+/* carta da parati ingiallita, pittura verde da cucina, piastrelle del bagno, parquet e linoleum */
+function aptTex(kind) {
+  const W = 256, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const m = c.getContext('2d'), r = mulberry32(kind.length * 31 + 7);
+  if (kind === 'paper') {
+    m.fillStyle = '#a99b72'; m.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 32) { m.fillStyle = 'rgba(120,96,60,0.22)'; m.fillRect(x, 0, 10, H); }
+    for (let y = 8; y < H; y += 32) for (let x = 16 + (y % 64 ? 16 : 0); x < W; x += 32) { m.fillStyle = 'rgba(110,70,50,0.35)'; m.beginPath(); m.ellipse(x, y, 4, 7, 0, 0, 7); m.fill(); m.fillStyle = 'rgba(70,90,60,0.3)'; m.fillRect(x - 1, y + 6, 2, 8); }
+    for (let k = 0; k < 5; k++) { const x = r() * W, y = r() * H * 0.6 + H * 0.4, g = m.createRadialGradient(x, y, 2, x, y, 20 + r() * 40); g.addColorStop(0, 'rgba(90,70,40,0.35)'); g.addColorStop(1, 'rgba(90,70,40,0)'); m.fillStyle = g; m.fillRect(0, 0, W, H); }
+    m.fillStyle = 'rgba(40,30,20,0.35)'; m.fillRect(0, H - 10, W, 10);
+  } else if (kind === 'kitchen') {
+    m.fillStyle = '#cfc8b0'; m.fillRect(0, 0, W, H); m.fillStyle = '#56685a'; m.fillRect(0, H * 0.48, W, H * 0.52); m.fillStyle = '#3c4a3e'; m.fillRect(0, H * 0.48, W, 4);
+    for (let k = 0; k < 4; k++) { const x = r() * W, y = r() * H, g = m.createRadialGradient(x, y, 2, x, y, 30); g.addColorStop(0, 'rgba(60,50,30,0.3)'); g.addColorStop(1, 'rgba(60,50,30,0)'); m.fillStyle = g; m.fillRect(0, 0, W, H); }
+  } else if (kind === 'tiles') {
+    for (let y = 0; y < H; y += 32) for (let x = 0; x < W; x += 32) { const v = 175 + r() * 20; m.fillStyle = `rgb(${v - 20},${v},${v - 5})`; m.fillRect(x + 1, y + 1, 30, 30); }
+    m.fillStyle = 'rgba(40,50,45,0.6)'; for (let k = 0; k <= W; k += 32) { m.fillRect(k, 0, 1.5, H); m.fillRect(0, k, W, 1.5); }
+  } else if (kind === 'parquet') {
+    for (let y = 0; y < H; y += 16) { let x = -r() * 60; while (x < W) { const len = 50 + r() * 70, v = 70 + r() * 30; m.fillStyle = `rgb(${v + 30},${v + 10},${v - 12})`; m.fillRect(x, y, len - 1.5, 15); x += len; } }
+  } else if (kind === 'lino') {
+    for (let y = 0; y < H; y += 32) for (let x = 0; x < W; x += 32) { m.fillStyle = ((x + y) / 32) % 2 ? '#7c6a52' : '#a8987a'; m.fillRect(x, y, 32, 32); }
+    for (let k = 0; k < 300; k++) { m.fillStyle = `rgba(30,20,10,${r() * 0.15})`; m.fillRect(r() * W, r() * H, 2, 2); }
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso; return t;
+}
+function clockTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const m = c.getContext('2d');
+  m.fillStyle = '#e8e2cc'; m.beginPath(); m.arc(64, 64, 60, 0, 7); m.fill(); m.lineWidth = 5; m.strokeStyle = '#2a2622'; m.stroke();
+  m.fillStyle = '#2a2622'; for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; m.fillRect(64 + Math.sin(a) * 48 - 2, 64 - Math.cos(a) * 48 - 2, 4, 4); }
+  const hand = (a, len, w, col) => { m.strokeStyle = col; m.lineWidth = w; m.beginPath(); m.moveTo(64, 64); m.lineTo(64 + Math.sin(a) * len, 64 - Math.cos(a) * len); m.stroke(); };
+  hand((11 + 40 / 60) / 12 * 6.283, 30, 5, '#1a1714'); hand(40 / 60 * 6.283, 46, 3.5, '#1a1714'); hand(0.6, 50, 1.5, '#a0241c');
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function mirrorTex() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320; const m = c.getContext('2d');
+  const g = m.createLinearGradient(0, 0, 0, 320); g.addColorStop(0, '#9aa4a8'); g.addColorStop(1, '#6c767a'); m.fillStyle = g; m.fillRect(0, 0, 256, 320);
+  m.fillStyle = 'rgba(230,236,238,0.55)'; m.fillRect(0, 0, 256, 320);
+  m.globalCompositeOperation = 'destination-out'; m.font = 'bold 46px serif'; m.textAlign = 'center'; m.lineWidth = 7; m.lineJoin = 'round';
+  m.strokeText('НЕ ВЕРЬ', 128, 140); m.strokeText('ЕМУ', 128, 200);
+  m.globalCompositeOperation = 'source-over'; m.fillStyle = 'rgba(80,90,95,0.4)';
+  for (let k = 0; k < 14; k++) m.fillRect(70 + Math.random() * 120, 150 + Math.random() * 80, 2, 10 + Math.random() * 40);   // gocce che colano
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 
 const CH1 = {
-  id: 1, roman: 'I', name: 'Il Cortile', clueCount: 3, cold: 0.2, attention: false,
-  docs: { diario: 'Quaderno verde · «Il cielo si è spento a metà pomeriggio…»', radio: 'Messaggio radio · «…non seguite le impronte…»',
-    chiave: 'Biglietto nel garage · «Se torna la luce, tornano anche loro. — V.» La mia calligrafia.' },
-  start: { x: 2.0, z: -9.4, heading: Math.PI }, bounds: [-20.4, 23.2, -21.5, 21],
-  figSpots: [[-17.5, 17.5], [21.5, 20.5], [-18.5, -9.6], [22, -8.5], [-2, 19.5], [16.5, 8.5], [-19.5, 1]],
+  id: 1, roman: 'I', name: 'Il Cortile', clueCount: 4, cold: 0.2, attention: false,
+  docs: { quaderno: 'Quaderno verde · «Не включай свет.» «Если услышишь стук — не отвечай.» «Если вернётся свет, вернутся и они. — В.»',
+    specchio: 'Specchio del bagno · «НЕ ВЕРЬ ЕМУ» — non credergli. Scritto con un dito sul vetro appannato.',
+    impronte: 'Impronte nel cortile · stivali da lavoro, tacco consumato a sinistra, taglio obliquo. Identiche alle mie.',
+    foglio: 'Foglio nel garage n. 4 · «ЕСЛИ ТЫ ЧИТАЕШЬ ЭТО, ЗНАЧИТ, Я НЕ УСПЕЛ.» — Д. ВОРОНИН · 13.02.1991' },
+  start: { x: L1.AX + 4.3, z: -0.9, heading: -Math.PI / 2 }, bounds: APT_BOUNDS, ground: ground1,
   env() { setSun(21, -0.6, 0.8); scene.fog.density = 0.0105; hemi.intensity = 0.6; },
+  shelter(x) { return x > 40; },
   snow() {
     snowBase();
     flatStrip(L1.DRIVE_Z - 2.1, L1.DRIVE_Z + 2.1, 146, 0.6, '212,216,224', 0.4);
@@ -3076,29 +3148,180 @@ const CH1 = {
       blob(-HX + rand() * GW, L1.DRIVE_Z + 1.9 + rand() * 0.8, 0.3 + rand() * 0.6, 205 + rand() * 25, 0.35);
       blob(L1.A.x0 + rand() * 44, L1.A.z1 + 0.3 + rand() * 0.5, 0.3 + rand() * 0.5, 200 + rand() * 30, 0.3);
     }
-    carTrack(x => L1.DRIVE_Z + 0.2 + 0.3 * Math.sin(0.09 * x + 0.5), -HX, HX, 0.85);
-    carTrack(x => L1.DRIVE_Z - 0.3 + 0.25 * Math.sin(0.06 * x + 2.1), -HX, HX, 0.4);
-    carTrack(x => lerp(L1.DRIVE_Z + 0.6, L1.CAR.z, smooth01((x + 8) / 10)), -HX, L1.CAR.x + 1.25, 0.95);
-    const paths = [[[-20.3, -2.5], [-15, -4], [-8, -6.2]], [[-20.3, 8.5], [-12, 4], [-3, -1], [6, -6.2]],
-      [[-8.15, -10.3], [-8, -7]], [[12.2, -10.3], [12, -7]], [[22.3, -10.3], [22, -7]], [[-20.3, 8.5], [-10, 13], [0, 18], [10, 19], [21, 18.5]]];
-    for (const p of paths) for (let k = 0; k < 4; k++) walkTrail(polyPath(p.map(([x, z]) => [x + (rand() - 0.5) * 0.35, z + (rand() - 0.5) * 0.35])), 0.4 + rand() * 0.2, 0.7, 0.3);
-    const trnd = mulberry32(17);
-    walkTrail(polyPath(TRAIL1), 1.0, 0.82, 0.0, trnd);     // passo più lungo e senza esitazioni: "rigido"
-    walkTrail(polyPath(TRAIL1B), 1.0, 0.82, 0.0, trnd);
+    carTrack(x => L1.DRIVE_Z + 0.2 + 0.3 * Math.sin(0.09 * x + 0.5), -HX, HX, 0.55);
+    carTrack(x => lerp(L1.DRIVE_Z + 0.6, L1.CAR.z, smooth01((x + 8) / 10)), -HX, L1.CAR.x + 1.25, 0.5);
+    // vecchie tracce, quasi coperte: la neve qui è rimasta intatta per mesi
+    const paths = [[[-20.3, -2.5], [-15, -4], [-8, -6.2]], [[12.2, -10.3], [12, -7]], [[-20.3, 8.5], [-10, 13], [0, 18], [10, 19], [21, 18.5]]];
+    for (const p of paths) for (let k = 0; k < 2; k++) walkTrail(polyPath(p.map(([x, z]) => [x + (rand() - 0.5) * 0.35, z + (rand() - 0.5) * 0.35])), 0.22 + rand() * 0.1, 0.7, 0.3);
   },
+  /* ------------------------------------------------------------------ appartamento */
+  buildApartment() {
+    const AX = L1.AX, F = APT_FLOOR, Hh = 2.6, self = this;
+    const X = x => AX + x;
+    this.walls = [];
+    const tex = { paper: aptTex('paper'), kitchen: aptTex('kitchen'), tiles: aptTex('tiles'), parquet: aptTex('parquet'), lino: aptTex('lino') };
+    const box = (mat, x0, x1, y0, y1, z0, z1, solid = true) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat); mm.position.set(X((x0 + x1) / 2), (y0 + y1) / 2, (z0 + z1) / 2); mm.castShadow = true; mm.receiveShadow = true; world.add(mm); if (solid) addBox(X(x0), X(x1), z0, z1); return mm; };
+    const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o));
+    // il buio intorno: un pavimento nero, così la nebbia non mostra il vuoto
+    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: 0x07090c })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(AX, -0.02, 0); world.add(voidM);
+    const floor = (t, x0, x1, z0, z1, rep) => { const tt = t.clone(); tt.needsUpdate = true; tt.repeat.set((x1 - x0) / rep, (z1 - z0) / rep); const p = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshStandardMaterial({ map: tt, roughness: 0.8 })); p.rotation.x = -Math.PI / 2; p.position.set(X((x0 + x1) / 2), F, (z0 + z1) / 2); p.receiveShadow = true; world.add(p); };
+    floor(tex.lino, 0, 6, -4.5, 0.5, 2); floor(tex.parquet, -6, 0, -4.5, 0.5, 2.5); floor(tex.parquet, -6, 6, 0.5, 2, 2.5); floor(tex.tiles, -6, -3, 2, 4.5, 1.2);
+    floor(tex.parquet, -3, 2.5, 2, 4.5, 2.5); floor(tex.lino, 2.5, 6, 2, 4.5, 2); floor(tex.lino, 2.5, 6, 4.5, 6.6, 2);
+    // muri: ognuno col suo materiale, così quelli tra te e la camera diventano trasparenti
+    const wall = (t, ax, az, bx, bz, gaps = [], h = Hh, rep = 2.4) => {
+      const horiz = Math.abs(bz - az) < 1e-3, L = horiz ? bx - ax : bz - az;
+      const tt = t.clone(); tt.needsUpdate = true; tt.repeat.set(1, 1);
+      const m = new THREE.MeshStandardMaterial({ map: tt, roughness: 0.92, transparent: true, opacity: 1 });
+      const geos = []; let s = 0;
+      const seg = (a, b, y0, y1) => { const g = horiz ? new THREE.BoxGeometry(b - a, y1 - y0, 0.12) : new THREE.BoxGeometry(0.12, y1 - y0, b - a); g.translate(horiz ? X(ax + (a + b) / 2) : X(ax), F + (y0 + y1) / 2, horiz ? az : az + (a + b) / 2);
+        const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (b - a) / rep, (y0 + uv.getY(i) * (y1 - y0)) / Hh); geos.push(g); };
+      for (const [g0, g1, top = 2.1] of [...gaps, [L, L, Hh]]) { if (g0 > s) { seg(s, g0, 0, h); if (horiz) addBox(X(ax + s), X(ax + g0), az - 0.1, az + 0.1); else addBox(X(ax) - 0.1, X(ax) + 0.1, az + s, az + g0); } if (g1 > g0) seg(g0, g1, top, h); s = g1; }
+      const mesh = new THREE.Mesh(mergeGeometries(geos), m); mesh.castShadow = true; mesh.receiveShadow = true; world.add(mesh);
+      this.walls.push({ m, ax: X(ax), az, bx: X(bx), bz });
+      return mesh;
+    };
+    wall(tex.kitchen, 0, -4.5, 6, -4.5, [[2.6, 4.0, 2.2]]);  wall(tex.paper, -6, -4.5, 0, -4.5, [[2.2, 3.8, 2.2]]);    // nord, finestre sbarrate
+    wall(tex.paper, -6, -4.5, -6, 2);  wall(tex.tiles, -6, 2, -6, 4.5);                                                // ovest
+    wall(tex.kitchen, 6, -4.5, 6, 0.5); wall(tex.paper, 6, 0.5, 6, 2, [[0.05, 1.45]]); wall(tex.paper, 6, 2, 6, 6.6);   // est, porta d'ingresso
+    wall(tex.tiles, -6, 4.5, -3, 4.5); wall(tex.paper, -3, 4.5, 2.5, 4.5); wall(tex.kitchen, 2.5, 4.5, 6, 4.5, [[2.1, 2.9, 1.25]]);   // sud, la botola
+    wall(tex.kitchen, 2.5, 6.6, 6, 6.6); wall(tex.kitchen, 2.5, 4.5, 2.5, 6.6);                                       // vano tecnico
+    wall(tex.kitchen, 0, -4.5, 0, 0.5);                                                                                 // cucina | soggiorno
+    wall(tex.paper, -6, 0.5, 6, 0.5, [[3.1, 4.9], [7.0, 8.0]]);                                                        // corridoio nord: arco del soggiorno, porta cucina
+    wall(tex.paper, -6, 2, 6, 2, [[1.1, 1.9], [6.4, 7.2], [9.6, 10.4]]);                                              // corridoio sud: bagno, camera, ripostiglio
+    wall(tex.tiles, -3, 2, -3, 4.5); wall(tex.paper, 2.5, 2, 2.5, 4.5);
+    // finestre: vetro nero di notte, assi inchiodate dall'interno
+    const plank = mat(0x5a4632, { roughness: 1 }), nightGlass = new THREE.MeshBasicMaterial({ color: 0x0c1520 });
+    for (const [x0, x1] of [[2.6, 4.0], [-3.8, -2.2]]) {
+      box(nightGlass, x0, x1, F, F + 2.2, -4.53, -4.5, false);
+      for (let k = 0; k < 4; k++) { const p = box(plank, x0 - 0.15, x1 + 0.15, F + 0.95 + k * 0.32, F + 1.17 + k * 0.32, -4.42, -4.38, false); p.rotation.z = (k % 2 ? 1 : -1) * 0.05; }
+      const sill = box(mat(0xd8d4c8), x0 - 0.1, x1 + 0.1, F + 0.86, F + 0.92, -4.44, -4.2, false);
+    }
+    // CUCINA ------------------------------------------------------------
+    const counter = mat(0xc8c0a8, { roughness: 0.6 }), cab = mat(0x7a8a72, { roughness: 0.7 });
+    box(cab, 0.3, 2.5, F, F + 0.85, -4.42, -3.85); box(counter, 0.25, 2.55, F + 0.85, F + 0.9, -4.44, -3.8, false);
+    for (let k = 0; k < 3; k++) box(mat(0x3a3e38, { metalness: 0.6, roughness: 0.4 }), 0.55 + k * 0.7, 0.75 + k * 0.7, F + 0.72, F + 0.75, -3.84, -3.82, false);   // maniglie dei cassetti
+    const sink = box(mat(0xa8acac, { metalness: 0.7, roughness: 0.3 }), 1.8, 2.4, F + 0.86, F + 0.92, -4.3, -3.95, false);
+    { const cl = new THREE.Mesh(new THREE.CircleGeometry(0.22, 24), new THREE.MeshBasicMaterial({ map: clockTex() })); cl.position.set(X(1.2), F + 1.9, -4.43); world.add(cl); }
+    const tableTop = box(mat(0x6a5038, { roughness: 0.7 }), 2.2, 3.4, F + 0.72, F + 0.77, -2.2, -1.4, false);
+    for (const [x, z] of [[2.28, -2.12], [3.32, -2.12], [2.28, -1.48], [3.32, -1.48]]) box(mat(0x4a3826), x - 0.03, x + 0.03, F, F + 0.72, z - 0.03, z + 0.03, false);
+    addBox(X(2.2), X(3.4), -2.2, -1.4);
+    box(mat(0xb8b4a0), 2.25, 3.35, F + 0.775, F + 0.78, -2.15, -1.45, false);   // tovaglia cerata
+    const plateM = mat(0xe8e6de, { roughness: 0.35 });
+    for (const [x, z, food] of [[2.6, -1.62, false], [3.0, -1.98, true]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.02, 18), plateM); p.position.set(X(x), F + 0.79, z); world.add(p);
+      if (food) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 6), mat(0x8a5a2a)); f.scale.y = 0.35; f.position.set(X(x), F + 0.81, z); world.add(f); this.steamAt = new THREE.Vector3(X(x), F + 0.85, z); } }
+    const chair = (x, z, rot) => { const g = new THREE.Group(), cm = mat(0x5a4430, { roughness: 0.8 });
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.42), cm); s.position.y = 0.45; g.add(s);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), cm); b.position.set(0, 0.7, -0.19); g.add(b);
+      for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.45, 0.035), cm); l.position.set(lx, 0.225, lz); g.add(l); }
+      g.position.set(X(x), F, z); g.rotation.y = rot; shadowAll(g); ink(g); world.add(g); return g; };
+    this.chairA = chair(2.6, -1.05, Math.PI); this.chairB = chair(3.0, -2.55, 0);
+    this.chairBox = addOBB(X(3.0), -2.55, 0.24, 0.24, 0);
+    // stufa a legna (буржуйка) con la canna fumaria che entra nel muro
+    { const g = new THREE.Group(), iron = mat(0x1e2022, { metalness: 0.7, roughness: 0.45 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.75, 18), iron); body.position.y = 0.6; g.add(body);
+      for (const a of [0.8, 2.4, 3.9, 5.5]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.25, 6), iron); l.position.set(Math.cos(a) * 0.26, 0.12, Math.sin(a) * 0.26); g.add(l); }
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.37, 0.05, 18), iron); top.position.y = 0.99; g.add(top);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.25, 10), iron); pipe.position.y = 1.62; g.add(pipe);
+      const pipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.75, 10), iron); pipe2.rotation.x = Math.PI / 2; pipe2.position.set(0, 2.22, -0.36); g.add(pipe2);
+      this.stoveDoorM = new THREE.MeshStandardMaterial({ color: 0x150806, emissive: 0xff5a1a, emissiveIntensity: 0 });
+      const dr = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.2), this.stoveDoorM); dr.position.set(0, 0.6, 0.345); g.add(dr);
+      g.position.set(X(5.2), F, -3.75); g.rotation.y = -0.35; shadowAll(g); ink(g); world.add(g); CIRCLES.push([X(5.2), -3.75, 0.42]);
+      const light = new THREE.PointLight(0xff7a2a, 0, 8, 1.5); light.position.set(X(5.0), F + 1.0, -3.2); world.add(light);
+      this.stove = { x: X(5.2), z: -3.75, lit: false, update(t) { const on = this.lit ? 1 : 0; light.intensity = on * (7 + Math.sin(t * 13) * 1.4 + Math.sin(t * 29) * 0.8); self.stoveDoorM.emissiveIntensity = on * (2.4 + Math.sin(t * 9) * 0.5); } };
+      fires.push(this.stove); }
+    this.paperPile = box(mat(0xbdb6a0), 4.25, 4.75, F, F + 0.18, -4.25, -3.85, false);
+    // la tavola sollevata e l'intercapedine
+    this.cavity = new THREE.Group(); this.cavity.position.set(X(4.3), F, -2.55); world.add(this.cavity);
+    { const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.24), new THREE.MeshBasicMaterial({ color: 0x050403 })); hole.rotation.x = -Math.PI / 2; hole.position.y = 0.003; this.cavity.add(hole);
+      this.board = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.03, 0.24), mat(0x7a6a50)); this.board.position.set(0, 0.03, 0); this.board.rotation.z = 0.06; this.cavity.add(this.board);
+      this.cavityStuff = new THREE.Group(); this.cavity.add(this.cavityStuff);
+      const nb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.15), mat(0x3a5a40)); nb.position.set(-0.25, 0.0, 0); this.cavityStuff.add(nb);
+      const rd = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.13), mat(0x3f4a35)); rd.position.set(0.12, -0.03, 0); this.cavityStuff.add(rd);
+      const ky = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.01, 0.03), mat(0x8a6a3a, { metalness: 0.7 })); ky.position.set(0.36, 0.0, 0.04); this.cavityStuff.add(ky);
+      this.cavityStuff.visible = false; }
+    // SOGGIORNO --------------------------------------------------------
+    // televisore a tubo: neve elettronica, la luce bluastra che trema
+    { const g = new THREE.Group(), wood = mat(0x4a3424, { roughness: 0.7 });
+      const stand = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.9), wood); stand.position.y = 0.275; g.add(stand);
+      const tv = new THREE.Mesh(new RoundedBoxGeometry(0.55, 0.55, 0.7, 2, 0.04), mat(0x3a2a1c, { roughness: 0.5 })); tv.position.y = 0.83; g.add(tv);
+      this.tvC = document.createElement('canvas'); this.tvC.width = 64; this.tvC.height = 48; this.tvTex = new THREE.CanvasTexture(this.tvC);
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.36), new THREE.MeshBasicMaterial({ map: this.tvTex })); scr.rotation.y = Math.PI / 2; scr.position.set(0.28, 0.85, -0.06); g.add(scr);
+      g.position.set(X(-5.55), F, -1.6); shadowAll(g); world.add(g); addBox(X(-5.85), X(-5.25), -2.1, -1.1);
+      this.tvLight = new THREE.PointLight(0x9ab4ff, 2, 6, 1.6); this.tvLight.position.set(X(-4.9), F + 0.9, -1.6); world.add(this.tvLight); }
+    { const sofa = new THREE.Group(), fab = mat(0x5a3a32, { roughness: 1 });
+      const seat = new THREE.Mesh(new RoundedBoxGeometry(0.8, 0.42, 1.9, 2, 0.08), fab); seat.position.y = 0.21; sofa.add(seat);
+      const back = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.85, 1.9, 2, 0.08), fab); back.position.set(0.32, 0.42, 0); sofa.add(back);
+      sofa.position.set(X(-2.4), F, -1.6); shadowAll(sofa); ink(sofa); world.add(sofa); addBox(X(-2.8), X(-2.0), -2.55, -0.65); }
+    box(mat(0x7a2a24, { roughness: 1 }), -4.6, -3.0, F, F + 0.012, -2.6, -0.6, false);                       // tappeto
+    { const lp = new THREE.Group(); const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 0.26, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xd8b060, emissive: 0xc08a30, emissiveIntensity: 0.8, side: THREE.DoubleSide }));
+      sh.position.y = 1.45; lp.add(sh); const st = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.4, 6), mat(0x2a2620)); st.position.y = 0.7; lp.add(st);
+      lp.position.set(X(-5.5), F, -3.5); world.add(lp); CIRCLES.push([X(-5.5), -3.5, 0.2]);
+      this.lampL = new THREE.PointLight(0xffc070, 2.6, 7, 1.6); this.lampL.position.set(X(-5.4), F + 1.4, -3.4); world.add(this.lampL); }   // abat-jour: giallo sporco
+    box(mat(0x3e2c1e, { roughness: 0.6 }), -5.7, -4.0, F, F + 1.6, -4.42, -3.95);                              // сервант
+    box(new THREE.MeshStandardMaterial({ color: 0x8a9a9c, roughness: 0.1, metalness: 0.5, transparent: true, opacity: 0.4 }), -5.6, -4.1, F + 0.9, F + 1.5, -3.95, -3.93, false);
+    { const ph = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.24), new THREE.MeshStandardMaterial({ map: textTex(['ТЭЦ'], 64, 84, '#8a8478', '#2a2620', 'bold 18px monospace'), roughness: 0.8 })); ph.position.set(X(-4.9), F + 1.73, -4.2); ph.rotation.x = -0.2; world.add(ph); }
+    // telefono sul tavolino
+    { box(mat(0x4a3424), -0.75, -0.3, F, F + 0.62, -0.25, 0.25); const ph = new THREE.Group();
+      const b = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.09, 0.18, 2, 0.03), mat(0x8a1a16, { roughness: 0.4 })); ph.add(b);
+      this.handset = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.05, 0.06, 2, 0.02), mat(0x8a1a16, { roughness: 0.4 })); this.handset.position.y = 0.07; ph.add(this.handset);
+      ph.position.set(X(-0.52), F + 0.67, 0); world.add(ph); }
+    // CORRIDOIO: la porta d'ingresso, tre mandate
+    { const door = box(mat(0x6a4a32, { roughness: 0.6 }), 5.9, 5.96, F, F + 2.05, 0.6, 1.9, false);
+      for (let k = 0; k < 3; k++) box(mat(0xb0a080, { metalness: 0.8, roughness: 0.3 }), 5.84, 5.9, F + 0.9 + k * 0.22, F + 0.98 + k * 0.22, 0.72, 0.8, false);
+      this.doorSnow = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.55), new THREE.MeshStandardMaterial({ color: 0xe8eef4, roughness: 0.9, transparent: true, opacity: 0 })); this.doorSnow.rotation.x = -Math.PI / 2; this.doorSnow.position.set(X(5.62), F + 0.006, 1.25); world.add(this.doorSnow); }
+    box(mat(0x3e2c1e), -5.9, -5.4, F, F + 1.9, 0.6, 1.9);                                                     // attaccapanni
+    // BAGNO: vasca, lavandino, lo specchio appannato
+    box(mat(0xe0e0d8, { roughness: 0.3 }), -5.9, -5.15, F, F + 0.55, 2.2, 4.4);
+    box(mat(0xe0e0d8, { roughness: 0.3 }), -4.8, -4.2, F + 0.7, F + 0.85, 2.08, 2.45);
+    this.mirrorM = new THREE.MeshBasicMaterial({ map: mirrorTex() });
+    { const mr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.62), this.mirrorM); mr.position.set(X(-4.5), F + 1.45, 2.075); world.add(mr);
+      this.mirrorM.color.setScalar(0.45); }
+    // CAMERA: letto, armadio aperto, le impronte bagnate
+    box(mat(0x5a4430), -1.0, 1.0, F, F + 0.45, 3.4, 4.42); box(mat(0xb8b0a0, { roughness: 1 }), -0.95, 0.95, F + 0.45, F + 0.58, 3.45, 4.4, false);
+    { const wd = box(mat(0x4a3424, { roughness: 0.65 }), -2.94, -2.4, F, F + 2.0, 2.4, 3.6);
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.9, 0.03), mat(0x4a3424)); leaf.position.set(X(-2.15), F + 1.0, 2.65); leaf.rotation.y = 0.9; world.add(leaf);
+      box(new THREE.MeshBasicMaterial({ color: 0x0a0806 }), -2.4, -2.38, F + 0.1, F + 1.9, 2.5, 3.5, false); }
+    const wetM = new THREE.MeshStandardMaterial({ color: 0x1a1c1e, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0 });
+    this.wetPrints = []; const wet = [[0.9, 2.3], [0.55, 2.62], [0.15, 2.8], [-0.3, 3.05], [-0.75, 3.1], [-1.2, 3.25], [-1.65, 3.15], [-2.05, 3.2]];
+    wet.forEach(([x, z], i) => { const p = new THREE.Mesh(new THREE.CircleGeometry(0.1, 10), wetM); p.scale.set(1.3, 0.6, 1); p.rotation.x = -Math.PI / 2; p.rotation.z = Math.atan2(-(wet[Math.min(i + 1, wet.length - 1)][1] - z), -1); p.position.set(X(x + (i % 2 ? 0.06 : -0.06)), F + 0.004, z + (i % 2 ? 0.1 : -0.1)); world.add(p); });
+    this.wetM = wetM;
+    // RIPOSTIGLIO: la cassa della legna, il mobile davanti alla botola
+    box(mat(0x5a4632), 2.7, 3.6, F, F + 0.5, 3.8, 4.4); for (let k = 0; k < 5; k++) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 7), mat(0x6a4a2a)); l.rotation.z = Math.PI / 2; l.position.set(X(3.15), F + 0.55 + (k % 2) * 0.06, 3.9 + k * 0.1); world.add(l); this.logs = this.logs || []; this.logs.push(l); }
+    box(mat(0x3a3e36, { metalness: 0.4 }), 5.4, 5.9, F, F + 1.8, 2.2, 3.2);                                    // scaffale di barattoli
+    this.cupboard = new THREE.Group(); { const cm = mat(0x5a4836, { roughness: 0.7 }); const b = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.7, 0.5), cm); b.position.y = 0.85; this.cupboard.add(b);
+      const d1 = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.5, 0.02), mat(0x6a5440)); d1.position.set(-0.24, 0.85, -0.26); this.cupboard.add(d1); const d2 = d1.clone(); d2.position.x = 0.24; this.cupboard.add(d2); }
+    this.cupboard.position.set(X(5.0), F, 4.18); shadowAll(this.cupboard); ink(this.cupboard); world.add(this.cupboard); this.cupBox = addBox(X(4.5), X(5.5), 3.93, 4.43);
+    this.hatchBox = addBox(X(4.6), X(5.4), 4.4, 4.6);
+    // VANO TECNICO: tubi, il gancio con la chiave, la scala di servizio
+    for (let k = 0; k < 3; k++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.5, 8), mat(0x5a5e5a, { metalness: 0.5 })); p.rotation.x = Math.PI / 2; p.position.set(X(2.75), F + 0.6 + k * 0.35, 5.0); world.add(p); }
+    this.hookKey = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.05), mat(0xb08a4a, { metalness: 0.8, roughness: 0.3 })); this.hookKey.position.set(X(2.62), F + 1.5, 5.8); world.add(this.hookKey);
+    for (let k = 0; k < 6; k++) box(mat(0x6a6e6a, { roughness: 0.8 }), 4.3, 5.9, F - 0.12 * (k + 1), F - 0.12 * k, 5.0 + k * 0.25, 5.25 + k * 0.25, false);   // gradini che scendono
+    box(mat(0x3a3e40, { metalness: 0.6 }), 4.25, 4.3, F, F + 1.0, 5.0, 6.5, false);
+  },
+  /* ------------------------------------------------------------------ cortile */
   build() {
+    this.buildApartment();
     const A = makeBlock({ L: 44, D: 11, cols: 13, entrances: [3, 6, 9, 12], balconyCols: [4, 7, 10], tunnelCol: 1, seed: 101,
       pos: new THREE.Vector3((L1.A.x0 + L1.A.x1) / 2, 0, (L1.A.z0 + L1.A.z1) / 2) });
     const Bk = makeBlock({ L: 22, D: 11, cols: 6, entrances: [1, 4], balconyCols: [0, 2, 3, 5], seed: 202,
       pos: new THREE.Vector3((L1.B.x0 + L1.B.x1) / 2, 0, (L1.B.z0 + L1.B.z1) / 2), rotY: Math.PI / 2 });
     A.candles([17, 40]); Bk.candles([9]);
-    makeDumpster(-3.6, -9.9, 0.04); makeDumpster(-1.8, -9.95, -0.05, { open: true }); makeDumpster(-19.6, 6.2, Math.PI / 2 + 0.1);
+    makeDumpster(-3.6, -9.9, 0.04); makeDumpster(-1.8 + 6, -9.95, -0.05, { open: true }); makeDumpster(-19.6, 6.2, Math.PI / 2 + 0.1);
     const back = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.5), new THREE.MeshBasicMaterial({ color: 0x030405 }));
     back.position.set((L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2, 1.75, L1.A.z0 + 0.6); world.add(back);
     addBox(L1.A.x0, L1.TUNNEL.x0, L1.A.z0, L1.A.z1); addBox(L1.TUNNEL.x1, L1.A.x1, L1.A.z0, L1.A.z1);
     addBox(L1.B.x0, L1.B.x1, L1.B.z0, L1.B.z1);
-
-    // garage
+    // il cancello elettrico nel sottopasso
+    { const T = L1.TUNNEL, g = new THREE.Group(), w = T.x1 - T.x0 - 0.1;
+      const gm = new THREE.MeshStandardMaterial({ color: 0x3a3e42, roughness: 0.55, metalness: 0.7 });
+      for (let k = 0; k <= 12; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.1, 0.04), gm); b.position.set(k / 12 * w, 1.05, 0); g.add(b); }
+      for (const y of [0.15, 1.05, 2.05]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, 0.06), gm); b.position.set(w / 2, y, 0); g.add(b); }
+      const motor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.3), new THREE.MeshStandardMaterial({ color: 0x5a5a4a, roughness: 0.6 })); motor.position.set(-0.3, 0.3, 0.3); g.add(motor);
+      g.position.set(T.x0 + 0.05, groundH(T.x0 + 0.2, L1.GATE_Z), L1.GATE_Z); shadowAll(g); ink(g); world.add(g); this.gate = g;
+      this.gateLampM = new THREE.MeshStandardMaterial({ color: 0x300606, emissive: 0xff2010, emissiveIntensity: 0.4 });
+      const gl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), this.gateLampM); gl.position.set(T.x0 + 0.3, 2.5, L1.GATE_Z + 0.1); world.add(gl);
+      this.gateBox = addBox(T.x0, T.x1, L1.GATE_Z - 0.15, L1.GATE_Z + 0.15); }
+    // garage: sei box in fila; il n. 4 è chiuso col lucchetto
     const G = L1.GAR, w = (G.x1 - G.x0) / G.n, d = G.z1 - G.z0, h = 2.5;
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x7b766c, roughness: 0.95 });
     const doorCols = [0x4d5a4a, 0x5a4a3a, 0x3f4a56, 0x6a3a32, 0x4a4a44, 0x3e463e];
@@ -3108,32 +3331,40 @@ const CH1 = {
       if (i === G.open) {
         for (const bx of [x0 + 0.06, x0 + w - 0.06]) { const b = new THREE.BoxGeometry(0.12, h, d); b.translate(bx, h / 2, (G.z0 + G.z1) / 2); walls.push(b); }
         const bb = new THREE.BoxGeometry(w, h, 0.12); bb.translate(x0 + w / 2, h / 2, G.z0 + 0.06); walls.push(bb);
-        const door = new THREE.Mesh(new THREE.BoxGeometry(w - 0.3, 0.06, 2.2), new THREE.MeshStandardMaterial({ color: doorCols[i], roughness: 0.6, metalness: 0.5 }));
-        door.position.set(x0 + w / 2, h - 0.2, G.z1 - 1.1); world.add(door); shadowAll(door);
+        const pv = new THREE.Group(); pv.position.set(x0 + w / 2, h - 0.15, G.z1 + 0.03); world.add(pv);
+        const door = new THREE.Mesh(new THREE.BoxGeometry(w - 0.4, h - 0.3, 0.05), new THREE.MeshStandardMaterial({ color: doorCols[i], roughness: 0.6, metalness: 0.5 }));
+        door.position.y = -(h - 0.3) / 2; pv.add(door); shadowAll(door); this.garDoor = pv;
+        const lock = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 12), new THREE.MeshStandardMaterial({ color: 0xa08a50, metalness: 0.8, roughness: 0.3 })); lock.position.set(0, -(h - 0.3) + 0.45, 0.05); pv.add(lock);
       } else {
         const b = new THREE.BoxGeometry(w - 0.02, h, d); b.translate(x0 + w / 2, h / 2, (G.z0 + G.z1) / 2); walls.push(b);
         const door = new THREE.Mesh(new THREE.BoxGeometry(w - 0.4, h - 0.3, 0.05), new THREE.MeshStandardMaterial({ color: doorCols[i], roughness: 0.55 + rand() * 0.3, metalness: 0.5 }));
         door.position.set(x0 + w / 2, (h - 0.3) / 2, G.z1 + 0.03); world.add(door); shadowAll(door);
       }
+      const nt = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), new THREE.MeshStandardMaterial({ map: textTex([String(i + 1)], 64, 48, '#d8d4c4', '#1a1a1a', 'bold 38px monospace'), roughness: 0.8 }));
+      nt.position.set(x0 + w / 2, h - 0.05, G.z1 + 0.07); world.add(nt);
     }
     const wm = new THREE.Mesh(mergeGeometries(walls), wallMat); shadowAll(wm); world.add(wm);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(G.x1 - G.x0 + 0.4, 0.14, d + 0.5), new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9 }));
-    roof.position.set((G.x0 + G.x1) / 2, h + 0.07, (G.z0 + G.z1) / 2); shadowAll(roof); world.add(roof);
-    const rs = new THREE.Mesh(new RoundedBoxGeometry(G.x1 - G.x0 + 0.3, 0.3, d + 0.4, 2, 0.12), plainSnowMat);
-    rs.position.set((G.x0 + G.x1) / 2, h + 0.25, (G.z0 + G.z1) / 2); shadowAll(rs); world.add(rs);
-    const gx = G.x0 + G.open * w + w / 2;
-    const dark = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.9 });
-    for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.12, 8, 16), dark); t.rotation.x = Math.PI / 2; t.position.set(gx - 1.0, 0.13 + k * 0.24, G.z0 + 1.2); world.add(t); }
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 2.4), new THREE.MeshStandardMaterial({ color: 0x3b3128, roughness: 1 })); shelf.position.set(gx + 1.15, 0.9, G.z0 + 2.2); world.add(shelf);
-    const tinMat = new THREE.MeshStandardMaterial({ color: 0x9a9a8a, roughness: 0.35, metalness: 0.8 });
-    this.tins = new THREE.Group();
-    for (let k = 0; k < 5; k++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 10), tinMat); c.position.set(gx + 1.1, 1.0 + (k % 2) * 0.45, G.z0 + 1.4 + k * 0.3); this.tins.add(c); }
-    world.add(this.tins);
-    const toolbox = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.26, 0.28), new THREE.MeshStandardMaterial({ color: 0x8a2018, roughness: 0.5, metalness: 0.4 }));
-    toolbox.position.set(gx + 0.2, 0.13, G.z1 - 0.8); toolbox.rotation.y = 0.3; world.add(toolbox);
-    shadowAll(shelf); shadowAll(toolbox);
-    addBox(G.x0, G.x0 + 3 * w, G.z0, G.z1 + 0.05); addBox(G.x0 + 4 * w, G.x1, G.z0, G.z1 + 0.05); addBox(G.x0 + 3 * w, G.x0 + 4 * w, G.z0, G.z0 + 3.4);
-
+    const gx = G.x0 + G.open * w + w / 2; this.garX = gx;
+    for (const [x0, x1] of [[G.x0, gx - w / 2], [gx + w / 2, G.x1]]) {
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 0.2, 0.14, d + 0.5), new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9 }));
+      roof.position.set((x0 + x1) / 2, h + 0.07, (G.z0 + G.z1) / 2); shadowAll(roof); world.add(roof);
+      const rs = new THREE.Mesh(new RoundedBoxGeometry(x1 - x0 + 0.1, 0.3, d + 0.4, 2, 0.12), plainSnowMat); rs.position.set((x0 + x1) / 2, h + 0.25, (G.z0 + G.z1) / 2); shadowAll(rs); world.add(rs);
+    }
+    this.garRoofM = new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9, transparent: true, opacity: 1 });
+    this.garSnowM = new THREE.MeshStandardMaterial({ color: 0xe6ecf2, roughness: 0.95, transparent: true, opacity: 1 });
+    { const r4 = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.14, d + 0.5), this.garRoofM); r4.position.set(gx, h + 0.07, (G.z0 + G.z1) / 2); world.add(r4);
+      const s4 = new THREE.Mesh(new RoundedBoxGeometry(w, 0.3, d + 0.4, 2, 0.12), this.garSnowM); s4.position.set(gx, h + 0.25, (G.z0 + G.z1) / 2); world.add(s4); }
+    // dentro il n. 4: l'auto sotto il telo, la cassetta degli attrezzi, l'armadietto, la lampadina, il calendario
+    { const tarp = new THREE.Mesh(new RoundedBoxGeometry(1.7, 1.25, 3.9, 3, 0.35), new THREE.MeshStandardMaterial({ color: 0x4e5446, roughness: 1 })); tarp.position.set(gx - 0.15, 0.62, G.z0 + 2.4); shadowAll(tarp); world.add(tarp);
+      addBox(gx - 1.0, gx + 0.7, G.z0, G.z0 + 4.4);
+      const tb = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.26, 0.28), new THREE.MeshStandardMaterial({ color: 0x8a2018, roughness: 0.5, metalness: 0.4 })); tb.position.set(gx - 0.9, 0.13, G.z1 - 0.9); tb.rotation.y = 0.3; world.add(tb);
+      const lk = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.45), new THREE.MeshStandardMaterial({ color: 0x5a6a62, roughness: 0.5, metalness: 0.5 })); lk.position.set(gx + 1.25, 0.9, G.z1 - 1.5); shadowAll(lk); world.add(lk); addBox(gx + 1.0, gx + 1.5, G.z1 - 1.75, G.z1 - 1.25);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshStandardMaterial({ color: 0x8a8a7a, roughness: 0.2 })); bulb.position.set(gx, h - 0.45, G.z1 - 2); world.add(bulb);
+      const cal = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.55), new THREE.MeshStandardMaterial({ map: textTex(['ФЕВРАЛЬ', '1991', '', '12'], 128, 176, '#e4dfd0', '#8a1a14', 'bold 22px monospace'), roughness: 0.8 }));
+      cal.position.set(gx - w / 2 + 0.14, 1.6, G.z1 - 1.0); cal.rotation.y = Math.PI / 2; world.add(cal); }
+    addBox(G.x0, gx - w / 2, G.z0, G.z1 + 0.05); addBox(gx + w / 2, G.x1, G.z0, G.z1 + 0.05);
+    addBox(gx - w / 2, gx - w / 2 + 0.14, G.z0, G.z1); addBox(gx + w / 2 - 0.14, gx + w / 2, G.z0, G.z1);
+    this.garBox = addBox(gx - w / 2, gx + w / 2, G.z1 - 0.1, G.z1 + 0.15);
     // cabina ТП-4
     {
       const T = L1.TP, tw = T.x1 - T.x0, td = T.z1 - T.z0, th = 3.2;
@@ -3155,11 +3386,9 @@ const CH1 = {
       for (let k = 0; k < 3; k++) { const i = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.25, 6), ins); i.position.set(T.x0 + 1 + k * 1, th + 0.4, T.z0 + 0.6); world.add(i); }
       addBox(T.x0, T.x1, T.z0, T.z1);
     }
-
-    // parco giochi
-    const paintBlue = new THREE.MeshStandardMaterial({ color: 0x3a5a78, roughness: 0.7, metalness: 0.3 });
-    const paintRed = new THREE.MeshStandardMaterial({ color: 0x7a3028, roughness: 0.7, metalness: 0.3 });
+    // parco giochi, panchine, stenditoio
     this.seat = makeSwing(2, 4);
+    const paintRed = new THREE.MeshStandardMaterial({ color: 0x7a3028, roughness: 0.7, metalness: 0.3 });
     const car = new THREE.Group(); car.position.set(7.5, groundH(7.5, 6), 6);
     const disk = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.12, 24), paintRed); disk.position.y = 0.35; car.add(disk);
     const ds = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.08, 24), plainSnowMat); ds.position.y = 0.44; car.add(ds);
@@ -3171,17 +3400,8 @@ const CH1 = {
     const sn = new THREE.Mesh(new RoundedBoxGeometry(2.8, 0.36, 2.8, 2, 0.12), plainSnowMat); sn.position.y = 0.16; sbx.add(sn);
     shadowAll(sbx); world.add(sbx);
     makeBench(-7, 2, 0); makeBench(-1, -1.5, Math.PI / 2); makeBench(-17, 4, Math.PI / 2);
-    const nb = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a5a40, roughness: 0.8 }));
-    nb.position.set(-7.3, groundH(-7, 2) + 0.56, 2.0); nb.rotation.y = 0.4; world.add(nb); this.notebook = nb;
-    const radio = new THREE.Group(); radio.position.set(3.4, groundH(3.4, 7.8) + 0.12, 7.8); radio.rotation.y = -0.6;
-    radio.add(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.24, 0.18), new THREE.MeshStandardMaterial({ color: 0x3f4a35, roughness: 0.7, metalness: 0.2 })));
-    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.7, 3), ironMat); ant.position.set(0.15, 0.45, 0); ant.rotation.z = -0.3; radio.add(ant);
-    this.radioLed = new THREE.MeshStandardMaterial({ color: 0x113311, emissive: 0x44ff55, emissiveIntensity: 1.2 });
-    const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 4), this.radioLed); led.position.set(-0.15, 0.06, 0.095); radio.add(led);
-    shadowAll(radio); ink(radio); world.add(radio);
     const battery = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.07), new THREE.MeshStandardMaterial({ color: 0x8a6a20, roughness: 0.5 }));
     battery.position.set(-17.2, groundH(-17.2, 4.5) + 0.08, 4.6); world.add(battery); this.batteryMesh = battery;
-    // stenditoio con lenzuola congelate
     const pA = [-13.5, 9], pB = [-7.5, 9.6];
     for (const [x, z] of [pA, pB]) {
       const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6), ironMat); p.position.set(x, groundH(x, z) + 1.1, z); world.add(p); shadowAll(p);
@@ -3197,13 +3417,10 @@ const CH1 = {
       sh.castShadow = true; sh.receiveShadow = true; world.add(sh);
     }
     makeCar({ x: L1.CAR.x, z: L1.CAR.z, rot: 0, color: 0x3b4650, buried: 1, kind: 'lada', state: 'ok' });
+    makeCar({ x: L1.CAR2.x, z: L1.CAR2.z, rot: 0.05, color: 0x6a5a3a, buried: 0.9 });
     [[-12, 0.5, 11, 1.05], [-15, 13, 23, 1.0], [14, 3.5, 37, 0.95], [-5, 15.5, 41, 0.9], [-18, -6.5, 53, 0.85], [21.5, 19.5, 67, 0.9]].forEach(([x, z, s, k]) => makeTree(x, z, s, k));
-    makeLamp(-5.5, -5.4, 0.4, 1, true); makeLamp(10.8, 1.0, -1, 0.5, true); makeLamp(-11.5, 13.5, 1, -0.3, false, 70);
-    [[-5.5, -5.4], [10.8, 1.0], [-11.5, 13.5]].forEach(([x, z]) => CIRCLES.push([x, z, 0.3]));
-    const tx = (L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2;
-    const tspot = new THREE.SpotLight(0xffc27a, 0, 12, 1.0, 0.7, 2); tspot.position.set(tx, PL + FH - 0.15, -15); tspot.target.position.set(tx, 0, -14); world.add(tspot, tspot.target);
-    const tglow = makeGlow(new THREE.Vector3(tx, PL + FH - 0.25, -14.6), 2.2, 0.8);
-    this.tunnelLight = l => { tspot.intensity = 40 * l; tglow.material.opacity = 0.8 * l; };
+    this.lampA = makeLamp(-5.5, -5.4, 0.4, 1, true); this.lampB = makeLamp(10.8, 1.0, -1, 0.5, true); this.farLamp = makeLamp(L1.FAR_LAMP.x, L1.FAR_LAMP.z, 1, -0.3, true, 80);
+    [[-5.5, -5.4], [10.8, 1.0], [L1.FAR_LAMP.x, L1.FAR_LAMP.z]].forEach(([x, z]) => CIRCLES.push([x, z, 0.3]));
     const T = L1.TP;
     cable([T.x0 + 1, 3.65, T.z0 + 0.6], [10.8, 6.6, 1.0], 0.7);
     cable([10.8, 6.6, 1.0], [-5.5, 6.6, -5.4], 1.0);
@@ -3212,153 +3429,382 @@ const CH1 = {
     cable([T.x0 + 2, 3.65, T.z0 + 0.6], [19, 9.0, -11.0], 0.6);
     cable([T.x0 + 3, 3.65, T.z0 + 0.6], [23, 7.5, -11.0], 0.5);
     cable([-21, 9.2, 10], [-14, 9.5, -11.0], 1.6);
-    cable([-21, 9.8, 12.5], [-6, 10, -11.0], 2.0, 0.02);
     cable([-14.5, 2.2, 9.0], [-7.5, 2.2, 9.6], 0.25, 0.012);
     this.barrel = makeFireBarrel(L1.BARREL.x, L1.BARREL.z);
-    // collisioni minori
     addBox(-3, 0, 6.5, 9.5);
     CIRCLES.push([7.5, 6, 1.6], [0.6, 4, 0.25], [3.4, 4, 0.25]);
-    makeFigure('ghost', { timer: 14 });
-    this.tunnelFig = makeFigure('ghost', { timer: 1e9 });
-    this.swingStop = 0; this.winOn = 0; this.powerT = -1;
+    // presenze: la sagoma sotto il lampione, l'uomo che zoppica
+    this.lampFig = makeFigure('ghost', { timer: 1e9 });
+    this.limper = makeNPC({ x: TRAIL_LIMP[0][0], z: TRAIL_LIMP[0][1], heading: Math.PI / 2, walk: true, tint: { key: 'shadowcoat', fn: recolor(40, 42, 46, 0.75, 0.55) }, dim: 0.35, noOutline: true });
+    this.limper.group.visible = false; this.limpPath = polyPath(TRAIL_LIMP); this.limpT = 0;
+    this.tp = { sw: [0, 0, 0], blown: false, spares: 2 };
+    this.gateOpen = 0; this.garOpen = 0; this.stepsT = -1;
+    // si risveglia sdraiato sul pavimento della cucina
+    Object.assign(hero.fall, { phase: 'lie', k: 1, dir: -1, t: 0, lie: 7.5, tw: 0.4 });
   },
   items() {
-    const S = state, self = this;
+    const S = state, self = this, AX = L1.AX, have = k => state.items.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });   // state.flags viene ricreato dopo items()
+    const gx = this.garX, G = L1.GAR;
     return [
-      { id: 'porta', x: 2.0, z: -10.0, r: 1.6, label: 'Esamina il portone', marker: false,
-        use() { say('Il portone del palazzo si è richiuso alle mie spalle. Il ghiaccio l\'ha sigillato. Le finestre del mio appartamento erano sbarrate da assi inchiodate dall\'interno.'); } },
-      { id: 'altalena', x: 2.0, z: 5.2, r: 1.5, label: 'Ferma l\'altalena', marker: false,
-        use() { self.swingStop = 4; say('La fermo con la mano. Il ferro è così freddo che brucia. Appena la lascio, riprende a dondolare.'); } },
-      { id: 'impronte', x: 1.4, z: 2.9, r: 1.3, label: 'Esamina le impronte', marker: false, kneel: true,
-        use() { say(['Mi inginocchio. Sotto l\'altalena partono delle impronte fresche.', 'Stesso scarpone del mio: stessa suola a spina, stessa usura sul tallone sinistro. Ma il passo è più lungo, regolare, rigido. Come chi cammina senza mai esitare.']); } },
-      { id: 'diario', x: -7.2, z: 2.6, r: 1.6, label: 'Raccogli il quaderno', clue: true, pick: true,
-        use() { Sound.pick(); self.notebook.visible = false; say([`Un quaderno dalla copertina verde, mezzo sepolto sulla panchina.`,
-          Q('«12 febbraio. Il cielo si è spento a metà pomeriggio e non si è più riacceso. Alla radio dicono che è una prova della centrale, che dobbiamo restare in casa.»'),
-          Q('«19 febbraio. −28. Stanotte qualcuno camminava nel cortile. La mattina c\'erano impronte che andavano verso i garage. Nessuna che tornava.»')], 'QUADERNO'); } },
-      { id: 'auto', x: L1.CAR.x - 0.3, z: L1.CAR.z + 1.6, r: 1.8, label: 'Fruga nell\'auto', pick: true, done: () => S.flags.car,
-        use() {
-          if (!S.flags.car) { S.flags.car = true; Sound.pick(); S.items.add('fiammiferi'); S.items.add('mappa');
-            say(['ВАЗ-2101, sepolta fino ai finestrini. Nel cassetto del cruscotto: una scatola di fiammiferi «Пламя». Quasi piena.', 'Sul sedile, una mappa dello ЗАТО-42. Qualcuno ha cerchiato in rosso la centrale termoelettrica. La mia centrale.']); }
-          else say('Il motore non dà segni di vita. La mappa con il cerchio rosso è ancora sul sedile.');
-        } },
-      { id: 'fuoco', x: L1.BARREL.x + 0.9, z: L1.BARREL.z + 0.6, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Accendi il bidone', done: () => self.barrel.lit,
-        use() {
+      // ---- appartamento
+      { id: 'orologio', x: AX + 1.2, z: -3.5, r: 1.3, marker: false, label: 'Orologio da parete', use() { say('Le 23:40. La lancetta dei secondi non si muove.'); } },
+      { id: 'tv', x: AX - 4.9, z: -1.6, r: 1.4, marker: false, label: 'Televisore', use() { self.tvBoost = 3; say('Nessun canale. Solo interferenze. Il volume cambia da solo.'); } },
+      { id: 'telefono', x: AX - 0.5, z: 0.3, r: 1.3, marker: false, label: () => f.phone ? 'Solleva il ricevitore' : 'Telefono', use() {
+          if (!f.phone) { f.phone = true; say('La linea è morta.'); return; }
+          act(() => { self.handset.position.y = 0.2; Sound.breath(6); });
+          say(['Resto in ascolto. Niente segnale… poi un respiro. Lento. Qualcuno, dall\'altra parte, respira nel ricevitore.', 'Riappoggio la cornetta.']);
+          act(() => { self.handset.position.y = 0.07; }); say('Il respiro continua ancora per un istante. Poi il silenzio.'); } },
+      { id: 'porta', x: AX + 5.4, z: 1.25, r: 1.3, label: 'Porta d\'ingresso', done: () => f.door, use() {
+          f.door = true;
+          if (f.cavity) say(['Sotto la porta c\'è un sottile strato di neve.', 'Ma la neve non entra dal pianerottolo. Sembra venire da dentro l\'appartamento.']);
+          else say('Tre mandate, chiuse dall\'interno. La chiave non c\'è. La porta non si apre.'); } },
+      { id: 'finestra', x: AX - 3.0, z: -3.7, r: 1.4, label: 'Finestra', done: () => f.window, use() { f.window = true; say('Le assi sono state inchiodate dall\'interno. I chiodi sono vecchi, alcuni arrugginiti.'); } },
+      { id: 'foto', x: AX - 4.9, z: -3.5, r: 1.3, marker: false, label: 'Fotografia sul mobile', use() { say(['Io, davanti alla centrale ТЭЦ. La fotografia è piegata, con un taglio netto sul bordo.', 'Sul retro non c\'è nessuna data.']); } },
+      { id: 'specchio', x: AX - 4.5, z: 2.7, r: 1.3, my: 1.6, clue: true, label: 'Specchio del bagno', use() { f.bath = true; say(['Il vetro è appannato. Qualcuno ci ha scritto sopra con un dito:', Q('«НЕ ВЕРЬ ЕМУ»'), 'Non credergli.']); } },
+      { id: 'cassetto', x: AX + 1.3, z: -3.4, r: 1.3, pick: true, label: 'Apri i cassetti', done: () => have('fiammiferi'), gone: () => have('fiammiferi'), use() { S.items.add('fiammiferi'); say('Nel cassetto, tra posate e tappi di sughero, una scatola di fiammiferi «Пламя».'); } },
+      { id: 'giornale', x: AX + 4.5, z: -3.4, r: 1.2, pick: true, label: 'Prendi i giornali', done: () => have('giornale') || self.stove.lit, gone: () => have('giornale') || self.stove.lit, use() { S.items.add('giornale'); self.paperPile.scale.y = 0.3; say('Una pila di «Правда» ingiallita. L\'ultima è del 12 febbraio.'); } },
+      { id: 'legna', x: AX + 3.15, z: 3.3, r: 1.3, pick: true, label: 'Prendi la legna', done: () => have('legna') || self.stove.lit, gone: () => have('legna') || self.stove.lit, use() { S.items.add('legna'); self.logs.forEach((l, i) => l.visible = i > 2); say('Pezzi di legna piccoli, secchi. Abbastanza per la stufa.'); } },
+      { id: 'stufa', x: AX + 4.85, z: -3.0, r: 1.4, label: () => self.stove.lit ? 'Scaldati alla stufa' : 'Stufa', done: () => self.stove.lit, use() {
+          if (self.stove.lit) { say('Il calore della stufa mi entra nelle mani. Fuori, il vento.'); return; }
+          const miss = [!have('fiammiferi') && 'i fiammiferi', !have('giornale') && 'della carta', !have('legna') && 'la legna'].filter(Boolean);
+          if (miss.length) { say(['La canna fumaria sembra libera. Non posso restare qui senza accenderla.', 'Mi servono ' + miss.join(', ').replace(/, ([^,]*)$/, ' e $1') + '.']); return; }
+          self.stove.lit = true; S.items.delete('giornale'); S.items.delete('legna'); Sound.ignite(); S.checkpoint = { x: AX + 4.6, z: -2.4 };
+          say(['La carta prende subito, poi la legna. La stufa comincia a ticchettare scaldandosi.']);
+          setTimeout(() => { Sound.step(); setTimeout(() => Sound.step(), 520); setTimeout(() => Sound.step(), 1040); f.steps = true; self.wetM.opacity = 0.75; dreadSpike = 1; }, 2600);
+          setTimeout(() => tell('stepsHeard', ['Dalla camera da letto. Tre passi.', 'Poi silenzio.']), 4200);
+          setTimeout(() => tell('board', 'Alla luce del fuoco noto una tavola del pavimento, vicino al muro. È leggermente sollevata.'), 9000); } },
+      { id: 'armadio', x: AX - 1.9, z: 3.1, r: 1.3, marker: false, label: 'Armadio', use() {
+          if (f.steps && !f.wetGone) say(['La porta della camera era socchiusa. L\'armadio è aperto.', 'Sul pavimento ci sono impronte bagnate. Nessuna finestra è aperta. Finiscono davanti all\'armadio.', 'Dentro non c\'è nessuno.']);
+          else say('Cappotti, una camicia da lavoro, l\'odore della naftalina. Dentro non c\'è nessuno.'); } },
+      { id: 'tavola', x: AX + 4.3, z: -2.0, r: 1.3, kneel: true, label: 'Solleva la tavola', needs: () => self.stove.lit, done: () => f.cavity, gone: () => f.cavity || !self.stove.lit, clue: false, use() { self.openCavity(); } },
+      { id: 'mobile', x: AX + 5.0, z: 3.4, r: 1.3, label: 'Sposta il mobile', done: () => f.moved, gone: () => f.moved, use() {
+          if (!f.cavity) { say(['Il mobile è pesante. Dietro, dal basso, arriva uno spiffero gelido.', 'Prima voglio capire cosa è successo qui dentro.']); return; }
+          f.moved = true; Sound.thud(); self.cupMove = 0.001; self.cupBox.off = true; self.hatchBox.off = true;
+          say('Lo trascino di lato. Dietro c\'è un\'apertura di manutenzione, bassa, nel muro. Il vano tecnico del palazzo.'); } },
+      { id: 'gancio', x: AX + 3.1, z: 5.8, r: 1.2, pick: true, label: 'Prendi la chiave dal gancio', done: () => have('chiave'), gone: () => have('chiave'), use() { S.items.add('chiave'); self.hookKey.visible = false; say('Una chiave da manutenzione, appesa al gancio. Sull\'etichetta di cartone: ' + Q('«ТП-4»') + '.'); } },
+      { id: 'scala', x: AX + 5.1, z: 5.3, r: 1.2, label: 'Scendi la scala di servizio', use() {
+          if (!have('chiave')) { say('Sul gancio, accanto alla scala, c\'è appesa una chiave. Prima la prendo.'); return; }
+          self.goOutside(); } },
+      // ---- cortile
+      { id: 'fuoco', x: L1.BARREL.x + 0.9, z: L1.BARREL.z + 0.6, r: 1.7, my: 1.3, label: () => self.barrel.lit ? 'Scaldati al fuoco' : 'Bidone del fuoco', done: () => self.barrel.lit, use() {
           if (self.barrel.lit) { say('Allungo le mani sopra il bidone. Il calore fa male, poi fa bene.'); return; }
-          if (!S.items.has('fiammiferi')) { say('Un bidone pieno di legna e cartone. Mi servono dei fiammiferi. Forse nell\'auto parcheggiata davanti al palazzo.'); return; }
           self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L1.BARREL.x + 1.2, z: L1.BARREL.z + 0.8 };
-          say(['Il cartone prende al terzo fiammifero. Poi la legna.', 'Qui potrò tornare a scaldarmi. Se perdo i sensi per il freddo… è qui che mi ritroverò.']);
-        } },
-      { id: 'batteria', x: -17.2, z: 5.2, r: 1.5, my: 0.6, label: 'Raccogli la pila', kneel: true, gone: () => S.flags.bat1,
-        use() { S.flags.bat1 = true; self.batteryMesh.visible = false; addBattery(45); say('Una pila quadrata da 4,5 volt, caduta sotto la panchina. Per la torcia.'); } },
-      { id: 'radio', x: 3.4, z: 8.4, r: 1.6, label: 'Ascolta la radio', clue: true, kneel: true,
-        use() { Sound.radio(3.2); self.radioLed.emissiveIntensity = 3;
-          say(['Una radio da campo. La spia verde è ancora accesa.',
-            Q('«…pschhh… a tutti i residenti dello ЗАТО-42… non uscite… non seguite le impronte… ripeto, non seguite le… pschhh»'),
-            'Poi solo fruscio. La batteria muore tra le mie mani.'], 'RADIO'); setTimeout(() => self.radioLed.emissiveIntensity = 0, 3500); } },
-      { id: 'cibo', x: 12.0, z: 14.2, r: 1.3, my: 1.4, label: 'Prendi le scatolette', pick: true, gone: () => S.flags.food1,
-        use() { S.flags.food1 = true; self.tins.visible = false; S.cans += 4; eat(['Sullo scaffale, cinque scatolette di «Тушёнка». Ne apro una con il coltello e la mangio così, fredda.', 'Il calore torna piano nelle mani. Le altre quattro le metto nello zaino.']); } },
-      { id: 'chiave', x: 11.2, z: 16.6, r: 1.5, label: 'Apri la cassetta degli attrezzi', clue: true, kneel: true,
-        use() { Sound.pick(); S.flags.key = true; S.items.add('chiave');
-          say(['Una cassetta degli attrezzi rossa. Dentro, una chiave con l\'etichetta di cartone: ' + Q('«ТП-4»') + '.',
-            'Sul coperchio, scritto a matita: ' + Q('«Se torna la luce, tornano anche loro. — V.»'), 'V. Voronin? È la mia calligrafia. Non ricordo di averlo scritto.'], 'GARAGE N. 4'); } },
-      { id: 'tp', x: 17.5, z: -1.3, r: 1.7, label: 'Cabina elettrica ТП-4', done: () => S.flags.power,
-        use() {
-          if (S.flags.power) { say('Il trasformatore ronza. Sento il calore attraverso la porta di ferro.'); return; }
-          if (!S.flags.key) { say(['Cabina di trasformazione ТП-4. Porta di ferro, chiusa a chiave.', 'Sul cartello: ' + Q('«НЕ ВКЛЮЧАТЬ!» — non accendere.')]); return; }
-          say(['La chiave gira a fatica. Dentro, il quadro è coperto di brina.', 'Le mani si muovono da sole: sezionatore, interruttore, leva. Come se l\'avessi fatto mille volte.'], 'ТП-4');
-          self.pendingPower = true;
-        } },
-      { id: 'lenzuola', x: -10.5, z: 10.0, r: 1.8, label: 'Esamina le lenzuola', marker: false,
-        use() { say('Lenzuola stese chissà quando. Congelate, rigide come lamiera. Battono piano tra loro col vento.'); } },
-      { id: 'tunnel', x: (L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2, z: -10.2, r: 1.6, label: 'Il sottopasso', marker: false,
-        use() { if (!S.flags.power) say('Punto la torcia nel sottopasso: il fascio si spegne a un metro, come se il buio lo bevesse. Le impronte entrano lì dentro. Senza i lampioni non ci vado.'); else say('Ora c\'è luce. Le impronte proseguono dall\'altra parte.'); } },
+          say(['Qualcuno ha lasciato delle braci. Posso riaccenderlo.', 'Il cartone prende al secondo fiammifero. Se perdo i sensi per il freddo… è qui che mi ritroverò.']); } },
+      { id: 'portone', x: L1.ARRIVE.x, z: L1.ARRIVE.z - 0.5, r: 1.4, marker: false, label: 'Porta di servizio', use() { say('La porta di ferro della scala di servizio. Dall\'esterno non ha maniglia.'); } },
+      { id: 'auto', x: L1.CAR.x - 0.3, z: L1.CAR.z + 1.6, r: 1.8, marker: false, label: 'Fruga nell\'auto', pick: true, done: () => f.car, use() {
+          if (!f.car) { f.car = true; S.cans += 2; S.items.add('mappa'); say(['ВАЗ-2101, sepolta fino ai finestrini. Nel bagagliaio: due scatolette di «Тушёнка».', 'Sul sedile, una mappa dello ЗАТО-42. Qualcuno ha cerchiato in rosso la centrale termoelettrica. La mia centrale.']); }
+          else say('Il motore non dà segni di vita.'); } },
+      { id: 'batteria', x: -17.2, z: 5.2, r: 1.5, my: 0.6, label: 'Raccogli la pila', kneel: true, marker: false, gone: () => f.bat1, use() { f.bat1 = true; self.batteryMesh.visible = false; addBattery(45); say('Una pila quadrata da 4,5 volt, caduta sotto la panchina. Per la torcia.'); } },
+      { id: 'altalena', x: 2.0, z: 5.2, r: 1.5, label: 'Ferma l\'altalena', marker: false, use() { self.swingStop = 4; say('La fermo con la mano. Il ferro è così freddo che brucia. Appena la lascio, riprende a dondolare.'); } },
+      { id: 'tp', x: 17.5, z: -1.3, r: 1.7, label: 'Cabina elettrica ТП-4', done: () => f.power, use() {
+          if (f.power) { say('Il trasformatore ronza. La spia del cancello è accesa.'); return; }
+          if (!have('chiave')) { say(['Cabina di trasformazione ТП-4. Porta di ferro, chiusa a chiave.', 'Sul cartello: ' + Q('«НЕ ВКЛЮЧАТЬ!» — non accendere.')]); return; }
+          if (!f.tpOpen) { f.tpOpen = true; Sound.clunk(); say(['La chiave di manutenzione gira a fatica. Dentro, il quadro è coperto di brina: tre interruttori, fusibili ceramici, uno schema elettrico mezzo cancellato.']); act(() => self.openTP()); return; }
+          self.openTP(); } },
+      { id: 'cancello', x: (L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2, z: L1.GATE_Z + 1.1, r: 1.7, label: () => f.gate ? 'Il cancello' : 'Apri il cancello', done: () => f.gate, use() {
+          if (f.gate) { say('Il cancello è aperto. Le impronte vengono da lì.'); return; }
+          if (!f.power) { say(['Un cancello elettrico chiude il sottopasso. Il motore è senza corrente.', 'La spia rossa è spenta. Serve la cabina ТП-4.']); return; }
+          self.openGate(); } },
+      { id: 'impronte', x: -14.3, z: -8.9, r: 1.5, kneel: true, clue: true, label: 'Esamina le impronte', needs: () => f.gate, gone: () => !f.gate, use() {
+          say(['Passo regolare. Tacco consumato sul lato sinistro. Qualcuno indossava stivali da lavoro.', 'Guardo i miei stivali.', 'La suola è identica. Il taglio obliquo sul tacco coincide perfettamente.']);
+          say('«Non è possibile…»', 'DMITRI'); } },
+      { id: 'garage', x: gx, z: G.z1 + 0.9, r: 1.6, label: () => f.garage ? 'Garage n. 4' : 'Apri il garage n. 4', done: () => f.garage, use() {
+          if (f.garage) return;
+          if (!have('chiaveGarage')) { say('Il garage n. 4. Un lucchetto pesante.'); return; }
+          f.garage = true; self.garBox.off = true; self.garOpen = 0.001; Sound.clunk(); Sound.creak();
+          say('La chiave del quaderno apre il lucchetto. La saracinesca sale con un lamento di ferro.'); } },
+      { id: 'telo', x: gx - 0.15, z: G.z1 - 1.3, r: 1.2, marker: false, label: 'Il telo', needs: () => f.garage, gone: () => !f.garage, use() { say('Un\'automobile sotto un telo. Lo sollevo di un palmo: la carrozzeria è gelata. Lo lascio ricadere.'); } },
+      { id: 'calendario', x: gx - 1.0, z: G.z1 - 1.0, r: 1.0, marker: false, label: 'Calendario', needs: () => f.garage, gone: () => !f.garage, use() { say('Un vecchio calendario. Fermo al 12 febbraio 1991.'); } },
+      { id: 'foglio', x: gx + 0.95, z: G.z1 - 1.1, r: 1.1, clue: true, label: 'Apri l\'armadietto', needs: () => f.garage, gone: () => !f.garage, use() { self.finale(); } },
     ];
+  },
+  openCavity() {
+    const S = state; S.flags.cavity = true; S.clues.add('quaderno');
+    this.board.position.set(0.55, 0.03, 0.3); this.board.rotation.set(0, 0.5, 0); this.cavityStuff.visible = true;
+    S.items.add('radioCampo'); S.items.add('chiaveGarage'); S.items.add('piantina');
+    say(['Sotto la tavola c\'è una piccola cavità. Dentro: un quaderno verde, una radio da campo, una chiave e un foglietto piegato.',
+      'Il quaderno è pieno di appunti tecnici, numeri, schemi elettrici. Alcune pagine sono strappate. Tre frasi sono leggibili:',
+      Q('«Не включай свет.»') + ' — Non accendere la luce.', Q('«Если услышишь стук — не отвечай.»') + ' — Se senti bussare, non rispondere.',
+      Q('«Если вернётся свет, вернутся и они. — В.»') + ' — Se torna la luce, torneranno anche loro.',
+      'La grafia dell\'ultima frase è molto simile alla mia. Ma non identica.'], 'QUADERNO VERDE');
+    act(() => Sound.radio(1.2)); say(['La radio non ha batterie. Il selettore è bloccato su una frequenza che non conosco. Giro la manopola…', Q('«…Воронин…»'), 'Poi silenzio.'], 'RADIO DA CAMPO');
+    say(['La chiave è fredda, macchiata di ruggine. Sulla targhetta: ' + Q('«ГАРАЖ №4»') + '. Sul retro, inciso: 0417.', 'Il foglietto è una piantina del cortile, incompleta. Un segno sulla cabina elettrica ' + Q('«ТП-4»') + '. Manca un pezzo del foglio.']);
+    setTimeout(() => { this.doorSnow.material.opacity = 0.9; }, 1000);
+  },
+  goOutside() {
+    const S = state; S.flags.outside = true; Sound.clunk();
+    $('fade').classList.add('on');
+    setTimeout(() => {
+      BOUNDS = YARD_BOUNDS;
+      hero.x = L1.ARRIVE.x; hero.z = L1.ARRIVE.z; hero.heading = 0.2; hero.y = groundH(hero.x, hero.z); hero.speed = 0; hero.trail.length = 0;
+      hero.group.position.set(hero.x, hero.y, hero.z); camTarget.set(hero.x, hero.y + 0.8, hero.z);
+      S.checkpoint = { x: hero.x, z: hero.z + 0.6 };
+      $('fade').classList.remove('on'); refreshObjective();
+      setTimeout(() => say(['Il vano tecnico, poi una scala di servizio che scende al buio. In fondo, una porta di ferro.', 'Il cortile. Meno ventotto. La neve non cade come dovrebbe: resta sospesa, poi si muove a scatti, come se il vento cambiasse idea.']), 900);
+    }, 1100);
+  },
+  openGate() {
+    const S = state; S.flags.gate = true; this.gateBox.off = false; this.gateOpen = 0.001; Sound.clunk(); Sound.creak(); dreadSpike = 1;
+    // le impronte compaiono nella neve, una dopo l'altra, dal cancello verso il palazzo
+    const pts = []; const path = polyPath(TRAILG); let last = path(0), acc = 0, left = true;
+    for (let t = 0; t <= 1; t += 0.0008) { const p = path(t); acc += Math.hypot(p.x - last.x, p.z - last.z); if (acc >= 0.41) { acc = 0; const ang = Math.atan2(p.z - last.z, p.x - last.x), off = (left ? -1 : 1) * 0.13; pts.push([p.x - Math.sin(ang) * off, p.z + Math.cos(ang) * off, ang]); left = !left; } last = p; }
+    pts.forEach(([x, z, a], i) => setTimeout(() => footprint(x, z, a, 1.15, true), 400 + i * 18));
+    say(['Il cancello si apre con uno strattone.', 'Ma davanti a me, nella neve, c\'è una serie di impronte profonde. Partono dal cancello e attraversano il cortile, verso il palazzo.']);
+  },
+  openTP() {
+    if (!$('tp')) return; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); this.renderTP(); this.drawSchema();
+  },
+  closeTP() { $('tp').classList.add('hide'); state.paused = false; },
+  drawSchema() {
+    const c = $('tpSchema'), m = c.getContext('2d'), W = c.width, H = c.height;
+    m.fillStyle = '#d9d2b8'; m.fillRect(0, 0, W, H);
+    m.strokeStyle = '#2a2620'; m.fillStyle = '#2a2620'; m.lineWidth = 2.5; m.font = 'bold 15px monospace';
+    m.fillText('СХЕМА ЩИТА ТП-4', 14, 22);
+    m.beginPath(); m.arc(48, 120, 22, 0, 7); m.stroke(); m.fillText('Т-1', 36, 125); m.font = '11px monospace'; m.fillText('6/0,4 кВ', 22, 160);
+    m.beginPath(); m.moveTo(70, 120); m.lineTo(150, 120); m.lineTo(150, 50); m.lineTo(W - 40, 50); m.moveTo(150, 120); m.lineTo(W - 40, 120); m.moveTo(150, 120); m.lineTo(150, 190); m.lineTo(260, 190); m.stroke();
+    const boxL = (x, y, t, sub) => { m.fillStyle = '#efe9d4'; m.fillRect(x, y - 16, 128, 32); m.strokeRect(x, y - 16, 128, 32); m.fillStyle = '#2a2620'; m.font = 'bold 13px monospace'; m.fillText(t, x + 8, y + 1); m.font = 'italic 10px serif'; m.fillText(sub, x + 8, y + 12); };
+    boxL(200, 50, 'ОСВЕЩЕНИЕ', 'illuminazione'); boxL(200, 120, 'РЕЗЕРВ', 'riserva'); boxL(380, 120, 'ВОРОТА', 'cancello'); boxL(260, 190, '???', '');
+    m.beginPath(); m.moveTo(328, 120); m.lineTo(380, 120); m.stroke();
+    m.fillStyle = '#b0221c'; m.font = 'bold 12px monospace'; m.fillText('ПЕРЕГРУЗ! НЕ ВКЛЮЧАТЬ', 340, 46); m.font = 'italic 10px serif'; m.fillText('sovraccarico: non accendere', 340, 60);
+    m.beginPath(); m.moveTo(330, 38); m.lineTo(322, 50); m.lineTo(330, 50); m.lineTo(322, 62); m.stroke();
+    m.fillStyle = '#2a2620'; m.font = '11px monospace'; m.fillText('ворота — только через резерв', 330, 152); m.font = 'italic 10px serif'; m.fillText('il cancello: solo attraverso la riserva', 330, 166);
+    // la brina ha cancellato i numeri degli interruttori
+    for (let k = 0; k < 9; k++) { const x = 120 + Math.random() * 60, y = 40 + Math.random() * 170, g = m.createRadialGradient(x, y, 2, x, y, 34); g.addColorStop(0, 'rgba(240,246,250,0.95)'); g.addColorStop(1, 'rgba(240,246,250,0)'); m.fillStyle = g; m.fillRect(0, 0, W, H); }
+  },
+  renderTP(msg) {
+    const T = this.tp, tags = [['ВОРОТА', 'cancello'], ['ОСВЕЩЕНИЕ', 'illuminazione'], ['РЕЗЕРВ', 'riserva']];
+    $('tpSw').innerHTML = tags.map(([ru, it], k) => `<button class="vhs sw${T.sw[k] ? ' on' : ''}" data-k="${k}"><span class="lever">${T.sw[k] ? '▲' : '▼'}</span><span class="num">${k + 1}</span><span class="tag">${ru}<i>${it}</i></span></button>`).join('');
+    $('tpSw').querySelectorAll('button').forEach(b => b.onclick = () => this.pressSw(+b.dataset.k));
+    $('tpMsg').innerHTML = msg || (T.blown ? 'Il fusibile è saltato. Il quadro è morto.' : 'Sotto ogni leva, un cavo con la sua etichetta di cartone. I numeri sullo schema sono coperti di brina.');
+  },
+  pressSw(k) {
+    const T = this.tp; if (state.flags.power) return;
+    if (T.blown) { Sound.click(); this.renderTP('Niente. Il fusibile è saltato: devo sostituirlo. Nel cassetto inferiore del quadro.'); return; }
+    if (T.sw[k]) { T.sw[k] = 0; Sound.click(); this.renderTP(); return; }
+    const blow = why => { T.blown = true; T.sw = [0, 0, 0]; Sound.zap(0.6); Sound.clunk(); shake = Math.max(shake, 0.4); flash = 0.6; state.heat = Math.max(5, state.heat - 12); this.renderTP(why + ' Un lampo, uno schiocco secco: il fusibile ceramico è saltato.'); };
+    if (k === 1) { blow('Abbasso la leva dell\'illuminazione. Il trasformatore geme sotto il carico.'); return; }
+    if (k === 0 && !T.sw[2]) { blow('Alzo la leva del cancello. Senza la linea di riserva il carico finisce tutto sul fusibile.'); return; }
+    T.sw[k] = 1; Sound.clunk();
+    if (k === 2) { this.renderTP('La linea di riserva prende corrente. Un ronzio basso, regolare.'); return; }
+    this.renderTP('Il motore del cancello riceve corrente. Fuori, una spia si accende.');
+    setTimeout(() => { this.closeTP(); this.powerOn(); }, 1600);
+  },
+  drawer() {
+    const T = this.tp; Sound.click();
+    if (!T.blown) { this.renderTP('Nel cassetto inferiore: fusibili ceramici di ricambio, avvolti nella carta oleata. Per ora non servono.'); return; }
+    T.blown = false; T.spares--;
+    this.renderTP(T.spares >= 0 ? 'Prendo un fusibile di ricambio dal cassetto inferiore e lo avvito al posto di quello bruciato.' : 'In fondo al cassetto, avvolto nella carta oleata, ce n\'è ancora uno. Lo avvito.');
+  },
+  powerOn() {
+    const S = state; S.flags.power = true; Sound.clunk(); Sound.setHum(0.03); this.tpLamp.emissiveIntensity = 3; this.gateLampM.emissive.setHex(0x30ff40); this.gateLampM.emissiveIntensity = 2;
+    say(['Un tonfo nel trasformatore. Il cancello ha corrente.']);
+    setTimeout(() => { this.farOn = 0.001; this.farLamp.spot.castShadow = true; Sound.zap(0.2);
+      const F = this.lampFig; F.x = L1.FAR_LAMP.x + 1.3; F.z = L1.FAR_LAMP.z - 0.9; F.state = 'show'; F.life = 1e9; F.near = 4.5; F.op = 0; Sound.sting();
+      say(['In fondo al cortile, un lampione si accende da solo.', 'La luce illumina una sagoma umana. È ferma, lontana. Un cappotto scuro.']); }, 2600);
+  },
+  finale() {
+    const S = state, self = this, G = L1.GAR, gx = this.garX;
+    S.flags.finale = true;
+    say(['Nell\'armadietto c\'è solo un foglio piegato.', Q('«ЕСЛИ ТЫ ЧИТАЕШЬ ЭТО, ЗНАЧИТ, Я НЕ УСПЕЛ.»'), 'Se stai leggendo questo, significa che non ho fatto in tempo.',
+      'In basso: ' + Q('«Д. ВОРОНИН»') + '. È la mia grafia.', 'E una data: ' + Q('13.02.1991') + '.'], 'GARAGE N. 4');
+    say('«Domani…?»', 'DMITRI');
+    act(() => { Sound.tone(1200, 0.12, 0.08, 'square'); setTimeout(() => Sound.radio(2.5), 400); });
+    say(['La radio nello zaino emette un breve segnale. Si accende da sola.']);
+    say(['«Volk… mi senti?»'], 'RADIO');
+    say(['Avvicino la radio all\'orecchio.']);
+    say(['«Non sei il primo.»'], 'RADIO');
+    act(() => Sound.radio(0.6));
+    say(['La trasmissione si interrompe.', 'Guardo fuori dal garage.']);
+    act(() => self.startPrints());
+    say(['Sulla neve, davanti all\'ingresso, compare un\'impronta. Poi un\'altra.', 'Si stanno formando davanti ai miei occhi.']);
+  },
+  startPrints() {
+    if (this.printsStarted) return; this.printsStarted = true;
+    const self = this, G = L1.GAR, gx = this.garX;
+    {
+      const pts = []; for (let k = 0; k < 9; k++) { const z = G.z1 + 5.6 - k * 0.5, x = gx - 0.15 + (k % 2 ? 0.13 : -0.13); pts.push([x, z]); }
+      pts.forEach(([x, z], i) => setTimeout(() => { footprint(x, z, -Math.PI / 2, 1.1, true); Sound.step(); }, 300 + i * 650));
+      setTimeout(() => { self.endT = 3.5; }, 300 + pts.length * 650);
+    }
   },
   objective() {
     const f = state.flags;
-    if (f.power) return 'Attraversa il sottopasso';
-    if (f.key) return 'Riattiva la cabina elettrica ТП-4';
-    if (state.clues.size === 0) return 'Segui le impronte nella neve';
-    return 'Trova un modo per riportare la corrente';
+    if (!f.outside) {
+      if (!f.door || !f.window) return 'Capisci dove ti trovi e controlla le uscite';
+      if (!this.stove.lit) return 'Trova il modo di scaldare l\'appartamento';
+      if (!f.cavity) return 'Esamina la tavola sollevata vicino alla stufa';
+      return 'Trova un\'altra uscita dall\'appartamento';
+    }
+    if (!this.barrel.lit) return 'Riaccendi il bidone del fuoco nel cortile';
+    if (!f.power) return 'Riattiva il circuito del cancello nella cabina ТП-4';
+    if (!f.figGone) return 'Avvicinati alla sagoma sotto il lampione';
+    if (!f.gate) return 'Apri il cancello del cortile';
+    if (!state.clues.has('impronte')) return 'Esamina le impronte nella neve';
+    if (!f.trailEnd) return 'Segui le impronte';
+    if (!f.garage) return 'Apri il garage n. 4';
+    return 'Fruga nel garage n. 4';
   },
   target() {
-    const by = id => interactables.find(i => i.id === id), f = state.flags;
-    if (f.power) return { x: (L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2, z: -12.5 };
-    if (f.key) return by('tp');
-    for (const id of ['diario', 'radio', 'chiave']) if (!state.clues.has(id)) return by(id);
-    return by('tp');
+    const by = id => interactables.find(i => i.id === id), f = state.flags, has = k => state.items.has(k);
+    if (!f.outside) {
+      if (!f.door) return by('porta'); if (!f.window) return by('finestra');
+      if (!this.stove.lit) return !has('fiammiferi') ? by('cassetto') : !has('giornale') ? by('giornale') : !has('legna') ? by('legna') : by('stufa');
+      if (!f.cavity) return by('tavola');
+      return !f.moved ? by('mobile') : !has('chiave') ? by('gancio') : by('scala');
+    }
+    if (!this.barrel.lit) return by('fuoco');
+    if (!f.power) return by('tp');
+    if (!f.figGone) return { x: this.lampFig.x, z: this.lampFig.z };
+    if (!f.gate) return by('cancello');
+    if (!state.clues.has('impronte')) return by('impronte');
+    if (!f.trailEnd) return { x: 2.0, z: -9.6 };
+    if (!f.garage) return by('garage');
+    return by('foglio');
   },
   thought() {
     const f = state.flags;
-    if (f.power) return 'Le luci sono tornate… anche quella sotto il palazzo lungo. Il sottopasso.';
-    if (f.key) return 'La chiave della ТП-4… le cabine elettriche stanno sempre ai margini. Forse vicino all\'altro capo del palazzo lungo.';
-    if (!state.clues.has('diario')) return 'Le impronte rigide partono dalle altalene e vanno verso le panchine. Forse qualcuno si è seduto lì.';
-    if (!state.clues.has('radio')) return 'Mi sembra di sentire un fruscio, dalle parti della sabbiera.';
-    return 'Il quaderno parlava dei garage. Le impronte ci girano intorno.';
+    if (!f.outside) {
+      if (!f.door || !f.window) return 'Sono chiuso dentro. Devo controllare la porta d\'ingresso e le finestre.';
+      if (!this.stove.lit) return 'Fa sempre più freddo. La stufa in cucina: mi servono fiammiferi, carta, legna.';
+      if (!f.cavity) return 'Quella tavola sollevata, vicino alla stufa.';
+      return 'La porta non si apre. Dal ripostiglio arrivava uno spiffero gelido, dietro il mobile.';
+    }
+    if (!this.barrel.lit) return 'Il bidone del fuoco, vicino alle panchine. Prima di tutto il calore.';
+    if (!f.power) return 'La piantina segnava la cabina ТП-4. Il cancello è senza corrente.';
+    if (!f.figGone) return 'Qualcuno, sotto quel lampione. Non si muove.';
+    if (!f.gate) return 'Il cancello del sottopasso adesso ha corrente.';
+    if (!state.clues.has('impronte')) return 'Quelle impronte. Devo guardarle da vicino.';
+    if (!f.trailEnd) return 'Dove portano?';
+    return 'La chiave del garage n. 4. Era nel quaderno.';
   },
   hint() {
     const f = state.flags;
-    if (f.power) return 'Il sottopasso ora è illuminato: è nel palazzo lungo, a nord-ovest.';
-    if (f.key) return 'Hai la chiave della ТП-4. La cabina di mattoni rossi è all\'angolo est del cortile, vicino al palazzo lungo.';
-    if (!state.clues.has('diario')) return 'Le impronte partono dalle altalene e vanno verso la panchina a ovest del parco giochi.';
-    if (!state.clues.has('radio')) return 'Vicino alla sabbiera, sulla neve, c\'è qualcosa che lampeggia.';
-    return 'Le impronte girano attorno alla fila di garage: uno ha la porta alzata, dal lato verso di te.';
+    if (!f.outside) {
+      if (!f.door || !f.window) return 'Esamina la porta d\'ingresso (a est, in fondo al corridoio) e la finestra sbarrata del soggiorno.';
+      if (!this.stove.lit) return 'Fiammiferi nei cassetti della cucina, giornali accanto alla stufa, legna nella cassa del ripostiglio (stanza a sud-est). Poi accendi la stufa.';
+      if (!f.cavity) return 'Dopo aver acceso la stufa, solleva la tavola del pavimento lì accanto.';
+      return 'Nel ripostiglio sposta il mobile davanti al muro, prendi la chiave sul gancio del vano tecnico e scendi la scala di servizio.';
+    }
+    if (!this.barrel.lit) return 'Il bidone è a ovest del parco giochi, vicino alle panchine.';
+    if (!f.power) return 'La cabina ТП-4 è all\'angolo est del cortile. Sullo schema il cancello è alimentato solo attraverso la riserva, e l\'illuminazione è in sovraccarico: guarda le etichette sotto le leve.';
+    if (!f.figGone) return 'Il lampione acceso è in fondo al cortile, a sud-ovest. Avvicinati o puntaci la torcia.';
+    if (!f.gate) return 'Il cancello è nel sottopasso del palazzo lungo, a nord-ovest.';
+    if (!state.clues.has('impronte')) return 'Esamina le impronte subito davanti al cancello.';
+    if (!f.trailEnd) return 'Seguile fino alla porta del palazzo da cui sei uscito.';
+    if (!f.garage) return 'Il garage n. 4 è nella fila di garage a sud.';
+    return 'Dentro il garage, apri l\'armadietto metallico a destra.';
   },
   coldTip() {
-    if (!state.items.has('fiammiferi')) return 'Il freddo mi entra nelle ossa. C\'è un bidone per il fuoco vicino alle panchine, ma mi servono fiammiferi. Forse nell\'auto davanti al palazzo.';
-    if (!this.barrel.lit) return 'Il freddo mi entra nelle ossa. Ho i fiammiferi: devo accendere il bidone vicino alle panchine.';
+    if (!state.flags.outside) return this.stove.lit ? 'Torno vicino alla stufa.' : 'L\'appartamento è gelido. Devo accendere la stufa in cucina.';
+    if (!this.barrel.lit) return 'Il freddo mi entra nelle ossa. Il bidone vicino alle panchine: devo riaccenderlo.';
     return 'Il freddo mi entra nelle ossa. Torno al fuoco a scaldarmi.';
   },
   intro() {
-    return ['Mi chiamo Dmitri Voronin. Tecnico di manutenzione alla centrale termoelettrica dello ЗАТО-42.',
-      'Mi sono svegliato nel mio appartamento, le finestre sbarrate da assi. Avevo una torcia in mano. Non so da quanti giorni dormivo.',
-      'Fuori fa un freddo che uccide. Devo restare al caldo, mangiare, e capire cosa è successo.',
-      RU('[CALORE e TORCIA sono in alto a sinistra · T accende la torcia]')];
+    Sound.knock(0); Sound.knock(2.2); setTimeout(() => Sound.radio(1.2), 4300);
+    setTimeout(() => this.introMore(), 0);
+    return ['Tre colpi metallici. Una pausa. Altri tre.', 'Apro gli occhi. Sono disteso sul pavimento della cucina. La mano destra è sporca di fuliggine; sul palmo, un segno circolare rossastro.',
+      'Il televisore è acceso: nessuna immagine, solo neve elettronica. L\'orologio a muro segna le 23:40.'];
+  },
+  introMore() {
+    say('«Che cazzo…»', 'DMITRI');
+    act(() => Sound.rattle());
+    say('Dalla porta d\'ingresso, il rumore di una maniglia. Qualcuno prova ad aprire.');
+    say('«Dima… non aprire.»', 'VOCE');
+    say('«Chi c\'è?»', 'DMITRI');
+    say(['Nessuna risposta. La maniglia torna immobile.', RU('[CALORE e TORCIA sono in alto a sinistra · T accende la torcia · E esamina]')]);
   },
   heroHook(dt) {
     const T = L1.TUNNEL, inX = hero.x > T.x0 && hero.x < T.x1;
-    if (inX && hero.z < L1.A.z1 - 0.3) {
-      if (!state.flags.power) {
-        hero.z = L1.A.z1 - 0.3;
-        if (!state.told.tunnel) tell('tunnel', ['Punto la torcia nel sottopasso: il fascio si spegne a un metro, come se il buio lo bevesse.', state.flags.key ? 'Ho la chiave: devo riattivare la cabina ТП-4, all\'angolo est del cortile.' : 'Senza i lampioni non ci entro. Prima devo capire come riportare la corrente.']);
-        else if (msgTimer <= 0 && !reading()) showMsg('Troppo buio.<br>Prima riporta la corrente.');
-      } else if (hero.z < L1.A.z1 - 3.2) endChapter();
+    if (hero.x > 40) return false;
+    if (inX && hero.z < L1.GATE_Z - 0.4 && state.flags.gate) {
+      hero.z = L1.GATE_Z - 0.4;
+      if (msgTimer <= 0 && !reading()) showMsg(state.flags.garage ? 'Prima il garage n. 4.' : 'Le impronte vengono da lì.<br>Prima voglio capire dove portano.');
     }
-    if (inX) hero.x = clamp(hero.x, T.x0 + 0.35, T.x1 - 0.35);
-    return !(inX && hero.z < L1.A.z1);   // impronte solo fuori dal sottopasso
+    if (inX && hero.z < L1.A.z1) hero.x = clamp(hero.x, T.x0 + 0.35, T.x1 - 0.35);
+    return !(inX && hero.z < L1.A.z1);
   },
   update(dt, t) {
-    // altalena e giostra
+    const S = state, f = S.flags, inApt = hero.x > 40, live = S.started && !S.ended;
+    // dentro casa: niente neve che cade, luce bassa
+    snowLayers.forEach((L, i) => L.pts.material.opacity = inApt ? 0 : (i ? 0.9 : 0.75));
+    hemi.intensity = lerp(hemi.intensity, inApt ? 0.42 : 0.6, damp(4, dt)); sun.intensity = lerp(sun.intensity, inApt ? 0.7 : 3.3, damp(4, dt));
+    scene.fog.density = lerp(scene.fog.density, inApt ? 0.0035 : 0.0105, damp(3, dt));
+    if (inApt !== this.wasApt) { this.wasApt = inApt; zoomTarget = inApt ? Math.max(zoomTarget, 2.3) : Math.min(zoomTarget, 1.6); }
+    this.lampL.intensity = inApt ? 2.6 + Math.sin(t * 7.3) * 0.08 : 0;
+    // muri trasparenti tra la camera e Dmitri
+    const cx = Math.sin(camAz), cz = Math.cos(camAz);
+    for (const w of this.walls) {
+      const dx = w.bx - w.ax, dz = w.bz - w.az, L2 = dx * dx + dz * dz, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / L2, 0, 1);
+      const vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z, s = vx * cx + vz * cz;
+      const want = inApt && s > 0.2 && Math.hypot(vx, vz) < 9 ? 0.1 : 1;
+      w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9;
+    }
+    // televisore: neve elettronica
+    this.tvT = (this.tvT || 0) - dt; this.tvBoost = Math.max(0, (this.tvBoost || 0) - dt);
+    if (this.tvT <= 0) { this.tvT = 0.07; const m = this.tvC.getContext('2d'), img = m.createImageData(64, 48); for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 230; img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v + 15; img.data[i + 3] = 255; } m.putImageData(img, 0, 0); this.tvTex.needsUpdate = true;
+      const dT = Math.hypot(hero.x - (L1.AX - 4.9), hero.z + 1.6); if (inApt && live && Sound.ctx) Sound.burst(3200 + Math.random() * 1500, 0.4, 0.09, clamp(1 - dT / 9, 0, 1) * (0.018 + this.tvBoost * 0.03 + (Math.sin(t * 0.37) > 0.8 ? 0.02 : 0)), 'highpass'); }
+    this.tvLight.intensity = 1.6 + Math.random() * 1.4;
+    // lo specchio: la scritta si vede solo da vicino
+    const dm = Math.hypot(hero.x - (L1.AX - 4.5), hero.z - 2.5); this.mirrorM.color.setScalar(lerp(this.mirrorM.color.r, dm < 2.4 ? 1 : 0.45, damp(2, dt)));
+    // la sedia spostata, senza un suono, quando torni in cucina dal bagno
+    if (f.bath && !f.chair && inApt && hero.x > L1.AX && hero.z < 0.5) { f.chair = true; this.chairB.position.x += 0.28; this.chairB.position.z += 0.22; this.chairB.rotation.y = 0.35; this.chairBox.cx += 0.28; this.chairBox.cz += 0.22; }
+    // le impronte bagnate spariscono se esci dalla camera e ci rientri
+    const inBed = inApt && hero.x > L1.AX - 3 && hero.x < L1.AX + 2.5 && hero.z > 2;
+    if (f.steps && !f.wetGone) { if (inBed) this.wasBed = true; else if (this.wasBed) this.leftBed = true; if (this.leftBed && inBed) { f.wetGone = true; this.wetM.opacity = 0; } }
+    // il mobile scivola di lato
+    if (this.cupMove > 0 && this.cupMove < 1) { this.cupMove = Math.min(1, this.cupMove + dt * 1.3); this.cupboard.position.x = L1.AX + 5.0 - smooth01(this.cupMove) * 1.05; }
+    // la porta: neve sotto la soglia, e se resti fermo davanti… tre colpi
+    if (f.cavity && !f.outside && !S.told.knock && live && !reading()) {
+      const dD = Math.hypot(hero.x - (L1.AX + 5.3), hero.z - 1.25);
+      this.doorStill = dD < 1.7 && hero.speed < 0.1 ? (this.doorStill || 0) + dt : 0;
+      if (this.doorStill > 3.5) { S.told.knock = true; Sound.knock(0); dreadSpike = 1; setTimeout(() => say('«Non sei ancora uscito.»', 'VOCE'), 1500); }
+    }
+    // cortile: altalena e giostra
     if (this.swingStop > 0) this.swingStop -= dt;
     const amp = this.swingStop > 0 ? 0.02 : 0.22 + dread * 0.25, sw = Math.sin(t * 1.9) * amp;
-    if (Math.sign(sw) !== Math.sign(this.lastSw || 0) && amp > 0.1 && Math.hypot(hero.x - 2, hero.z - 4) < 14) Sound.creak();
+    if (!inApt && Math.sign(sw) !== Math.sign(this.lastSw || 0) && amp > 0.1 && Math.hypot(hero.x - 2, hero.z - 4) < 14) Sound.creak();
     this.lastSw = sw; this.seat.rotation.x = sw;
     this.carousel.rotation.y += dt * (0.05 + dread * 0.3);
-    // accensione della corrente
-    if (this.pendingPower && !reading()) { this.pendingPower = false; this.startPower(); }
-    if (!state.flags.power) { lamps.forEach(l => l.setLevel(0)); this.tunnelLight(0); return; }
-    const pt = (this.powerT += dt);
-    lamps.forEach((l, i) => { const on = pt - (0.8 + i * 0.9); l.setLevel(on > 0 ? (on < 1.2 ? (Math.random() < 0.45 ? 0.08 : 0.6 + Math.random() * 0.4) : 1) : 0); });
-    const tOn = pt - 3.6; this.tunnelLight(tOn > 0 ? (tOn < 1 ? (Math.random() < 0.5 ? 0.1 : 1) : 1) : 0);
-    blocks.forEach(b => { const v = pt > 2.2 ? 1 : 0; b.doorLampMat.emissiveIntensity = 3 * v; b.doorGlows.forEach(g => g.material.opacity = g.userData.maxOpacity * v); });
-    const want = Math.floor(clamp((pt - 1.5) / 7, 0, 1) * this.winOrder.length);
-    let changed = false;
-    while (this.winOn < want) { const [bi, i, v] = this.winOrder[this.winOn]; blocks[bi].lit[i] = v; this.winOn++; changed = true; }
-    if (changed || (pt > 8.5 && Math.floor(t * 12) !== this.lastFlick)) { this.lastFlick = Math.floor(t * 12); blocks.forEach(b => b.redraw(t)); }
-  },
-  startPower() {
-    state.flags.power = true; this.powerT = 0;
-    Sound.clunk(); Sound.setHum(0.045);
-    this.tpLamp.emissiveIntensity = 3;
-    lamps.forEach(l => { if (l.wantShadow) l.spot.castShadow = true; });
-    this.winOrder = [];
-    blocks.forEach((b, bi) => b.fac.windows.forEach((w, i) => { if (Math.random() < 0.42) this.winOrder.push([bi, i, 0.75 + Math.random() * 0.25]); }));
-    this.winOrder.sort(() => Math.random() - 0.5);
-    setTimeout(() => say(['Un tonfo. Poi il ronzio del trasformatore.', 'I lampioni si accendono uno a uno. Le finestre, una dopo l\'altra…', '…ma nessuno si affaccia.']), 1200);
-    setTimeout(() => { const F = this.tunnelFig; F.x = (L1.TUNNEL.x0 + L1.TUNNEL.x1) / 2; F.z = -11.4; F.state = 'show'; F.life = 999; F.near = 8; Sound.sting(); }, 5000);
+    this.lampA.setLevel(0); this.lampB.setLevel(0);
+    // il lampione in fondo: si accende da solo, la sagoma sotto, poi di nuovo buio
+    const F = this.lampFig;
+    if (this.farOn > 0 && !f.figGone) { this.farOn += dt; this.farLamp.setLevel(this.farOn < 1.2 ? (Math.random() < 0.45 ? 0.1 : 0.7 + Math.random() * 0.3) : 1); if (F.state !== 'show' && F.op <= 0.02 && this.farOn > 3) {
+        f.figGone = true; F.timer = 1e9; this.farOffT = 2.2;
+        say(['È sparita. Dove stava, la neve è intatta: nessuna impronta.']); } }
+    else if (!f.figGone) this.farLamp.setLevel(0);
+    if (this.farOffT > 0) { this.farOffT -= dt; this.farLamp.setLevel(this.farOffT > 0 ? 1 : 0); if (this.farOffT <= 0) { tell('lampOff', 'Mi volto verso il cancello. Quando torno a guardare, il lampione è di nuovo spento.'); refreshObjective(); } }
+    else if (f.figGone) this.farLamp.setLevel(0);
+    // cancello e saracinesca
+    if (this.gateOpen > 0 && this.gateOpen < 1) { this.gateOpen = Math.min(1, this.gateOpen + dt * 0.6); this.gate.rotation.y = smooth01(this.gateOpen) * 1.5; this.gateBox.off = this.gateOpen > 0.6; }
+    if (this.garOpen > 0 && this.garOpen < 1) { this.garOpen = Math.min(1, this.garOpen + dt * 0.5); this.garDoor.rotation.x = -smooth01(this.garOpen) * Math.PI / 2 * 0.97; }
+    const inGar = Math.abs(hero.x - this.garX) < 1.7 && hero.z < L1.GAR.z1 + 0.2 && hero.z > L1.GAR.z0;
+    for (const m of [this.garRoofM, this.garSnowM]) { m.opacity = lerp(m.opacity, inGar ? 0.08 : 1, damp(6, dt)); m.depthWrite = m.opacity > 0.9; }
+    // in fondo alle impronte: si interrompono. E tra le due auto, qualcuno che zoppica
+    if (S.clues.has('impronte') && !f.trailEnd && Math.hypot(hero.x - 2.0, hero.z + 9.8) < 2.0 && !reading()) {
+      f.trailEnd = true;
+      say(['Le tracce arrivano davanti alla porta del palazzo. Poi si interrompono.', 'Non ci sono impronte di ritorno.']);
+      setTimeout(() => { this.limping = true; this.limper.group.visible = true; this.limpT = 0; Sound.sting(); }, 2500);
+    }
+    const Lm = this.limper;
+    if (this.limping && Lm.ready) {
+      this.limpT += dt * 0.055 * (0.55 + 0.45 * Math.abs(Math.sin(t * 2.2)));
+      const p = this.limpPath(Math.min(1, this.limpT)), q = this.limpPath(Math.min(1, this.limpT + 0.01));
+      Lm.x = p.x; Lm.z = p.z; Lm.heading = Math.atan2(q.x - p.x, q.z - p.z);
+      const limp = Math.max(0, Math.sin(t * 4.4)); Lm.mixer.update(dt * 0.65);
+      Lm.group.position.set(p.x, groundH(p.x, p.z) - limp * 0.05, p.z); Lm.group.rotation.set(0, Lm.heading, limp * 0.06);
+      const near = Math.hypot(hero.x - p.x, hero.z - p.z) < 6.5;
+      if (this.limpT >= 1 || near || p.x > 19.6) { this.limping = false; this.limpFade = 1; }
+    }
+    if (this.limpFade > 0) { this.limpFade -= dt * 1.5; Lm.sk.material.transparent = true; Lm.sk.material.opacity = Math.max(0, this.limpFade); if (this.limpFade <= 0) { Lm.group.visible = false; f.limpGone = true; refreshObjective(); } }
+    // il vapore dal piatto ancora caldo
+    if (inApt && this.steamAt && Math.random() < dt * 1.5) { const b = breath.find(b => b.life <= 0); if (b) { b.life = 1.4; b.s.visible = true; b.s.position.copy(this.steamAt); b.s.scale.setScalar(0.04); } }
+    // fine
+    if (f.finale && !this.printsStarted && !reading()) this.startPrints();
+    if (this.endT > 0 && !reading()) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
   },
   ending() {
-    return { text: 'Dall\'altra parte del sottopasso il viale è deserto. Le impronte attraversano l\'incrocio e si fermano sotto la pensilina del filobus.<br><br>Mi chino a guardarle. La stessa suola dei miei stivali. Lo stesso numero.',
+    return { text: 'La camera si abbassa verso i miei stivali. La suola è identica.<br><br>Non ho trovato le tracce di qualcuno che mi precede. Ho trovato le tracce di qualcuno che sa esattamente dove andrò.',
       next: 2, nextLabel: 'CAPITOLO II · LA FERMATA DEL FILOBUS' };
   },
 };
@@ -4948,7 +5394,7 @@ function loadChapter(n, fromPrev = false) {
   state.items = new Set(n === 1 ? [] : ['fiammiferi', 'mappa']);      // fiammiferi e mappa si trovano nel cortile
   if (!fromPrev) { state.cans = n === 1 ? 0 : 2; state.battery = n === 1 ? 60 : 70; }
   if (state.battery < 40) state.battery = 40;
-  state.paused = false; $('bag').classList.add('hide');
+  state.paused = false; $('bag').classList.add('hide'); $('tp').classList.add('hide');
   state.torch = false; $('torchBtn').classList.remove('on');
   hero.x = C.start.x; hero.z = C.start.z; hero.heading = C.start.heading; hero.y = groundH(hero.x, hero.z);
   hero.speed = 0; hero.trail.length = 0; hero.snowAcc = 0.35;
@@ -5024,6 +5470,7 @@ addEventListener('keydown', e => {
   }
   if (e.repeat) return;
   keys.add(e.code);
+  if (!$('tp').classList.contains('hide')) { if (e.code === 'Escape' || e.code === 'KeyE') { e.preventDefault(); C.closeTP && C.closeTP(); } return; }
   if (bagOpen() && e.code !== 'KeyI' && e.code !== 'Tab' && e.code !== 'Escape') return;
   if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') interact();
   if (e.code === 'KeyH') hint();
@@ -5040,6 +5487,8 @@ canvas.addEventListener('pointerdown', () => { if (reading()) advanceText(); });
 $('torchBtn').addEventListener('pointerdown', e => { e.preventDefault(); toggleTorch(); });
 $('bagBtn').addEventListener('click', e => { e.preventDefault(); toggleBag(); });
 $('bagClose').addEventListener('click', closeBag);
+$('tpClose').addEventListener('click', () => C.closeTP && C.closeTP());
+$('tpDrawer').addEventListener('click', () => C.drawer && C.drawer());
 $('bag').addEventListener('click', e => { if (e.target.id === 'bag') closeBag(); });
 $('obj').addEventListener('pointerdown', e => { e.stopPropagation(); hint(); });
 let pinchD = 0;
