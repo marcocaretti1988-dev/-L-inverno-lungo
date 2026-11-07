@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>ЗИМА · Cold Cycle</title>
+<title>ЗИМА</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ЗИМА">
 <meta name="theme-color" content="#0b1018">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="manifest" href="manifest.webmanifest">
 
@@ -738,6 +739,7 @@ const Sound = {
     this.tone(62, 0.4, 0.5 * v, 'sine'); this.nb(out, 300, 0.7, 0.6, 0.25 * v, 'lowpass', 0.02);
     for (let i = 1; i <= 3; i++) this.nb(out, 900 - i * 180, 0.6, 0.5, 0.09 * v / i, 'bandpass', 0.22 * i);   // eco tra i palazzi
   },
+  bolt() { if (!this.ctx) return; const o = this.master; this.nb(o, 3800, 2, 0.05, 0.22, 'highpass'); this.tone(1900, 0.04, 0.05, 'square'); this.nb(o, 2600, 3, 0.07, 0.18, 'bandpass', 0.16); this.tone(700, 0.06, 0.06, 'square', 0.16); },
   shout() { if (!this.ctx) return; const o = this.master; this.glide(o, 'sawtooth', 210, 160, 0.4, 0.06, 900); this.nb(o, 900, 3, 0.4, 0.05, 'bandpass'); },
   burst(freq, q, dur, vol, type = 'bandpass', delay = 0) {
     if (!this.ctx) return;
@@ -1443,38 +1445,98 @@ function makeUAZ({ x, z, rot = 0, color = 0x4a5a3c, buried = 0.5, seed = 1 }) {
   return wrap;
 }
 
-/* ---------- B5. Panchina ---------- */
-function makeBench(x, z, rot) {
-  const b = new THREE.Group(); b.position.set(x, groundH(x, z), z); b.rotation.y = rot;
-  for (let k = 0; k < 3; k++) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.04, 0.12), woodMat); s.position.set(0, 0.45, -0.15 + k * 0.15); b.add(s); }
-  for (let k = 0; k < 2; k++) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.04), woodMat); s.position.set(0, 0.62 + k * 0.17, -0.27); b.add(s); }
-  for (const lx of [-0.75, 0.75]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.5), ironMat); l.position.set(lx, 0.22, -0.05); b.add(l); }
-  const sn = new THREE.Mesh(new RoundedBoxGeometry(1.75, 0.08, 0.4, 2, 0.03), plainSnowMat); sn.position.set(0, 0.5, 0); b.add(sn);
-  shadowAll(b); ink(b); world.add(b);
-  addOBB(x, z, 0.95, 0.3, rot);
-  return b;
+/* ---------- B6b. Materiali dalle foto di riferimento: ruggine del bidone, legno, ghisa ---------- */
+const RUST_JPG = 'data:image/jpeg;base64,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';
+const rustTex = (() => { const t = new THREE.TextureLoader().load(RUST_JPG); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso; return t; })();
+function woodTex(base, grain, seed, w = 512, h = 64) {
+  const r = mulberry32(seed), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, w, h);
+  for (let k = 0; k < 70; k++) {                                     // venature lunghe e ondulate
+    const y0 = r() * h, amp = 1 + r() * 3, f = 0.005 + r() * 0.02, ph = r() * 9;
+    x.strokeStyle = grain.replace('A', (0.15 + r() * 0.35).toFixed(2)); x.lineWidth = 0.6 + r() * 1.6; x.beginPath();
+    for (let px = 0; px <= w; px += 8) x.lineTo(px, y0 + Math.sin(px * f + ph) * amp); x.stroke();
+  }
+  for (let k = 0; k < 3; k++) { const kx = r() * w, ky = r() * h; x.fillStyle = 'rgba(20,12,8,0.55)'; x.beginPath(); x.ellipse(kx, ky, 4 + r() * 5, 2 + r() * 2, 0, 0, 7); x.fill(); }   // nodi
+  const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(0,0,0,0.35)'); g.addColorStop(0.15, 'rgba(0,0,0,0)'); g.addColorStop(0.85, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.35)');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  for (let k = 0; k < 40; k++) { x.fillStyle = 'rgba(235,240,245,' + (0.2 + r() * 0.5) + ')'; x.fillRect(r() * w, r() * h * 0.4, 1 + r() * 4, 1 + r() * 2); }   // neve nelle fessure
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; return t;
 }
-
-/* ---------- B6. Bidone del fuoco (checkpoint, calore, protezione dalle figure) ---------- */
-let fires = [];
+function ironTex(seed) {
+  const r = mulberry32(seed), S = 128, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  x.fillStyle = '#1d1f22'; x.fillRect(0, 0, S, S);
+  for (let k = 0; k < 900; k++) { const v = 20 + r() * 30; x.fillStyle = `rgba(${v + 4},${v + 2},${v},0.5)`; x.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2); }
+  for (let k = 0; k < 14; k++) { x.fillStyle = 'rgba(110,56,26,' + (0.2 + r() * 0.35) + ')'; x.beginPath(); x.arc(r() * S, r() * S, 1 + r() * 4, 0, 7); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const PROPM = {
+  rust: new THREE.MeshStandardMaterial({ map: rustTex, roughness: 0.85, metalness: 0.45 }),
+  soot: new THREE.MeshStandardMaterial({ color: 0x0e0b09, roughness: 1, side: THREE.BackSide }),
+  char: new THREE.MeshStandardMaterial({ color: 0x0b0a0a, roughness: 1 }),
+  cast: new THREE.MeshStandardMaterial({ map: ironTex(3), roughness: 0.55, metalness: 0.6 }),
+  steel: new THREE.MeshStandardMaterial({ map: ironTex(9), color: 0x9aa0a6, roughness: 0.45, metalness: 0.75 }),
+  benchWood: new THREE.MeshStandardMaterial({ map: woodTex('#3b2b22', 'rgba(15,9,6,A)', 11), roughness: 0.9 }),
+  seatWood: new THREE.MeshStandardMaterial({ map: woodTex('#6a4a33', 'rgba(40,24,14,A)', 17), roughness: 0.85 }),
+  slush: new THREE.MeshStandardMaterial({ color: 0x8c949c, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 0.45, depthWrite: false }),
+};
+/* raccoglie geometrie per materiale e le unisce: un mesh per materiale */
+function Bucket() {
+  const B = {};
+  const put = (k, geo, px = 0, py = 0, pz = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
+    for (const a of Object.keys(geo.attributes)) if (a !== 'position' && a !== 'normal' && a !== 'uv') geo.deleteAttribute(a);
+    if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+    if (geo.index) geo = geo.toNonIndexed(); geo.clearGroups();
+    if (sx !== 1 || sy !== 1 || sz !== 1) geo.scale(sx, sy, sz);
+    if (rx || ry || rz) geo.applyMatrix4(_cm4.makeRotationFromEuler(_ce.set(rx, ry, rz)));
+    geo.translate(px, py, pz); (B[k] ||= []).push(geo); return geo;
+  };
+  put.build = (mats, noInk = new Set()) => {
+    const g = new THREE.Group();
+    for (const k in B) { const m = new THREE.Mesh(mergeGeometries(B[k], false), mats[k]); m.castShadow = !noInk.has(k) || k === 'chain'; m.receiveShadow = true; if (noInk.has(k)) m.userData.noInk = true; g.add(m); }
+    return g;
+  };
+  return put;
+}
+function snowSkirt(put, r0, r1, seed, n = 9) {          // neve sporca e cumuli attorno alla base
+  const r = mulberry32(seed);
+  put('slush', new THREE.CircleGeometry(r1 * 0.8, 20), 0, 0.015, 0, -Math.PI / 2);
+  for (let k = 0; k < n; k++) { const a = r() * 6.28, d = r0 + r() * (r1 - r0); put('snow', pillow(0.12 + r() * 0.25, 0.04 + r() * 0.08, 0.1 + r() * 0.2, seed + k, 6), Math.cos(a) * d, 0.01, Math.sin(a) * d, 0, r() * 3, 0); }
+}
+rustTex.repeat.set(2, 1);
+/* ---------- B6. Bidone del fuoco: lamiera ondulata arrugginita, bordo bruciato, crosta di carbone ---------- */
 function makeFireBarrel(x, z) {
   const g = new THREE.Group(); const y0 = groundH(x, z); g.position.set(x, y0, z);
-  const c = document.createElement('canvas'); c.width = 64; c.height = 64; const m = c.getContext('2d');
-  m.fillStyle = '#4a3326'; m.fillRect(0, 0, 64, 64);
-  for (let i = 0; i < 300; i++) { m.fillStyle = `rgba(${120 + rand() * 60},${50 + rand() * 30},20,${rand() * 0.5})`; m.fillRect(rand() * 64, rand() * 64, 2 + rand() * 4, 2 + rand() * 4); }
-  m.fillStyle = 'rgba(0,0,0,0.4)'; m.fillRect(0, 20, 64, 3); m.fillRect(0, 42, 64, 3);
-  const rt_ = new THREE.CanvasTexture(c); rt_.colorSpace = THREE.SRGBColorSpace;
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.3, 0.88, 16, 1, true), new THREE.MeshStandardMaterial({ map: rt_, roughness: 0.8, metalness: 0.4, side: THREE.DoubleSide }));
-  barrel.position.y = 0.44; g.add(barrel);
-  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12), new THREE.MeshStandardMaterial({ color: 0x0c0806 })); bottom.rotation.x = -Math.PI / 2; bottom.position.y = 0.6; g.add(bottom);
+  const put = Bucket(), R = 0.3, H = 0.9, rr = mulberry32(Math.abs(Math.round(x * 97 + z * 31)) + 3);
+  const hoops = [0.29, 0.33, 0.57, 0.61], prof = [], inner = [];
+  for (let y = 0; y <= H + 1e-6; y += 0.0075) {
+    let r = R; for (const c of hoops) r += 0.011 * Math.exp(-(((y - c) / 0.009) ** 2));
+    if (y < 0.03) r -= (0.03 - y) * 0.4;
+    prof.push(new THREE.Vector2(r, y)); inner.push(new THREE.Vector2(r - 0.008, y));
+  }
+  put('rust', new THREE.LatheGeometry(prof, 28));
+  put('soot', new THREE.LatheGeometry(inner, 20));
+  put('rust', new THREE.TorusGeometry(R + 0.004, 0.013, 6, 28), 0, H, 0, Math.PI / 2);        // bordo arrotolato
+  put('rust', new THREE.TorusGeometry(R - 0.008, 0.012, 5, 28), 0, 0.012, 0, Math.PI / 2);
+  for (let k = 0; k < 46; k++) {                                                              // crosta di carbone sul bordo
+    const a = rr() * 6.28, d = R - 0.012 - rr() * 0.03, s = 0.01 + rr() * 0.02;
+    put('char', new THREE.DodecahedronGeometry(s, 0), Math.cos(a) * d, H - 0.005 + rr() * 0.02, Math.sin(a) * d, rr() * 3, rr() * 3, 0, 1, 0.6, 1);
+  }
+  const ba = rr() * 6.28;                                                                     // tappo di scarico
+  put('rust', new THREE.TorusGeometry(0.032, 0.01, 6, 12), Math.cos(ba) * (R + 0.005), 0.11, Math.sin(ba) * (R + 0.005), 0, -ba + Math.PI / 2, 0);
+  put('char', new THREE.CircleGeometry(0.026, 10), Math.cos(ba) * (R + 0.006), 0.11, Math.sin(ba) * (R + 0.006), 0, -ba + Math.PI / 2, 0);
+  for (let k = 0; k < 4; k++) put('char', new THREE.CylinderGeometry(0.03, 0.035, 0.55, 6), (rr() - 0.5) * 0.18, 0.78 + rr() * 0.08, (rr() - 0.5) * 0.18, (rr() - 0.5) * 0.7, 0, (rr() - 0.5) * 0.7);   // ceppi carbonizzati
+  snowSkirt(put, R + 0.05, R + 0.45, Math.round(x * 13 + z * 7) + 50, 10);
+  for (let k = 0; k < 7; k++) { const a = rr() * 6.28, d = R + 0.06 + rr() * 0.4; put('char', new THREE.DodecahedronGeometry(0.02 + rr() * 0.03, 0), Math.cos(a) * d, 0.02, Math.sin(a) * d, rr() * 3, rr() * 3, 0); }
+  for (let k = 0; k < 3; k++) { const a = rr() * 6.28; put('snow', pillow(0.1, 0.03, 0.05, k + 70, 6), Math.cos(a) * R, H + 0.012, Math.sin(a) * R, 0, -a, 0); }
+  const mesh = put.build({ ...PROPM, snow: plainSnowMat }, new Set(['soot', 'char', 'snow', 'slush']));
+  g.add(mesh);
   const emberMat = new THREE.MeshStandardMaterial({ color: 0x1a0d08, emissive: 0xff5a1a, emissiveIntensity: 0 });
-  const embers = new THREE.Mesh(new THREE.CircleGeometry(0.28, 12), emberMat); embers.rotation.x = -Math.PI / 2; embers.position.y = 0.62; g.add(embers);
-  for (let k = 0; k < 5; k++) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), woodMat); w.position.set((rand() - 0.5) * 0.2, 0.66 + k * 0.03, (rand() - 0.5) * 0.2); w.rotation.y = rand() * 3; w.rotation.z = (rand() - 0.5) * 0.4; g.add(w); }
-  const snowRing = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.04, 6, 16), plainSnowMat); snowRing.rotation.x = Math.PI / 2; snowRing.position.y = 0.88; g.add(snowRing);
-  shadowAll(g); ink(barrel); world.add(g);
+  const embers = new THREE.Mesh(new THREE.CircleGeometry(0.28, 14), emberMat); embers.rotation.x = -Math.PI / 2; embers.position.y = 0.66; g.add(embers);
+  shadowAll(g); ink(mesh); world.add(g);
   const light = new THREE.PointLight(0xff8a3a, 0, 10, 1.6); light.position.set(x, y0 + 1.3, z); world.add(light);
+  const rimLight = new THREE.PointLight(0xff6a2a, 0, 1.6, 2); rimLight.position.set(x, y0 + 0.75, z); world.add(rimLight);   // bagliore sul bordo interno
   const flames = [];
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < 5; k++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
     s.position.set(x, y0 + 1.0, z); world.add(s); flames.push(s);
   }
@@ -1483,19 +1545,198 @@ function makeFireBarrel(x, z) {
     update(t, dt) {
       const on = this.lit ? 1 : 0;
       light.intensity = on * (14 + Math.sin(t * 13) * 2.5 + Math.sin(t * 29) * 1.5);
+      rimLight.intensity = on * (4 + Math.sin(t * 17) * 1);
       emberMat.emissiveIntensity = on * (2 + Math.sin(t * 7) * 0.5);
       glow.material.opacity = on * (0.45 + Math.sin(t * 11) * 0.06);
       flames.forEach((s, k) => {
         const ph = t * (2.2 + k * 0.37) + k * 1.7, life = (ph % 1);
         s.material.opacity = on * Math.sin(life * Math.PI) * 0.8;
-        s.position.set(x + Math.sin(ph * 3) * 0.08, y0 + 0.75 + life * 0.7, z + Math.cos(ph * 2.3) * 0.08);
-        s.scale.set(0.4 * (1 - life * 0.5), 0.75 * (1 - life * 0.3), 1);
+        s.position.set(x + Math.sin(ph * 3) * 0.08, y0 + 0.8 + life * 0.7, z + Math.cos(ph * 2.3) * 0.08);
+        s.scale.set(0.42 * (1 - life * 0.5), 0.8 * (1 - life * 0.3), 1);
       });
     } };
   fires.push(F);
   CIRCLES.push([x, z, 0.42]);
   return F;
 }
+/* ---------- B5. Panchina: fianchi di ghisa con braccioli curvi, doghe di legno scuro, bulloni ---------- */
+function makeBench(x, z, rot) {
+  const put = Bucket(), r = mulberry32(Math.abs(Math.round(x * 53 + z * 17)) + 1);
+  const bar = (k, a, b, t, w = t) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dy, dz);
+    const geo = new THREE.BoxGeometry(w, len, t); const q = new THREE.Quaternion().setFromUnitVectors(UPV, new THREE.Vector3(dx, dy, dz).normalize());
+    geo.applyQuaternion(q); put(k, geo, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); };
+  const bolt = (px, py, pz, rx = 0, rz = 0) => put('cast', new THREE.CylinderGeometry(0.012, 0.012, 0.015, 6), px, py, pz, rx, 0, rz);
+  for (const sx of [-0.88, 0.88]) {
+    bar('cast', [sx, 0, 0.21], [sx, 0.44, 0.22], 0.06, 0.07);                               // gamba anteriore
+    bar('cast', [sx, 0, -0.16], [sx, 0.44, -0.2], 0.06, 0.07);                              // gamba posteriore
+    bar('cast', [sx, 0.44, -0.2], [sx, 1.0, -0.37], 0.05, 0.06);                            // montante dello schienale
+    bar('cast', [sx, 0.43, 0.26], [sx, 0.43, -0.22], 0.05, 0.06);                           // traversa sotto il sedile
+    bar('cast', [sx, 0.44, 0.22], [sx, 0.6, 0.24], 0.04, 0.05);                             // sostegno del bracciolo
+    const arm = new THREE.CatmullRomCurve3([[sx, 0.66, -0.27], [sx, 0.69, -0.05], [sx, 0.67, 0.18], [sx, 0.62, 0.27], [sx, 0.55, 0.26]].map(p => new THREE.Vector3(...p)));
+    put('cast', new THREE.TubeGeometry(arm, 18, 0.024, 6, false));
+    for (const fz of [0.21, -0.16]) put('cast', new THREE.BoxGeometry(0.1, 0.03, 0.1), sx, 0.015, fz);
+    for (const [py, pz] of [[0.43, 0.15], [0.43, -0.1], [0.62, -0.25], [0.78, -0.3], [0.92, -0.34]]) bolt(sx + Math.sign(sx) * 0.035, py, pz, 0, Math.PI / 2);
+    put('snow', pillow(0.07, 0.025, 0.4, r() * 99 | 0, 6), sx, 0.69, -0.02);
+  }
+  bar('cast', [-0.86, 0.15, 0.02], [0.86, 0.15, 0.02], 0.035);                                // barra di rinforzo
+  for (const sx of [-0.86, 0.86]) put('cast', new THREE.BoxGeometry(0.08, 0.1, 0.06), sx, 0.15, 0.02);
+  for (let k = 0; k < 4; k++) {                                                               // doghe del sedile
+    const zz = 0.2 - k * 0.105; put('wood', new THREE.BoxGeometry(1.86, 0.035, 0.088), 0, 0.465, zz, 0, (r() - 0.5) * 0.01, 0);
+    for (const sx of [-0.88, 0.88]) bolt(sx, 0.485, zz);
+  }
+  for (let k = 0; k < 3; k++) {                                                               // doghe dello schienale
+    const t = 0.32 + k * 0.24, py = 0.44 + t * 0.56, pz = -0.2 - t * 0.17 + 0.035;
+    put('wood', new THREE.BoxGeometry(1.86, 0.1, 0.03), 0, py, pz, -0.29, 0, 0);
+    for (const sx of [-0.88, 0.88]) bolt(sx, py, pz + 0.02, Math.PI / 2 - 0.29);
+    if (r() < 0.7) put('snow', pillow(1.7, 0.02, 0.03, k + 40, 10), 0, py + 0.05, pz, -0.29, 0, 0);
+  }
+  put('snow', pillow(1.75, 0.04 + r() * 0.03, 0.38, (r() * 99) | 0, 16), 0, 0.483, 0.04);
+  snowSkirt(put, 0.3, 0.9, (r() * 999) | 0, 6);
+  const b = put.build({ wood: PROPM.benchWood, cast: PROPM.cast, snow: plainSnowMat, slush: PROPM.slush }, new Set(['snow', 'slush']));
+  b.position.set(x, groundH(x, z), z); b.rotation.y = rot;
+  shadowAll(b); ink(b); world.add(b);
+  addOBB(x, z, 0.95, 0.3, rot);
+  return b;
+}
+/* ---------- B5b. Altalena: cavalletto in tubo quadro imbullonato, catene vere, seggiolino di legno ---------- */
+function makeSwing(x, z) {
+  const put = Bucket(), H = 2.45, sw = new THREE.Group(); sw.position.set(x, groundH(x, z), z);
+  for (const sx of [-1.45, 1.45]) {
+    for (const s of [-1, 1]) { const len = Math.hypot(0.78, H), a = Math.atan2(0.78, H);
+      put('frame', new THREE.BoxGeometry(0.075, len, 0.075), sx, H / 2, s * 0.39, -s * a, 0, 0);
+      put('frame', new THREE.BoxGeometry(0.11, 0.025, 0.11), sx, 0.012, s * 0.78); }
+    for (const fx of [-0.045, 0.045]) put('steel', new THREE.BoxGeometry(0.012, 0.3, 0.28), sx + fx, H - 0.08, 0);   // piastre d'angolo
+    for (const [py, pz] of [[H - 0.02, -0.08], [H - 0.02, 0.08], [H - 0.16, -0.1], [H - 0.16, 0.1]]) for (const fx of [-0.055, 0.055]) put('steel', new THREE.CylinderGeometry(0.012, 0.012, 0.02, 6), sx + fx, py, pz, 0, 0, Math.PI / 2);
+    put('snow', pillow(0.12, 0.04, 0.3, 80 + sx * 3 | 0, 6), sx, H + 0.09, 0);
+    put('frame', new THREE.BoxGeometry(0.06, 0.06, 0.95), sx, 0.6, 0);                                            // traversino basso
+    CIRCLES.push([x + sx, z - 0.75, 0.12], [x + sx, z + 0.75, 0.12]);
+  }
+  put('frame', new THREE.CylinderGeometry(0.055, 0.055, 3.06, 12), 0, H + 0.02, 0, 0, 0, Math.PI / 2);
+  put('snow', pillow(2.9, 0.05, 0.09, 91, 20), 0, H + 0.07, 0);
+  for (const cx of [-0.33, 0.33]) { put('steel', new THREE.CylinderGeometry(0.07, 0.07, 0.06, 12), cx, H + 0.02, 0, 0, 0, Math.PI / 2); put('steel', new THREE.CylinderGeometry(0.01, 0.01, 0.06, 6), cx, H + 0.1, 0); }
+  const frame = put.build({ frame: PROPM.cast, steel: PROPM.steel, snow: plainSnowMat }, new Set(['snow']));
+  sw.add(frame);
+  // seggiolino appeso: ruota attorno alla traversa
+  const sp = Bucket(), seat = new THREE.Group(); seat.position.y = H + 0.02; sw.add(seat);
+  const n = 34, step = 1.78 / n;
+  for (const cx of [-0.33, 0.33]) for (let k = 0; k < n; k++) {
+    const l = new THREE.TorusGeometry(0.017, 0.0055, 4, 10); l.scale(1, 1.75, 1); if (k % 2) l.rotateY(Math.PI / 2);
+    sp('chain', l, cx, -0.07 - k * step, 0);
+  }
+  sp('wood', new THREE.BoxGeometry(0.74, 0.05, 0.28), 0, -1.88, 0);
+  for (const cx of [-0.34, 0.34]) for (const cz of [-0.12, 0.12]) sp('steel', new THREE.BoxGeometry(0.07, 0.065, 0.07), cx, -1.88, cz);
+  for (const cx of [-0.33, 0.33]) sp('steel', new THREE.TorusGeometry(0.03, 0.007, 4, 10), cx, -1.84, 0, 0, Math.PI / 2, 0);
+  sp('snow', pillow(0.6, 0.035, 0.22, 95, 10), 0, -1.855, 0);
+  seat.add(sp.build({ chain: PROPM.steel, wood: PROPM.seatWood, steel: PROPM.steel, snow: plainSnowMat }, new Set(['chain', 'snow'])));
+  shadowAll(sw); ink(sw); world.add(sw);
+  return seat;
+}
+/* ---------- B14. КамАЗ-5320 della brigata della ТЭЦ: cabina avanzata arancione, cassone con telone ---------- */
+function makeKamaz(cx, cz, rot, opts = {}) {
+  const put = Bucket(), r = mulberry32(4253), L = 7.4, hw = 1.24;
+  const box = (k, w, h, d, x, y, z, rx, ry, rz) => put(k, new THREE.BoxGeometry(w, h, d), x, y, z, rx, ry, rz);
+  const rbox = (k, w, h, d, rad, x, y, z, rx, ry, rz) => put(k, new RoundedBoxGeometry(w, h, d, 2, rad), x, y, z, rx, ry, rz);
+  const cyl = (k, r0, r1, h, seg, x, y, z, rx, ry, rz) => put(k, new THREE.CylinderGeometry(r0, r1, h, seg), x, y, z, rx, ry, rz);
+  const FX = 3.7;                                                     // muso
+  // --- cabina
+  rbox('paint', 1.95, 1.78, 2.46, 0.09, 2.73, 2.06, 0);
+  for (const s of [-1, 1]) {
+    box('glass', 0.03, 0.62, 1.1, FX + 0.005, 2.42, s * 0.58, 0, 0, -0.06);                  // parabrezza in due pezzi
+    box('rubber', 0.02, 0.68, 1.16, FX - 0.005, 2.42, s * 0.58, 0, 0, -0.06);
+    box('glass', 0.92, 0.55, 0.03, 3.08, 2.42, s * (hw + 0.005)); box('rubber', 0.96, 0.6, 0.02, 3.08, 2.42, s * (hw - 0.005));
+    box('glass', 0.34, 0.4, 0.03, 2.05, 2.47, s * (hw + 0.005));
+    box('plastic', 0.012, 1.15, 0.012, 3.58, 1.95, s * (hw + 0.012)); box('plastic', 0.012, 1.15, 0.012, 2.52, 1.95, s * (hw + 0.012));   // portiera
+    box('chrome', 0.14, 0.03, 0.03, 2.7, 2.05, s * (hw + 0.025));
+    box('stripe', 1.9, 0.1, 0.02, 2.73, 1.62, s * (hw + 0.008));
+    // specchi retrovisori su bracci
+    const ax = FX - 0.05; box('steel', 0.03, 0.03, 0.36, ax, 2.55, s * (hw + 0.18)); box('steel', 0.03, 0.3, 0.03, ax + 0.02, 2.4, s * (hw + 0.36));
+    rbox('plastic', 0.06, 0.38, 0.2, 0.02, ax + 0.04, 2.38, s * (hw + 0.4));
+    // gradini
+    box('steel', 0.42, 0.03, 0.22, 3.15, 0.78, s * (hw - 0.05)); box('steel', 0.42, 0.03, 0.22, 3.15, 1.06, s * (hw - 0.02));
+    for (const dx of [-0.2, 0.2]) box('steel', 0.03, 0.32, 0.03, 3.15 + dx, 0.92, s * (hw + 0.05));
+    // fari tondi nel paraurti, frecce
+    for (const o of [0.98, 0.73]) { put('chrome', new THREE.TorusGeometry(0.085, 0.016, 6, 16), FX + 0.2, 1.02, s * o, 0, Math.PI / 2, 0); cyl('lens', 0.075, 0.075, 0.02, 14, FX + 0.195, 1.02, s * o, 0, 0, Math.PI / 2); }
+    box('amber', 0.06, 0.07, 0.16, FX + 0.18, 1.2, s * 1.1);
+    box('red', 0.06, 0.05, 0.06, FX + 0.24, 0.83, s * 0.4);                                    // ganci di traino
+  }
+  box('paint', 0.04, 0.62, 0.08, FX + 0.01, 2.42, 0, 0, 0, -0.06);                            // montante centrale
+  box('plastic', 0.04, 0.4, 1.9, FX + 0.01, 1.72, 0);                                          // calandra
+  for (let k = 0; k < 5; k++) box('steel', 0.03, 0.03, 1.86, FX + 0.03, 1.56 + k * 0.08, 0);
+  box('stripe', 0.03, 0.08, 2.4, FX + 0.01, 1.98, 0);
+  box('paint', 0.3, 0.04, 2.3, FX + 0.08, 2.86, 0, 0, 0, 0.15);                                // visiera parasole
+  for (const z of [-0.6, 0, 0.6]) box('amber', 0.06, 0.06, 0.12, FX - 0.12, 2.98, z);         // luci d'ingombro sul tetto
+  rbox('steel', 0.26, 0.34, 2.5, 0.04, FX + 0.12, 1.02, 0);                                    // paraurti
+  for (const s of [-1, 1]) { rbox('rubber', 1.05, 0.1, 0.42, 0.04, 3.0, 1.12, s * (hw - 0.17)); box('rubber', 0.02, 0.38, 0.38, 2.45, 0.72, s * (hw - 0.17)); }   // parafanghi anteriori
+  if (opts.openDoor) {                                                                          // portiera aperta (lato +z): l'operaio è sceso da qui
+    box('plastic', 1.0, 1.1, 0.03, 3.05, 1.95, hw + 0.012);
+    const d = new THREE.BoxGeometry(1.02, 1.2, 0.07); d.translate(-0.51, 0, 0); d.applyMatrix4(_cm4.makeRotationY(1.05)); put('paint', d, 3.58, 1.95, hw + 0.04);
+    const gw = new THREE.BoxGeometry(0.85, 0.5, 0.02); gw.translate(-0.48, 0.42, 0.04); gw.applyMatrix4(_cm4.makeRotationY(1.05)); put('glass', gw, 3.58, 1.95, hw + 0.04);
+  }
+  rbox('seat', 0.5, 0.5, 0.55, 0.05, 2.4, 1.6, 0.6); rbox('seat', 0.5, 0.5, 0.55, 0.05, 2.4, 1.6, -0.6); put('plastic', new THREE.TorusGeometry(0.22, 0.02, 6, 16), 3.35, 2.0, -0.55, 0, Math.PI / 2, 0.6);
+  // --- telaio, serbatoi, ruota di scorta, scarico verticale
+  for (const s of [-0.45, 0.45]) box('plastic', 6.9, 0.24, 0.1, 0.1, 0.86, s);
+  rbox('steel', 1.0, 0.48, 0.55, 0.06, 1.15, 0.86, -(hw - 0.28));                              // serbatoio
+  for (let k = 0; k < 3; k++) box('plastic', 0.02, 0.5, 0.57, 0.75 + k * 0.4, 0.86, -(hw - 0.28));
+  box('plastic', 0.6, 0.4, 0.5, 1.1, 0.86, hw - 0.3);                                          // cassetta batterie
+  cyl('steel', 0.13, 0.13, 0.9, 10, -0.2, 0.75, 0.75, 0, 0, Math.PI / 2); cyl('steel', 0.13, 0.13, 0.9, 10, -0.2, 0.75, -0.75, 0, 0, Math.PI / 2);   // serbatoi aria
+  cyl('rust', 0.065, 0.065, 2.1, 10, 1.62, 2.2, -(hw - 0.12)); cyl('rust', 0.09, 0.07, 0.12, 10, 1.62, 3.28, -(hw - 0.12));   // scarico
+  // ruota di scorta dietro la cabina
+  put('rubber', new THREE.LatheGeometry([[0.3, -0.14], [0.42, -0.15], [0.5, -0.1], [0.51, 0], [0.5, 0.1], [0.42, 0.15], [0.3, 0.14]].map(([a, b]) => new THREE.Vector2(a, b)), 18), 1.55, 1.75, 0.35, 0, 0, Math.PI / 2);
+  cyl('rim', 0.3, 0.3, 0.26, 12, 1.55, 1.75, 0.35, 0, 0, Math.PI / 2);
+  // --- ruote: anteriori singole, tandem posteriore gemellato
+  const tyre = () => new THREE.LatheGeometry([[0.3, -0.14], [0.42, -0.15], [0.5, -0.1], [0.51, 0], [0.5, 0.1], [0.42, 0.15], [0.3, 0.14]].map(([a, b]) => new THREE.Vector2(a, b)), 20);
+  const wheel = (wx, wz, s) => {
+    put('rubber', tyre(), wx, 0.51, wz, Math.PI / 2, 0, 0); cyl('rim', 0.3, 0.3, 0.27, 14, wx, 0.51, wz, Math.PI / 2, 0, 0);
+    cyl('steel', 0.13, 0.15, 0.06, 10, wx, 0.51, wz + s * 0.14, Math.PI / 2, 0, 0);
+    for (let k = 0; k < 6; k++) { const a = k * 1.047; cyl('steel', 0.016, 0.016, 0.04, 6, wx + Math.cos(a) * 0.2, 0.51 + Math.sin(a) * 0.2, wz + s * 0.145, Math.PI / 2, 0, 0); }
+  };
+  for (const s of [-1, 1]) {
+    wheel(3.0, s * (hw - 0.17), s);
+    for (const wx of [-1.55, -2.9]) { wheel(wx, s * (hw - 0.16), s); put('rubber', tyre(), wx, 0.51, s * (hw - 0.47), Math.PI / 2, 0, 0); }
+    rbox('rubber', 2.75, 0.06, 0.66, 0.03, -2.22, 1.13, s * (hw - 0.3));                       // parafanghi del tandem
+    box('rubber', 0.02, 0.5, 0.55, -3.55, 0.62, s * (hw - 0.3)); box('rubber', 0.02, 0.5, 0.55, -0.85, 0.62, s * (hw - 0.3));   // paraspruzzi
+  }
+  // --- cassone con sponde di legno e telone sulle centine
+  box('boards', 4.55, 0.13, 2.48, -1.5, 1.32, 0);
+  for (const s of [-1, 1]) { box('boards', 4.55, 0.55, 0.06, -1.5, 1.66, s * (hw - 0.0)); for (let k = 0; k < 6; k++) box('steel', 0.05, 0.57, 0.08, -3.7 + k * 0.88, 1.66, s * hw); }
+  box('boards', 0.06, 0.55, 2.48, -3.77, 1.66, 0); box('boards', 0.06, 0.95, 2.48, 0.76, 1.86, 0);
+  rbox('canvas', 4.5, 1.32, 2.44, 0.2, -1.5, 2.6, 0);
+  for (let k = 0; k < 5; k++) { const px = -3.55 + k * 1.02;
+    box('rope', 0.05, 0.02, 2.46, px, 3.265, 0);
+    for (const s of [-1, 1]) box('rope', 0.05, 1.2, 0.02, px, 2.62, s * 1.225); }
+  for (let k = 0; k < 9; k++) for (const s of [-1, 1]) box('rope', 0.012, 0.25, 0.012, -3.6 + k * 0.52, 2.0, s * 1.23, 0.6, 0, 0);   // legacci
+  // posteriore
+  for (const s of [-1, 1]) { box('red', 0.04, 0.12, 0.22, -3.82, 1.1, s * 0.95); box('amber', 0.04, 0.08, 0.22, -3.82, 0.98, s * 0.95); }
+  box('steel', 0.1, 0.12, 2.3, -3.78, 1.04, 0);
+  // --- neve e ghiaccio
+  put('snow', pillow(1.9, 0.28, 2.4, 301, 16), 2.73, 2.95, 0);
+  put('snow', pillow(4.4, 0.32, 2.35, 302, 24), -1.5, 3.25, 0);
+  put('snow', pillow(0.24, 0.06, 2.4, 303, 10), FX + 0.12, 1.19, 0);
+  put('snow', pillow(L + 0.6, 0.45, 1.0, 304, 22), -0.1, -0.02, -(hw + 0.3));
+  for (const wx of [3.0, -1.55, -2.9]) for (const s of [-1, 1]) put('snow', pillow(0.9, 0.18, 0.5, 305 + wx * 7 + s | 0, 8), wx, 0, s * (hw - 0.1));
+  for (let k = 0; k < 26; k++) { const len = 0.06 + Math.pow(r(), 2) * 0.35, onCab = k < 8;
+    put('ice', new THREE.ConeGeometry(0.014 + len * 0.03, len, 4), onCab ? 1.85 + r() * 1.8 : -3.7 + r() * 4.4, (onCab ? 1.18 : 1.25) - len / 2, (r() < 0.5 ? -1 : 1) * (hw + 0.02), Math.PI, 0, 0); }
+  const mats = { paint: carPaint(0xc8641e, 77), stripe: new THREE.MeshStandardMaterial({ color: 0xd8d6cc, roughness: 0.6 }), boards: new THREE.MeshStandardMaterial({ map: woodTex('#4e5240', 'rgba(20,22,16,A)', 23), roughness: 0.9 }),
+    rope: new THREE.MeshStandardMaterial({ color: 0x2c2a24, roughness: 1 }), steel: PROPM.steel, rust: PROPM.rust, snow: plainSnowMat, ...CARM };
+  const g = put.build(mats, new Set(['snow', 'ice', 'chrome', 'lens', 'amber', 'red', 'seat', 'rope', 'steel', 'rim', 'glass']));
+  // scritte: КАМАЗ sul frontale, brigata sulle portiere, numero sul telone, targhe
+  const plane = (tex, w, h, x, y, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, transparent: true })); m.position.set(x, y, z); m.rotation.y = ry; g.add(m); };
+  plane(textTex(['К А М А З'], 512, 64, 'rgba(0,0,0,0)', '#e8e6de', 'bold 44px monospace'), 1.1, 0.14, FX + 0.035, 2.05, 0, Math.PI / 2);
+  const door = textTex(['ТЭЦ-42', 'АВАРИЙНАЯ', 'бригада 3'], 256, 160, 'rgba(0,0,0,0)', '#f0eee6', 'bold 34px monospace');
+  plane(door, 0.8, 0.5, 3.05, 1.84, -(hw + 0.02), Math.PI); if (!opts.openDoor) plane(door, 0.8, 0.5, 3.05, 1.84, hw + 0.02, 0);
+  plane(textTex(['042'], 256, 128, 'rgba(0,0,0,0)', '#d8d4c8', 'bold 96px monospace'), 1.1, 0.55, -1.5, 2.55, hw + 0.01, 0);
+  const pt = plateTex('а 0418 ЗТ');
+  plane(pt, 0.52, 0.11, FX + 0.255, 0.86, 0, Math.PI / 2); plane(pt, 0.52, 0.11, -3.84, 1.0, 0, -Math.PI / 2);
+  ink(g);
+  const wrap = new THREE.Group(); wrap.add(g); wrap.position.set(cx, groundH(cx, cz) - 0.02, cz); wrap.rotation.y = rot; world.add(wrap);
+  addOBB(cx, cz, L / 2 + 0.1, hw + 0.1, rot);
+  return wrap;
+}
+
+/* ---------- B5. Panchina ---------- */
+
+/* ---------- B6. Bidone del fuoco (checkpoint, calore, protezione dalle figure) ---------- */
+let fires = [];
 
 /* ---------- B7. Collisioni (rettangoli orientati + cerchi) ---------- */
 let BOXES = [], CIRCLES = [], BOUNDS = [-30, 30, -20, 20];
@@ -2757,14 +2998,7 @@ const CH1 = {
     // parco giochi
     const paintBlue = new THREE.MeshStandardMaterial({ color: 0x3a5a78, roughness: 0.7, metalness: 0.3 });
     const paintRed = new THREE.MeshStandardMaterial({ color: 0x7a3028, roughness: 0.7, metalness: 0.3 });
-    const sw = new THREE.Group(); sw.position.set(2, groundH(2, 4), 4);
-    for (const sx of [-1.4, 1.4]) for (const sz of [-0.5, 0.5]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), paintBlue); leg.position.set(sx, 1.25, sz * 0.6); leg.rotation.x = sz * 0.38; sw.add(leg); }
-    const bar_ = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.0, 6), paintBlue); bar_.rotation.z = Math.PI / 2; bar_.position.y = 2.45; sw.add(bar_);
-    const seat = new THREE.Group(); seat.position.y = 2.45; sw.add(seat);
-    for (const cx of [-0.3, 0.3]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.85, 3), ironMat); ch.position.set(cx, -0.93, 0); seat.add(ch); }
-    const sb = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.3), woodMat); sb.position.y = -1.85; seat.add(sb);
-    const ss = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.05, 0.26), plainSnowMat); ss.position.y = -1.8; seat.add(ss);
-    shadowAll(sw); ink(sw); world.add(sw); this.seat = seat;
+    this.seat = makeSwing(2, 4);
     const car = new THREE.Group(); car.position.set(7.5, groundH(7.5, 6), 6);
     const disk = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.12, 24), paintRed); disk.position.y = 0.35; car.add(disk);
     const ds = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.08, 24), plainSnowMat); ds.position.y = 0.44; car.add(ds);
@@ -3580,7 +3814,7 @@ const CH3 = {
       for (let k = 0; k < 4; k++) { const v = new THREE.Sprite(new THREE.SpriteMaterial({ map: steam, transparent: true, depthWrite: false, opacity: 0 })); v.userData.ph = k / 4; world.add(v); this.vapor.push(v); }
     }
     // l'operaio, il camion della squadra, il bidone
-    this.truck = makeRepairTruck(L3.TRUCK.x, L3.TRUCK.z, L3.TRUCK.r); this.truck.rod.visible = false;
+    this.truck = makeKamaz(L3.TRUCK.x, L3.TRUCK.z, L3.TRUCK.r, { openDoor: true });
     this.barrel = makeFireBarrel(L3.BARREL.x, L3.BARREL.z);
     this.worker = makeNPC({ x: L3.WORKER.x, z: L3.WORKER.z, heading: 0.3, tint: TINT.worker, pose: POSE.sit, helmet: true, dim: 0.8 });
     CIRCLES.push([L3.WORKER.x, L3.WORKER.z + 0.2, 0.55]);
@@ -3632,7 +3866,7 @@ const CH3 = {
       { id: 'operaio', x: L3.WORKER.x + 0.4, z: L3.WORKER.z + 1.0, r: 1.9, my: 1.0, clue: true, repeat: true, needs: () => self.barrel.lit, label: () => S.items.has('botola') ? 'Guarda l\'operaio' : 'Parla con l\'operaio',
         done: () => S.items.has('botola'),
         use() { S.flags.workerSeen = true;
-          if (!self.barrel.lit) { say(['Un uomo seduto contro la ruota del camion giallo. Tuta imbottita, elmetto da cantiere. Le labbra blu.', 'Mi guarda senza vedermi. Trema troppo per parlare. Prima di tutto, il fuoco: il bidone è lì accanto.']); return; }
+          if (!self.barrel.lit) { say(['Un uomo seduto contro la ruota del КамАЗ arancione della brigata. Tuta imbottita, elmetto da cantiere. Le labbra blu.', 'Mi guarda senza vedermi. Trema troppo per parlare. Prima di tutto, il fuoco: il bidone è lì accanto.']); return; }
           if (!S.items.has('botola')) { self.talkWorker(); return; }
           say(S.flags.tunnel ? 'Non c\'è più nessuno contro la ruota.' : ['Ha chiuso gli occhi. Le mani sono ancora tese verso il fuoco.', 'Dalla sua bocca non esce più il fiato.']); } },
       { id: 'lista', x: L3.BOARD.x, z: L3.BOARD.z + 1.1, r: 1.5, my: 1.5, clue: true, label: 'Leggi la bacheca',
@@ -3704,16 +3938,16 @@ const CH3 = {
     if (f.tunnel) return 'Le impronte riprendono qui, oltre la recinzione. Vanno verso la cupola.';
     if (state.items.has('botola')) return 'La botola è dove i tubi entrano sotto terra, vicino al reticolato. Se la luce mi trova… devo restare immobile.';
     if (f.workerSeen && !this.barrel.lit) return 'Quell\'uomo muore di freddo. Il bidone accanto a lui.';
-    return 'Le impronte non vanno al varco. Girano dietro il camion giallo.';
+    return 'Le impronte non vanno al varco. Girano dietro il camion arancione.';
   },
   hint() {
     const f = state.flags;
     if (f.tunnel) return 'Sei oltre la recinzione: prosegui verso est fino in fondo al viale.';
     if (state.items.has('botola')) return 'La botola è sul lato sud, dove la теплотрасса entra nel terreno prima della recinzione. Quando il riflettore o la torcia della ronda ti illuminano, smetti di muoverti: vedono solo ciò che si muove.';
     if (f.workerSeen && !this.barrel.lit) return 'Accendi il bidone accanto all\'operaio, poi parlagli.';
-    return 'Dietro il camion giallo, sul lato sud del viale, c\'è un uomo seduto. Le impronte portano lì.';
+    return 'Dietro il camion arancione, sul lato sud del viale, c\'è un uomo seduto. Le impronte portano lì.';
   },
-  coldTip() { return this.barrel.lit ? 'Il freddo mi morde. Torno al bidone vicino al camion giallo.' : 'Il freddo è più cattivo qui. Vicino al camion giallo c\'è un bidone: si può accendere.'; },
+  coldTip() { return this.barrel.lit ? 'Il freddo mi morde. Torno al bidone vicino al camion arancione.' : 'Il freddo è più cattivo qui. Vicino al camion arancione c\'è un bidone: si può accendere.'; },
   gapLines(reason) {
     if (reason === 'sparo') return ['Il colpo arriva prima del suono.', 'Il freddo della neve sotto la guancia. Le maschere si avvicinano, senza fretta. Nessuno parla.', 'Mi risveglio più indietro. Sul cappotto, nessun buco. Attorno a me, le mie impronte. In cerchio.'];
     if (reason !== 'soldati') return null;
@@ -3728,7 +3962,7 @@ const CH3 = {
   alert(who) {
     if (this.alarm || state.gap || downed() || state.ended) return;
     this.alarm = { who, t: 0, fired: false };
-    showMsg(RU('«СТОЙ!»'), 1.4); dreadSpike = 1; Sound.shout(); state.flags.warned = true;
+    dreadSpike = 1; Sound.bolt(); state.flags.warned = true;               // nessuna voce: solo lo scatto dell'otturatore
   },
   fire(A) {
     const p = new THREE.Vector3();
@@ -3738,10 +3972,34 @@ const CH3 = {
     state.flags.shotN = (state.flags.shotN || 0) + 1;
     memoryGap('sparo');
   },
+  /* Semënov: trema, segue Dmitri con lo sguardo, allunga il braccio verso di lui; mentre parla gesticola; poi smette */
+  updateWorker(dt, t) {
+    const W = this.worker; if (!W || !W.ready) return;
+    const S = state, d = Math.hypot(hero.x - W.x, hero.z - W.z), hasKey = S.items.has('botola');
+    if (hasKey && !this.wDead && (d > 9 || S.flags.tunnel)) this.wDead = true;
+    const talking = S.flags.workerSeen && reading() && d < 4 && !this.wDead;
+    W.reach = lerp(W.reach || 0, !this.wDead && d < 4.5 && !hasKey ? 1 : 0, damp(1.2, dt));
+    W.talk = lerp(W.talk || 0, talking ? 1 : 0, damp(2, dt));
+    W.dead = lerp(W.dead || 0, this.wDead ? 1 : 0, damp(0.6, dt));
+    const shiver = (1 - W.dead) * (0.025 + (this.barrel.lit ? 0 : 0.03)) * Math.sin(t * 31);
+    const base = POSE.sit.arms[0];
+    let sx = lerp(base[0], -1.05, W.reach), sz = lerp(base[1], -0.15, W.reach), ex = lerp(base[2], -0.3, W.reach);
+    sx += W.talk * (0.25 * Math.sin(t * 1.7) - 0.2); ex += W.talk * 0.3 * Math.sin(t * 2.3 + 1);
+    sx = lerp(sx, -0.15, W.dead); sz = lerp(sz, -0.35, W.dead); ex = lerp(ex, -0.1, W.dead);
+    let look = Math.atan2(hero.x - W.x, hero.z - W.z) - W.heading; look = Math.atan2(Math.sin(look), Math.cos(look));
+    W.look = lerp(W.look || 0.25, d < 9 ? clamp(look, -1, 1) : 0.25, damp(1.5, dt));
+    const P = { ...POSE.sit, hx: lerp(0.5 - 0.25 * W.reach, 0.85, W.dead), hy: lerp(W.look, 0.35, W.dead), tx: POSE.sit.tx + Math.sin(t * 1.4) * 0.02 * (1 - W.dead) + W.reach * 0.12,
+      arms: [[sx + shiver, sz, ex + shiver], POSE.sit.arms[1]] };
+    applyPose(W.B, P);
+    // il fiato: lui respira ancora (i soldati no)
+    this.wBreath = (this.wBreath || 1) - dt;
+    if (this.wBreath <= 0 && W.dead < 0.5) { this.wBreath = 1.6 + Math.random() * 0.8; const b = breath.find(b => b.life <= 0);
+      if (b) { const hp = new THREE.Vector3(); W.B.Head.getWorldPosition(hp); b.life = 1.4; b.s.visible = true; b.s.position.set(hp.x + Math.sin(W.heading) * 0.2, hp.y + 0.02, hp.z + Math.cos(W.heading) * 0.2); b.s.scale.setScalar(0.1); } }
+  },
   caught() {
     if (state.gap || downed() || state.ended) return;
     state.flags.caughtN = (state.flags.caughtN || 0) + 1;
-    if ((state.flags.shotN || 0) + (state.flags.caughtN || 0) === 2 && !state.items.has('botola')) setTimeout(() => tell('caught2', 'Non passerò dal varco. Mai. Deve esserci un altro modo… le impronte giravano dietro il camion giallo.'), 6500);
+    if ((state.flags.shotN || 0) + (state.flags.caughtN || 0) === 2 && !state.items.has('botola')) setTimeout(() => tell('caught2', 'Non passerò dal varco. Mai. Deve esserci un altro modo… le impronte giravano dietro il camion arancione.'), 6500);
   },
   heroHook(dt) {
     const f = state.flags;
@@ -3785,6 +4043,7 @@ const CH3 = {
       G.B.Head.quaternion.setFromEuler(_pe.set(-0.05, G.look * 0.75, 0)); G.B.Spine3.quaternion.setFromEuler(_pe.set(0, G.look * 0.25, 0));
     }
     // vapore che esce dalle botole
+    this.updateWorker(dt, t);
     this.vapor.forEach((v, k) => { const q = (t * 0.12 + v.userData.ph) % 1, X = k % 2 ? L3.EXIT.x : L3.HATCH.x; v.position.set(X + q * 0.6, 1.0 + q * 2.4, L3.PIPE_Z - 0.1); v.scale.setScalar(0.8 + q * 2.2); v.material.opacity = Math.sin(q * Math.PI) * 0.35; });
     this.domeStar.color.setHex(Math.sin(t * 1.4) > 0.6 ? 0x9a1a10 : 0x401010);
     this.flash.material.opacity *= Math.exp(-dt * 30); this.flashL.intensity *= Math.exp(-dt * 25);
@@ -3795,13 +4054,13 @@ const CH3 = {
     // altoparlante
     this.speakT -= dt;
     if (this.speakT <= 0 && hero.x > -14 && hero.x < 10 && !reading()) { this.speakT = 28; Sound.glitch(); showMsg(RU('«Внимание. Зона закрыта. Возвращайтесь домой.»') + '<br><small>Attenzione. Zona chiusa. Tornate a casa.</small>', 4); }
-    if (hero.x < -6 && hero.x > -22 && !f.workerSeen) tell('cough', 'Un colpo di tosse, secco. Dietro il camion giallo.');
+    if (hero.x < -6 && hero.x > -22 && !f.workerSeen) tell('cough', 'Un colpo di tosse, secco. Dietro il camion arancione.');
     // sorveglianza: solo sul lato ovest, solo se ti muovi
     if (state.gap || downed() || busy || hero.x > L3.FENCE_X) { this.seen = 0; return; }
     const moving = hero.speed > 0.45;
     const dGate = Math.hypot(hero.x - L3.GATE.x, hero.z - L3.GATE.z);
-    if (dGate < 6.5 && !f.warnedGate) { f.warnedGate = true; f.warned = true; dreadSpike = 1; Sound.shout(); showMsg(RU('«Стой! Назад!»') + '<br><small>Fermo! Indietro!</small>', 3);
-      setTimeout(() => tell('gate', ['Le maschere si sono girate tutte insieme. I fucili si alzano, lenti, puntati su di me.', 'Nessuno mi ha parlato. Eppure l\'ho sentito. Se resto qui, o faccio un altro passo verso la sbarra, sparano.']), 900); }
+    if (dGate < 6.5 && !f.warnedGate) { f.warnedGate = true; f.warned = true; dreadSpike = 1; Sound.bolt(); Sound.glitch();
+      setTimeout(() => tell('gate', ['Le canne si alzano tutte insieme. Nessuna voce. Nessun fiato.', 'Solo il rumore degli otturatori. Se resto qui, o faccio un altro passo verso la sbarra, sparano.']), 700); }
     const gateGuard = () => this.guards.filter(g => g.x < 10).sort((a, b) => Math.hypot(hero.x - a.x, hero.z - a.z) - Math.hypot(hero.x - b.x, hero.z - b.z))[0];
     if (dGate < 6.5) { this.warnT += dt; if (this.warnT > 3.0) { this.alert(gateGuard()); } } else this.warnT = Math.max(0, this.warnT - dt);
     if (dGate < 3.9) { this.alert(gateGuard()); return; }
@@ -4138,7 +4397,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { Music, DM, knockDown, world, makeCar, makeBlock, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { Music, DM, knockDown, world, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
