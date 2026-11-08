@@ -244,7 +244,7 @@
     <button class="vhs ch" data-ch="7">VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne</small></button>
     <button class="vhs ch" data-ch="8">VIII · LA ТЭЦ<small>la ciminiera</small></button>
     <button class="vhs ch" data-ch="9">IX · I LABORATORI SOTTERRANEI<small>il ciclo termico</small></button>
-    <button class="vhs ch soon" data-ch="10" disabled>X · LA VALVOLA<small>fine del ciclo · in arrivo</small></button>
+    <button class="vhs ch" data-ch="10">X · LA VALVOLA<small>fine del ciclo</small></button>
   </div>
   <div class="menu-row"><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
   <div class="credits">ЗАТО-42, Urali · consigliate le cuffie</div>
@@ -2847,6 +2847,7 @@ const ITEMS = {
   fotoBrigata: { icon: null, img: paperIcon, name: 'Fotografia della Brigata 3', desc: 'Otto uomini davanti alla centrale. Io al centro, Semënov accanto a me. Sul retro: «ПОСЛЕДНЯЯ СМЕНА. 12.02.1991.»' },
   piastrina: { icon: null, img: drawIcon(x => { x.fillStyle = '#9a9a90'; x.beginPath(); x.ellipse(0, 0, 26, 36, 0, 0, 7); x.fill(); x.fillStyle = '#2a2a28'; x.font = 'bold 18px monospace'; x.fillText('0418', -22, 6); }), name: 'Piastrina 0418', desc: 'Dal fondo dell\'armadietto 0418. La stessa che Semënov portava al posto di blocco.' },
   fusibile: { icon: null, img: drawIcon(x => { x.fillStyle = '#c8c0a0'; x.fillRect(-12, -30, 24, 60); x.fillStyle = '#8a8a86'; x.fillRect(-14, -36, 28, 10); x.fillRect(-14, 26, 28, 10); }), name: 'Fusibile', desc: 'Dalla cassetta tecnica del corridoio. Per la stufetta industriale.' },
+  frammento: { icon: null, img: drawIcon(x => { x.fillStyle = '#6ab8ff'; x.beginPath(); x.moveTo(0, -40); x.lineTo(22, 0); x.lineTo(0, 40); x.lineTo(-22, 0); x.closePath(); x.fill(); x.strokeStyle = '#d8f0ff'; x.lineWidth = 2; x.beginPath(); x.moveTo(0, -40); x.lineTo(0, 40); x.moveTo(-22, 0); x.lineTo(22, 0); x.stroke(); }), name: 'Frammento di Nucleo', desc: 'Cristallo energetico capace di interagire con le anomalie temporali. Ticchetta come un orologio, ma non segue il tempo del reattore.' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -7277,12 +7278,320 @@ const CH9 = {
   },
   ending() {
     return { text: 'Il tempo e la materia tornano indietro ogni notte. Solo la mia coscienza resta: è quella a tenere aperto il Ciclo.<br><br>Mi sono rifiutato di evacuare. Ho vincolato il sistema a me stesso, perché chiudere la valvola significava abbandonarli.<br><br>Il mio numero è 0417. Io sono la chiave di questo inverno.',
-      next: 0, nextLabel: 'CAPITOLO X · LA VALVOLA — in arrivo' };
+      next: 10, nextLabel: 'CAPITOLO X · LA VALVOLA' };
   },
 };
 const F9 = 0.05;
 
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7, 8: CH8, 9: CH9 };
+const L10 = { X: 120, START: { x: -11.4, z: 0 }, CORE: { x: 0, z: 0 }, VALVE: { x: 5.6, z: 0 }, CONSOLE: { x: 0, z: -7.2 }, BRAZ: { x: -3.4, z: -6.6 }, TEMP: { x: -10.2, z: -4.5 }, LOG: { x: -10.2, z: 4.5 },
+  HOUSING: { x: -2.9, z: 0 }, TERMS: [[-4.5, 8.2], [0, 9.0], [4.5, 8.2]], SHADOWS: [[-2.6, 3.8, 3.0], [3.4, 3.4, -2.4], [0.4, -3.9, 0]], OUT: { x: 0, z: 2 } };
+function ground10(x, z) { return x > 40 ? 0.05 : 0.02 + Math.sin(x * 0.27) * Math.cos(z * 0.31) * 0.05; }
+const CHOICES = {
+  A: { ru: 'ПРОТОКОЛ А — РАЗВЕТВЛЕНИЕ', name: 'Biforcazione', short: 'Aprire i confini di ZATO-42 e dare ai superstiti una possibilità di risvegliarsi.',
+    long: 'Intervenire sulla valvola per dividere il Ciclo in vettori temporali indipendenti. Non elimina il fenomeno: lo separa. La barriera cede, la neve anomala si espande oltre gli Urali… ma nelle strutture congelate le persone cominciano a muoversi.',
+    line: '«Se non posso riportarli indietro… forse posso almeno permettere loro di andare avanti.»' },
+  B: { ru: 'ПРОТОКОЛ Б — ИЗВЛЕЧЕНИЕ ЯДРА', name: 'Estrazione', short: 'Portare via il nucleo, far ripartire il tempo e affrontare le Sentinelle coscienti.',
+    long: 'Usare il Frammento per estrarre l\'energia residua del reattore e portarla via nello zaino. Il tempo riparte. Ma le Sentinelle dei cicli precedenti diventano coscienti: ricordano, riconoscono Dmitri, e lo seguiranno oltre il perimetro.',
+    line: '«Se il tempo vuole inseguirmi… questa volta dovrà farlo fuori da qui.»' },
+  C: { ru: 'ПРОТОКОЛ В — СИНХРОНИЗАЦИЯ', name: 'Sincronizzazione', short: 'Recuperare le memorie dei 312 cicli e affrontare il controllo esterno.',
+    long: 'Non cancellare e non separare le memorie: richiamarle tutte. 312 cicli, 312 versioni della stessa giornata. Dmitri conserverà ciò che ha vissuto, e si aprirà il confronto con chi controllava ZATO-42 dall\'esterno.',
+    line: '«Non voglio dimenticare più niente. Neanche quello che ho fatto.»' },
+};
+const CH10 = {
+  id: 10, roman: 'X', name: 'La valvola', clueCount: 3, cold: 0.2, attention: false, ground: ground10,
+  docs: { protocollo: 'Protocollo di biforcazione · «L\'intervento forzato sulla valvola durante la fase di picco non fermerà il loop, ma lo dividerà in vettori temporali indipendenti.»',
+    nota: 'Nota manoscritta · Operatore 0417 · «Ho inchiodato io stesso le assi alle finestre, per non uscire e non ricominciare il giro.» — В.',
+    canale: 'Canale esterno · «Attenzione, Voronin. ZATO-42 è soltanto il reattore pilota. Prendi il Frammento di Nucleo ed esci oltre il perimetro.»' },
+  start: { x: L10.X + L10.START.x, z: L10.START.z, heading: Math.PI / 2 }, bounds: [L10.X - 12.4, L10.X + 12.4, -10.4, 10.4],
+  env() { setSun(6, -0.7, 0.7); scene.fog.density = 0.005; hemi.intensity = 0.45; },
+  shelter() { return true; },
+  snow() { snowBase(); },
+  build() {
+    const X = x => L10.X + x, F = 0.05, mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6 }, o));
+    for (const g of ['walkie', 'guanti', 'cappotto']) if (!state.gear.has(g)) state.gear.add(g);
+    this.walls = []; const wall = CH3.wallKit.call(this);
+    const add = (m, x, y, z, sh = true) => { m.position.set(x, y, z); if (sh) m.castShadow = m.receiveShadow = true; world.add(m); return m; };
+    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshBasicMaterial({ color: 0x050607 })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(X(0), -0.3, 0); world.add(voidM);
+    { const c = document.createElement('canvas'); c.width = c.height = 128; const m = c.getContext('2d'); m.fillStyle = '#4a5054'; m.fillRect(0, 0, 128, 128); m.strokeStyle = '#2a2e30'; m.lineWidth = 3;
+      for (let k = 0; k <= 2; k++) { m.beginPath(); m.moveTo(k * 64, 0); m.lineTo(k * 64, 128); m.moveTo(0, k * 64); m.lineTo(128, k * 64); m.stroke(); }
+      for (let k = 0; k < 400; k++) { m.fillStyle = `rgba(${Math.random() < 0.5 ? '10,10,10' : '140,150,160'},${Math.random() * 0.12})`; m.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 10);
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(26, 22), new THREE.MeshStandardMaterial({ map: t, roughness: 0.55, metalness: 0.3 })); p.rotation.x = -Math.PI / 2; p.position.set(X(0), F, 0); p.receiveShadow = true; world.add(p); }
+    const conc = mt(0x5a6066, { roughness: 0.8 });
+    wall(conc, X(-13), -11, X(13), -11, 7); wall(conc, X(-13), 11, X(13), 11, 7); wall(conc, X(-13), -11, X(-13), 11, 7, [[9.6, 12.4]]); wall(conc, X(13), -11, X(13), 11, 7);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.8, 2.8), mt(0x5a6670, { metalness: 0.7, roughness: 0.35 })), X(-13.2), F + 1.4, 0);
+    // il cilindro di contenimento, le tubazioni, i cavi
+    { this.coreM = new THREE.MeshStandardMaterial({ color: 0x9aa8b4, metalness: 0.75, roughness: 0.3, emissive: 0x2a6aff, emissiveIntensity: 0.35 });
+      add(new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 9, 32), this.coreM), X(0), 4.5, 0); CIRCLES.push([X(0), 0, 2.9]);
+      for (const y of [0.4, 2.6, 4.8, 7]) add(new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.1, 6, 32), mt(0x2a3036, { metalness: 0.8 })), X(0), y, 0).rotation.x = Math.PI / 2;
+      const pm = mt(0x7a848c, { metalness: 0.6, roughness: 0.4 });
+      for (const [a, len] of [[0.6, 10], [2.1, 10.5], [3.9, 9.8], [5.1, 10.4]]) { const p = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, len, 12), pm), X(Math.cos(a) * (2.4 + len / 2)), 5.6, Math.sin(a) * (2.4 + len / 2)); p.rotation.z = Math.PI / 2; p.rotation.y = -a; }
+      this.cables = []; const r = mulberry32(1010);
+      for (let k = 0; k < 14; k++) { const a = r() * 6.28, R = 2.6, ex = Math.cos(a) * (6 + r() * 5), ez = Math.sin(a) * (6 + r() * 3.6);
+        const pts = [[X(Math.cos(a) * R), 0.3 + r() * 1.5, Math.sin(a) * R], [X((Math.cos(a) * R + ex) / 2), F + 0.06, (Math.sin(a) * R + ez) / 2], [X(ex), F + 0.06, ez], [X(ex * 1.08), 3 + r() * 3, ez * 1.05]];
+        curveCable(pts, 0.05); this.cables.push(new THREE.Vector3(pts[1][0], 0.2, pts[1][2])); }
+      // la neve che non si scioglie, attorno al basamento
+      const sn = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.5, 8, 32), plainSnowMat); sn.rotation.x = Math.PI / 2; sn.scale.z = 0.5; add(sn, X(0), F, 0, false);
+      this.coreL = new THREE.PointLight(0x4a8aff, 12, 16, 1.2); this.coreL.position.set(X(-3.2), 2.2, 0); world.add(this.coreL);
+      this.coreL2 = new THREE.PointLight(0x4a8aff, 8, 14, 1.3); this.coreL2.position.set(X(3.2), 2.2, 2); world.add(this.coreL2); }
+    // il display centrale sul cilindro
+    this.dispC = document.createElement('canvas'); this.dispC.width = 512; this.dispC.height = 160; this.dispT = new THREE.CanvasTexture(this.dispC); this.dispT.colorSpace = THREE.SRGBColorSpace;
+    { const d = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.0), new THREE.MeshBasicMaterial({ map: this.dispT, transparent: true })); d.rotation.y = -Math.PI / 2; add(d, X(-2.75), 3.6, 0, false); d.rotation.y = -Math.PI / 2; this.setDisp(['', '']); }
+    // la valvola principale: acciaio e bachelite, graffi e bruciature
+    { this.valve = new THREE.Group(); this.valve.position.set(X(L10.VALVE.x), 1.6, 0); world.add(this.valve);
+      const wm = mt(0x2a1a14, { roughness: 0.5 }), st = mt(0x8a9094, { metalness: 0.8, roughness: 0.3 });
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.11, 12, 40), wm); rim.rotation.y = Math.PI / 2; this.valve.add(rim);
+      for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.12), st); sp.rotation.x = k * Math.PI / 3; this.valve.add(sp); }
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 16), st); hub.rotation.z = Math.PI / 2; this.valve.add(hub);
+      const burn = new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), new THREE.MeshBasicMaterial({ color: 0x1a0a04 })); burn.position.set(-0.13, 1.0, 0.25); burn.rotation.y = -Math.PI / 2; this.valve.add(burn);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 1.2, 16), st), X(L10.VALVE.x + 0.5), F + 0.6, 0); const pipe = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.0, 14), st), X(L10.VALVE.x - 1.3), 1.6, 0); pipe.rotation.z = Math.PI / 2;
+      addBox(X(L10.VALVE.x - 0.2), X(L10.VALVE.x + 1.0), -1.2, 1.2);
+      this.warnM = new THREE.MeshBasicMaterial({ map: textTex(['ВНИМАНИЕ: СБРОС ЦИКЛА НЕОБРАТИМ'], 1024, 90, 'rgba(0,0,0,0)', '#6ab8ff', 'bold 50px monospace'), transparent: true, opacity: 0, depthWrite: false });
+      const wpl = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.45), this.warnM); wpl.rotation.x = -Math.PI / 2; wpl.rotation.z = Math.PI / 2; add(wpl, X(L10.VALVE.x - 1.6), F + 0.02, 0, false); }
+    // console, braciere, pannelli
+    { add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.0, 0.9), mt(0x5a5e58)), X(L10.CONSOLE.x), F + 0.5, L10.CONSOLE.z - 0.3); addBox(X(-1.6), X(1.6), L10.CONSOLE.z - 0.75, L10.CONSOLE.z + 0.15);
+      this.conC = document.createElement('canvas'); this.conC.width = 512; this.conC.height = 256; this.conT = new THREE.CanvasTexture(this.conC); this.conT.colorSpace = THREE.SRGBColorSpace;
+      const sc = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: this.conT })); add(sc, X(L10.CONSOLE.x), F + 1.7, L10.CONSOLE.z - 0.7, false); this.drawCon('idle');
+      this.braz = makeFireBarrel(X(L10.BRAZ.x), L10.BRAZ.z);
+      const panel = (x, z, lines) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshBasicMaterial({ map: textTex(lines, 320, 200, '#081008', '#70d080', 'bold 20px monospace') })); m.rotation.y = Math.PI / 2; add(m, X(-12.9), 1.6, z, false); return m; };
+      panel(-12.9, L10.TEMP.z, ['ТЕМПЕРАТУРА ЯДРА:', 'КРИТИЧЕСКАЯ', 'ВРЕМЯ: 23:40', 'ДО СБРОСА: 00:00']);
+      panel(-12.9, L10.LOG.z, ['ОПЕРАТОР 0417 — 001', 'ОПЕРАТОР 0417 — 027', 'ОПЕРАТОР 0417 — 089', 'ОПЕРАТОР 0417 — 156', 'ОПЕРАТОР 0417 — 300', 'ОПЕРАТОР 0417 — 312']); }
+    // l'alloggiamento del nucleo e il frammento
+    { add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.0, 1.2), mt(0x3a4248, { metalness: 0.7 })), X(L10.HOUSING.x + 0.15), F + 0.5, 0);
+      const gl = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.9), new THREE.MeshStandardMaterial({ color: 0xaad8ff, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })); add(gl, X(L10.HOUSING.x - 0.1), F + 1.35, 0, false);
+      this.crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), new THREE.MeshStandardMaterial({ color: 0x8ad0ff, emissive: 0x3a9aff, emissiveIntensity: 1.4, roughness: 0.1, transparent: true, opacity: 0.9 })); add(this.crystal, X(L10.HOUSING.x - 0.1), F + 1.35, 0, false); this.crystal.scale.y = 1.5; }
+    // i tre terminali delle scelte
+    this.termM = L10.TERMS.map(([x, z], i) => { const k = 'ABC'[i]; add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.1, 0.6), mt(0x4a4e50)), X(x), F + 0.55, z + 0.2); addBox(X(x - 0.5), X(x + 0.5), z - 0.1, z + 0.5);
+      const m = new THREE.MeshBasicMaterial({ map: textTex([k, CHOICES[k].ru.split(' — ')[1]], 256, 160, '#060a10', '#6ab8ff', 'bold 30px monospace'), transparent: true, opacity: 0.2 });
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.56), m); s.rotation.y = Math.PI; add(s, X(x), F + 1.4, z - 0.12, false); return m; });
+    // le tre ombre ramificate (il mio volto)
+    const tints = [{ key: 'sh1', fn: recolor(60, 80, 150, 0.9, 0.7) }, { key: 'sh2', fn: recolor(130, 70, 50, 0.85, 0.5) }, { key: 'sh3', fn: recolor(120, 120, 124, 0.7, 0.9) }];
+    this.shadows = L10.SHADOWS.map(([x, z, h], i) => { const N = makeNPC({ x: X(x), z, heading: h, tint: tints[i], dim: 0.35, noOutline: true }); N.group.visible = false; return N; });
+    // scariche azzurre lungo i cavi
+    this.sparkLight = new THREE.PointLight(0x8ac8ff, 0, 8, 2); world.add(this.sparkLight); this.sparks = [];
+    for (let k = 0; k < 24; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexB, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: false })); s.scale.set(0.18, 0.18, 1); world.add(s); this.sparks.push({ s, v: new THREE.Vector3(), life: 0 }); }
+    this.sparkT = 1;
+    for (const [x, z] of [[-8, -6], [8, -6], [-8, 6], [8, 6]]) { const l = new THREE.PointLight(0xc8d4e0, 5, 12, 1.4); l.position.set(X(x), 5.5, z); world.add(l); }
+    this.turns = 0; this.vRot = 0; this.vWant = 0;
+    // fuori: il perimetro (finale)
+    { const fm = mt(0x3a3e40, { metalness: 0.5 }), O = L10.OUT;
+      for (let k = -9; k <= 9; k++) { add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), fm), O.x + k * 1.6, 1.3, O.z - 4); }
+      for (const y of [0.6, 1.4, 2.2]) add(new THREE.Mesh(new THREE.BoxGeometry(29, 0.03, 0.03), fm), O.x, y, O.z - 4);
+      const gate = add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 0.06), fm), O.x + 1.6, 1.2, O.z - 4); gate.rotation.y = 0.9; gate.position.x += 1.2; gate.position.z -= 1.0;
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: textTex(['ЗАТО-42', 'ГРАНИЦА ЗАПРЕТНОЙ ЗОНЫ'], 512, 140, '#d8d4c4', '#7a1a14', 'bold 40px monospace') })); add(sg, O.x - 3, 1.9, O.z - 3.95, false);
+      const cc = document.createElement('canvas'); cc.width = 16; cc.height = 256; const cm = cc.getContext('2d'); for (let i = 0; i < 8; i++) { cm.fillStyle = i % 2 ? '#b8b2a8' : '#9a3a30'; cm.fillRect(0, i * 32, 16, 32); }
+      const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace; add(new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.4, 70, 18, 1, true), new THREE.MeshStandardMaterial({ map: ct, roughness: 0.9 })), 18, 35, -70, false);
+      this.farAv = new THREE.MeshBasicMaterial({ color: 0x2a0805, fog: false }); for (const y of [36, 69]) for (let k = 0; k < 3; k++) add(new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 4), this.farAv), 18 + Math.cos(k * 2.1) * 2.6, y, -70 + Math.sin(k * 2.1) * 2.6, false);
+      for (let k = 0; k < 14; k++) add(new THREE.Mesh(new THREE.ConeGeometry(0.9 + (k % 3) * 0.3, 4 + (k % 4), 7), mt(0x1a2420)), -22 + k * 3.4, 2.2, -14 - (k % 3) * 2.5, false); }
+  },
+  setDisp(lines) { const m = this.dispC.getContext('2d'); m.clearRect(0, 0, 512, 160); m.fillStyle = 'rgba(4,10,18,0.85)'; m.fillRect(0, 0, 512, 160); m.fillStyle = '#6ab8ff'; m.font = 'bold 34px monospace';
+    lines.forEach((l, i) => m.fillText(l, 20, 60 + i * 52)); this.dispT.needsUpdate = true; },
+  drawCon(mode) {
+    const m = this.conC.getContext('2d'); m.fillStyle = '#060a08'; m.fillRect(0, 0, 512, 256); m.fillStyle = '#70d080'; m.font = 'bold 20px monospace';
+    if (mode === 'idle') { m.fillText('ГЛАВНЫЙ ПУЛЬТ — ЦИКЛ № 312', 20, 40); m.fillText('ВВЕДИТЕ ПРОПУСК', 20, 80); }
+    if (mode === 'diag' || mode === 'choose') { m.fillText(mode === 'diag' ? 'ПРОТОКОЛ РАЗВЕТВЛЕНИЯ' : 'ВЫБОР ПРОТОКОЛА', 20, 34); m.strokeStyle = '#6ab8ff'; m.lineWidth = 3;
+      // rete che si divide · nucleo estratto · cerchi che diventano uno
+      m.beginPath(); m.moveTo(40, 200); m.lineTo(100, 140); m.lineTo(160, 100); m.moveTo(100, 140); m.lineTo(160, 180); m.moveTo(130, 120); m.lineTo(170, 130); m.stroke();
+      m.strokeRect(220, 90, 70, 110); m.beginPath(); m.arc(255, 70, 16, 0, 7); m.stroke(); m.beginPath(); m.moveTo(255, 90); m.lineTo(255, 54); m.stroke();
+      for (let k = 0; k < 4; k++) { m.beginPath(); m.arc(400 + k * 8, 145, 46 - k * 6, 0, 7); m.stroke(); }
+      m.fillStyle = '#6ab8ff'; m.fillText('A', 92, 236); m.fillText('B', 248, 236); m.fillText('C', 410, 236); }
+    if (mode === 'ext') { m.fillText('ЗАПРОС ВНЕШНЕГО КАНАЛА', 20, 40); m.fillText('ОБЪЕКТ ЗАТО-42 — РЕАКТОР № 01', 20, 120); m.fillText('СЛЕДУЮЩИЙ ОБЪЕКТ: НЕ ОПРЕДЕЛЁН', 20, 160); }
+    this.conT.needsUpdate = true;
+  },
+  items() {
+    const S = state, self = this, X = x => L10.X + x, have = k => state.items.has(k) || state.gear.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    return [
+      { id: 'valvola', x: X(L10.VALVE.x - 1.0), z: 0.4, r: 1.4, my: 1.6, label: () => f.chosen ? 'Gira la valvola' : 'La grande valvola', use() {
+          if (!f.touched) { self.touchValve(); return; }
+          if (!f.chosen) { say('La valvola aspetta. Prima devo decidere che cosa farne.'); return; }
+          self.turn(); } },
+      { id: 'braciere', x: X(L10.BRAZ.x + 0.8), z: L10.BRAZ.z + 0.7, r: 1.4, my: 1.2, label: () => self.braz.lit ? 'Il braciere' : 'Alimenta il braciere', done: () => self.braz.lit, needs: () => f.touched, use() {
+          if (self.braz.lit) { say('Il fuoco del braciere. L\'unico calore di questa camera.'); return; }
+          self.braz.lit = true; Sound.ignite(); S.checkpoint = { x: X(L10.BRAZ.x + 1), z: L10.BRAZ.z + 1.2 }; refreshObjective();
+          say('Un braciere metallico vicino alla console, ancora acceso a malapena. Lo alimento con la legna rimasta nello zaino.'); } },
+      { id: 'temperature', x: X(-11.8), z: L10.TEMP.z, r: 1.3, my: 1.6, label: 'Pannello delle temperature', done: () => f.temp, use() {
+          f.temp = true; refreshObjective();
+          say([Q('«ТЕМПЕРАТУРА ЯДРА: КРИТИЧЕСКАЯ»') + ' — Temperatura del nucleo: critica.', Q('«ВРЕМЯ: 23:40»') + '. ' + Q('«ДО АВАРИЙНОГО СБРОСА: 00:00»') + ' — Tempo allo sfiato d\'emergenza: zero.']);
+          say('«È fermo.» La lancetta non si muove. Il sistema segna sempre le 23:40.', 'DMITRI'); } },
+      { id: 'registro', x: X(-11.8), z: L10.LOG.z, r: 1.3, my: 1.6, label: 'Registro degli operatori', done: () => f.log, use() {
+          f.log = true; refreshObjective();
+          say(['Una schermata elenca le operazioni dei cicli precedenti.', Q('ОПЕРАТОР 0417 — ПОВТОРЕНИЕ 001 · 027 · 089 · 156 · 300 · 312')]);
+          say('Ogni registrazione porta il mio numero. Non esistono altri operatori.'); say('«Ero sempre io…»', 'DMITRI');
+          act(() => Sound.glitch()); say('Il display lampeggia: ' + Q('«ПАМЯТЬ ОПЕРАТОРА: НЕПОЛНАЯ»') + ' — Memoria dell\'operatore: incompleta.'); } },
+      { id: 'protocollo', x: X(L10.CONSOLE.x), z: L10.CONSOLE.z + 1.0, r: 1.4, my: 1.4, clue: true, label: 'La console di comando', needs: () => f.temp && f.log, use() {
+          if (!(f.temp && f.log)) { say('La console di comando. Prima voglio capire dove sono: i pannelli sulla parete ovest.'); return; }
+          act(() => { Sound.click(); self.drawCon('diag'); });
+          say(['Il sistema chiede un\'autorizzazione di livello superiore. Appoggio il tesserino 0417 sul lettore. La schermata diventa nera.', Q('«ПРОТОКОЛ РАЗВЕТВЛЕНИЯ — УРОВЕНЬ ДОСТУПА ВЫСШИЙ»') + ' — Protocollo di biforcazione.',
+            '«L\'intervento forzato sulla valvola durante la fase di picco non fermerà il loop, ma lo dividerà in vettori temporali indipendenti. Il soggetto potrà uscire dai confini del territorio chiuso.»'], 'CONSOLE');
+          say('«Quindi non devo fermarlo…» Rileggo. «Devo cambiare la direzione.»', 'DMITRI');
+          say('Tre diagrammi: una rete che si divide. Un nucleo estratto dal contenimento. Cerchi che si sovrappongono fino a diventare uno solo. Nessuna istruzione: il sistema richiede il componente principale.'); } },
+      { id: 'nucleo', x: X(L10.HOUSING.x - 1.0), z: 0.4, r: 1.3, my: 1.4, pick: true, label: 'L\'alloggiamento del nucleo', gone: () => have('frammento'), needs: () => S.clues.has('protocollo'), use() {
+          if (!S.clues.has('protocollo')) { say('Alla base del cilindro, un alloggiamento aperto. Il vetro è incrinato. Dentro fluttua qualcosa di azzurro.'); return; }
+          self.takeFragment(); } },
+      { id: 'nota', x: X(L10.CONSOLE.x + 0.6), z: L10.CONSOLE.z + 1.0, r: 1.4, my: 1.4, clue: true, label: 'La console · cartella nascosta', needs: () => have('frammento'), use() {
+          if (!have('frammento')) return; self.noteAndChannel(); } },
+      { id: 'scelta', x: X(L10.CONSOLE.x - 0.6), z: L10.CONSOLE.z + 1.0, r: 1.4, my: 1.4, label: 'Scegli il destino del Ciclo', needs: () => f.shadowsDone, done: () => f.chosen, use() {
+          if (!f.shadowsDone) return; if (f.chosen) { say('Ho scelto: ' + CHOICES[f.chosen].name + '. Ora la valvola.'); return; } self.openTP(); } },
+      ...L10.TERMS.map(([x, z], i) => { const k = 'ABC'[i]; return { id: 'term' + k, x: X(x), z: z - 1.0, r: 1.2, my: 1.4, label: 'Terminale ' + k + ' · ' + CHOICES[k].name, needs: () => f.shadowsDone, use() {
+          if (!f.shadowsDone) { say('Un terminale spento. Una lettera sullo schermo: ' + k + '.'); return; }
+          f['seen' + k] = true; say([Q('«' + CHOICES[k].ru + '»'), CHOICES[k].long], 'TERMINALE ' + k); say(CHOICES[k].line, 'DMITRI'); } }; }),
+    ];
+  },
+  touchValve() {
+    const S = state, f = S.flags; f.touched = true;
+    say(['Davanti a me, una gigantesca valvola in acciaio e bachelite. Graffi, ustioni, impronte.', 'Appoggio il palmo destro sulla manopola. La cicatrice circolare sulla mia mano coincide perfettamente con una bruciatura sul metallo.']);
+    act(() => Sound.radio(0.4)); say('Operatore 0417 riconosciuto.', 'ALTOPARLANTE'); say('Bentornato, Voronin.', 'ALTOPARLANTE');
+    say('«Chi parla?»', 'DMITRI'); say('Silenzio.'); say('«Chi cazzo sei?»', 'DMITRI');
+    act(() => Sound.breath(2)); say('Una seconda voce, molto più debole. È la mia.'); say('Non farlo di nuovo.', 'LA MIA VOCE'); say('Arretro. La voce ripete:'); say('Non farlo di nuovo.', 'LA MIA VOCE');
+    act(() => { this.pulse = 1.2; Sound.thud(); this.setDisp(['ЦИКЛ № 312 — АКТИВЕН', 'ОПЕРАТОР: ВОРОНИН Д. А. — 0417']); });
+    say(['Il cilindro emette un impulso. Tutte le luci si spengono per un secondo.', 'Quando tornano, sul display centrale: ' + Q('«ЦИКЛ № 312 — АКТИВЕН»') + ' — Ciclo n. 312, attivo.']);
+    say('«Trecentododici…»', 'DMITRI'); act(() => refreshObjective());
+  },
+  takeFragment() {
+    const S = state, f = S.flags;
+    say(['Alla base del cilindro, un alloggiamento aperto. Il vetro protettivo è incrinato. All\'interno fluttua un cristallo azzurro, attraversato da sottili linee luminose.', 'Non sembra ghiaccio. Non sembra una pietra. La sua superficie cambia forma quando mi avvicino.']);
+    act(() => Sound.radio(1.0)); say('Volk… non toccarlo.', 'WALKIE-TALKIE'); say('Riconosco la mia voce. «Ancora tu?»', 'DMITRI');
+    say('Se lo prendi, non potrai più tornare indietro.', 'WALKIE-TALKIE'); say('«Chi sei?»', 'DMITRI'); say('Quello che non sei ancora diventato.', 'WALKIE-TALKIE');
+    say('La trasmissione si interrompe. Allungo la mano. Il cristallo si solleva dall\'alloggiamento e si avvicina al palmo.');
+    act(() => { this.vision = 3.5; flash = 0.8; Sound.sting(); this.crystal.visible = false; });
+    say(['Per un istante tutta la stanza scompare.', 'Il mio appartamento. Le assi inchiodate alle finestre. Nina seduta alla fermata. Il filobus senza conducente.', 'I soldati con le maschere antigas. Il corridoio dell\'ospedale. Le 312 tacche nel cemento. Una figura davanti alla valvola.',
+      'L\'ultima immagine sono io. Ma indosso un cappotto diverso.']);
+    act(() => { S.gear.add('frammento'); Sound.pick(); refreshObjective(); });
+    say('Il cristallo si stabilizza nella mia mano. Produce un leggero ticchettio, come un orologio. Ma non segue il tempo del reattore.');
+  },
+  noteAndChannel() {
+    const S = state, f = S.flags;
+    say(['Il sistema riconosce il Frammento. Si apre una cartella nascosta. Un documento scritto a mano. La grafia è la mia.', Q('«Я сам забил досками окна своей квартиры изнутри…»'),
+      '«Ho inchiodato io stesso le assi alle finestre del mio appartamento dall\'interno, per non uscire e non ricominciare il giro. Ma se cambiamo il vettore della valvola adesso, potremo portare il nucleo fuori dagli Urali. — V.»'], 'NOTA MANOSCRITTA · 0417');
+    say(['Le finestre. Le assi. Il biglietto. Il messaggio sullo specchio. Tutto assume un significato diverso.', 'Non mi ero barricato perché qualcuno cercava di entrare. Avevo paura di uscire. Cercavo di impedire a me stesso di ricominciare.']);
+    say('«Ma cosa stavo cercando di evitare?»', 'DMITRI');
+    act(() => { this.drawCon('ext'); Sound.tone(440, 0.2, 0.06, 'square'); Sound.tone(660, 0.2, 0.06, 'square', 0.25); });
+    say('La console si riattiva: ' + Q('«ЗАПРОС ВНЕШНЕГО КАНАЛА»') + ' — Richiesta dal canale esterno. Apro la trasmissione.');
+    act(() => Sound.radio(2.0)); say('Non è una trasmissione locale. Il segnale arriva da fuori ZATO-42.');
+    say('…Attenzione, Voronin.', 'VOCE ESTERNA'); say('ZATO-42 è soltanto il reattore pilota.', 'VOCE ESTERNA'); say('Il Frammento di Nucleo è stato recuperato. Non attendere ulteriori istruzioni.', 'VOCE ESTERNA'); say('Esci oltre il perimetro.', 'VOCE ESTERNA');
+    act(() => { S.clues.add('canale'); gainToast(new Set(['protocollo', 'nota']), new Set(S.items), S.cans, S.battery); refreshObjective(); });
+    say(['La trasmissione si interrompe. Sul monitor: ' + Q('«ОБЪЕКТ ЗАТО-42 — РЕАКТОР № 01»') + '. Sotto: ' + Q('«СЛЕДУЮЩИЙ ОБЪЕКТ: НЕ ОПРЕДЕЛЁН»') + ' — Installazione successiva: non determinata.']);
+    say('«Reattore numero uno…» Guardo il Frammento. «Quanti ce ne sono?»', 'DMITRI');
+    act(() => { this.shake = 1; shake = 0.8; this.blink = 1.0; Sound.thud(); });
+    say('Nessuna risposta. La camera comincia a tremare. Le luci si spengono e si riaccendono.');
+    act(() => { this.shadows.forEach(N => N.group.visible = true); Sound.glitch(); });
+    say(['Quando tornano, non sono più solo. Attorno al reattore ci sono tre figure.', 'Hanno tutte il mio volto. Una indossa il cappotto blu. Una ha le mani coperte di bruciature. Una porta il tesserino 0417, ma il numero è quasi cancellato.']);
+    say('Non parlano. Ognuna guarda una diversa sezione della console. Mi avvicino alla prima. Alza la testa.');
+    say('Non lasciarli qui.', 'OMBRA'); say('Non portarli fuori.', 'OMBRA'); say('Ricorda tutto.', 'OMBRA');
+    act(() => { this.shadows.forEach(N => N.group.visible = false); Sound.glitch(); f.shadowsDone = true; this.drawCon('choose'); this.termM.forEach(m => m.opacity = 1); refreshObjective(); });
+    say('Mi giro. Le tre figure sono sparite. Sul display si accendono tre simboli: A, Biforcazione. B, Estrazione. C, Sincronizzazione. Il sistema richiede una decisione.');
+  },
+  openTP() {
+    if (!$('tp')) return; state.paused = true; keys.clear(); $('tp').classList.remove('hide'); $('tpDrawer').style.display = 'none'; $('tpTitle').textContent = 'ЦИКЛ № 312 · ВЫБОР ПРОТОКОЛА';
+    const c = $('tpSchema'), m = c.getContext('2d'); m.drawImage(this.conC, 0, 0, 512, 256, 24, 0, 512, 230); this.pick = null; this.renderTP();
+  },
+  closeTP() { $('tp').classList.add('hide'); state.paused = false; $('tpDrawer').style.display = ''; },
+  drawer() {},
+  renderTP(msg) {
+    $('tpSw').style.gridTemplateColumns = 'repeat(3,minmax(0,1fr))';
+    $('tpSw').innerHTML = ['A', 'B', 'C'].map(k => `<button class="vhs sw" data-k="${k}" style="${this.pick === k ? 'outline:2px solid #6ab8ff' : ''}"><span class="lever">${k}</span><small>${CHOICES[k].name}</small></button>`).join('');
+    $('tpSw').querySelectorAll('button').forEach(b => b.onclick = () => this.pressSw(b.dataset.k));
+    $('tpMsg').innerHTML = msg || 'La scelta determina il ramo narrativo dei capitoli successivi. È irreversibile.<br>Tocca un protocollo per leggerlo, poi toccalo di nuovo per confermare.';
+  },
+  pressSw(k) {
+    if (this.pick !== k) { this.pick = k; Sound.click(); this.renderTP(`<b>${k} — ${CHOICES[k].name}</b><br>${CHOICES[k].short}<br><br>Tocca di nuovo <b>${k}</b> per confermare la scelta.`); return; }
+    const S = state, f = S.flags; f.chosen = k; try { localStorage.setItem('zima_scelta', k); } catch (e) {}
+    Sound.clunk(); this.closeTP(); refreshObjective();
+    say('Inserisco il Frammento di Nucleo nell\'alloggiamento centrale della console. ' + Q('«' + CHOICES[k].ru + '»') + '.'); say(CHOICES[k].line, 'DMITRI');
+    act(() => { this.blue = true; this.braz.lit = false; Sound.thud(); });
+    say(['La camera vibra. Le luci diventano azzurre. Il braciere si spegne.', 'Sul pavimento compare una scritta luminosa: ' + Q('«ВНИМАНИЕ: СБРОС ЦИКЛА НЕОБРАТИМ»') + ' — Attenzione: il ripristino del Ciclo è irreversibile.']);
+    say('Indosso i guanti pesanti. La valvola.');
+  },
+  turn() {
+    const S = state, f = S.flags; if (this.turning || f.done) return; this.turning = true;
+    this.turns++; this.vWant += Math.PI * 2 / 3; shake = 0.25 + this.turns * 0.12; Sound.clunk(); Sound.tone(60 + this.turns * 14, 0.5, 0.25, 'sawtooth'); hero.speed = 0;
+    const L = [null, ['CLANG. La manopola resiste. La giro lo stesso.'], ['CLANG. La struttura si piega. Il reattore pulsa.'], ['CLANG. Stringo i denti.', '«Trecentododici volte…»'], ['CLANG. Un altro giro.', '«Trecentododici volte ho ricominciato.»'], null][this.turns];
+    if (this.turns < 5) { say(L[0]); if (L[1]) say(L[1], 'DMITRI');
+      if (this.turns === 4) { act(() => Sound.radio(1.0)); say('Non dimenticarti di chiudere gli occhi.', 'LA MIA VOCE · WALKIE'); say('Mi fermo. «No.» Guardo la valvola. «Questa volta voglio vedere.»', 'DMITRI'); }
+      act(() => { this.turning = false; }); return; }
+    f.done = true; interactables = [];
+    say('Compio l\'ultimo giro. CLANG.'); act(() => { flash = 1; shake = 1.2; Sound.sting(); this.setDisp(['ЦИКЛ ИЗМЕНЁН', '']); });
+    say('Ciclo modificato.', 'ALTOPARLANTE');
+    const k = f.chosen;
+    if (k === 'A') say(['Il cilindro si spacca in luce. Le linee del Frammento si dividono come una rete.', 'Da qualche parte, molto sopra di me, nelle case congelate, qualcuno si muove. Una mano contro il vetro. Un respiro.']);
+    if (k === 'B') { act(() => this.setDisp(['23:40:01', ''])); say('Il nucleo scivola nel contenimento, nello zaino. Per la prima volta l\'orologio si muove. 23:40:01.'); act(() => this.setDisp(['23:40:02', ''])); say(['23:40:02. Il tempo riparte.', 'E in tutta la città, le Sentinelle alzano la testa. Ricordano. Mi riconoscono.']); }
+    if (k === 'C') { act(() => this.setDisp(['ПАМЯТЬ ОПЕРАТОРА: 100%', ''])); say(['Il Frammento si illumina. Il cortile, la fermata, il posto di blocco, il guardaroba, l\'ospedale, la stazione radio, il collettore, la centrale, i laboratori. 312 volte.', 'Rivedo Nina. Rivedo il superstite. Rivedo il mio appartamento, e finalmente ricordo perché avevo inchiodato le finestre: non volevo che qualcosa entrasse nella mia memoria.', 'La sincronizzazione si interrompe prima della fine.']);
+      act(() => this.setDisp(['ВНЕШНЕЕ УПРАВЛЕНИЕ', 'ОБНАРУЖЕНО'])); say(Q('«ПАМЯТЬ ОПЕРАТОРА: 100%»') + ' — poi: ' + Q('«ВНЕШНЕЕ УПРАВЛЕНИЕ ОБНАРУЖЕНО»') + ' — Controllo esterno rilevato.'); }
+    act(() => this.goOutside());
+  },
+  goOutside() {
+    $('fade').classList.add('on');
+    setTimeout(() => { const O = L10.OUT;
+      BOUNDS = [-12, 12, -3.4, 8]; hero.x = O.x - 1; hero.z = O.z + 3; hero.heading = Math.PI; hero.y = groundH(hero.x, hero.z); hero.trail.length = 0; hero.group.position.set(hero.x, hero.y, hero.z); camTarget.set(hero.x, hero.y + 0.8, hero.z);
+      this.outside = true; scene.fog.density = 0.011; hemi.intensity = 0.6; zoomTarget = Math.max(zoomTarget, 2.6);
+      $('fade').classList.remove('on'); refreshObjective();
+      say(['Oltre il perimetro.', 'La neve cade ancora, ma sottile. Il recinto della zona chiusa, il cartello: ' + Q('«ЗАТО-42 — ГРАНИЦА ЗАПРЕТНОЙ ЗОНЫ»') + '. Il cancello è aperto.', 'Oltre, una strada che nessuno ha percorso da trecentododici notti.']);
+      say('Il Frammento ticchetta nello zaino. Guardo l\'orologio. 23:40.');
+      act(() => { this.farOn = true; Sound.sting(); });
+      say(['All\'orizzonte, molto lontano, una seconda ciminiera a strisce bianche e rosse.', 'Le sue luci di segnalazione si accendono. E lampeggiano al ritmo del mio battito.']);
+      say('«Reattore numero due.»', 'DMITRI');
+      this.endPending = true; }, 1600);
+  },
+  phase() { const f = state.flags, c = state.clues, have = k => state.items.has(k) || state.gear.has(k);
+    if (!f.touched) return 1; if (!this.braz.lit && !f.chosen) return 2; if (!f.temp) return 3; if (!f.log) return 4; if (!c.has('protocollo')) return 5; if (!have('frammento')) return 6; if (!c.has('nota')) return 7; if (!f.shadowsDone) return 7; if (!f.chosen) return 8; if (!f.done) return 9; return 10; },
+  objective() { return ['', 'Raggiungi la valvola principale', 'Alimenta il braciere', 'Esamina la camera del reattore', 'Esamina la camera del reattore', 'Attiva la console di comando', 'Individua l\'alloggiamento del nucleo', 'Torna alla console', 'Scegli il destino del Ciclo Termico', 'Gira la valvola fino in fondo', 'Oltre il perimetro'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase();
+    return [null, by('valvola'), by('braciere'), by('temperature'), by('registro'), by('protocollo'), by('nucleo'), by('nota'), by('scelta'), by('valvola'), null][p]; },
+  thought() { return ['', 'Al centro, il cilindro. Oltre, la valvola.', 'Il braciere, vicino alla console. Ancora acceso, a malapena.', 'Pannelli sulla parete ovest.', 'Un registro, sulla stessa parete.', 'La console di comando.', 'Alla base del cilindro, qualcosa di azzurro.', 'La console riconosce il Frammento.', 'A, B o C. Tre terminali a sud, e la console.', 'La valvola. Fino in fondo.', 'La strada oltre il recinto.'][this.phase()]; },
+  hint() { return ['', 'La valvola è a est del cilindro centrale.', 'Il braciere è a nord, vicino alla console.', 'Il pannello delle temperature è sulla parete ovest, a nord della porta.', 'Il registro degli operatori è sulla parete ovest, a sud della porta.', 'La console è sul lato nord della camera.', 'L\'alloggiamento è sul lato ovest del cilindro, verso la porta.', 'Torna alla console col Frammento.',
+    'I tre terminali a sud descrivono le strade. Poi scegli alla console: tocca una lettera per leggerla, toccala di nuovo per confermare.', 'Usa la valvola più volte: ogni giro costa fatica.', 'Guarda l\'orizzonte.'][this.phase()]; },
+  coldTip() { return 'Il braciere vicino alla console.'; },
+  intro() {
+    return ['Attraverso la porta corazzata. I miei passi risuonano in una camera enorme, molto più grande di quanto lasciassero immaginare i laboratori.',
+      'Non sembra una centrale. Sembra una struttura costruita per contenere qualcosa.', 'Al centro, un cilindro di contenimento attraversato da tubazioni. Decine di cavi entrano nel pavimento e risalgono lungo le pareti; alcuni emettono scariche azzurre.',
+      'Attorno al basamento si è accumulata neve. Ma la neve non si scioglie.'];
+  },
+  heroHook() { return false; },
+  update(dt, t) {
+    const S = state, f = S.flags, live = S.started && !S.ended && !S.gap, inside = !this.outside;
+    snowLayers.forEach(L => L.pts.material.opacity = inside ? 0 : 0.7);
+    if (!this.zoomed) { this.zoomed = true; zoomTarget = Math.max(zoomTarget, 2.2); }
+    const cxa = Math.sin(camAz), cza = Math.cos(camAz);
+    for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
+      const want = vx * cxa + vz * cza > 0.2 && Math.hypot(vx, vz) < 10 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+    // il nucleo pulsa; blackout; luci azzurre dopo la scelta
+    this.pulse = Math.max(0, (this.pulse || 0) - dt); this.blink = Math.max(0, (this.blink || 0) - dt);
+    const off = (this.pulse > 0 && this.pulse < 1.0) || (this.blink > 0 && Math.sin(t * 40) > 0) ? 0 : 1;
+    const beat = Math.max(0, Math.sin(t * 2.4));
+    this.coreM.emissiveIntensity = (0.3 + 0.5 * beat) * (off ? 1 : 0.1) + (this.blue ? 0.4 : 0);
+    this.coreL.intensity = (10 + 8 * beat) * off * (this.blue ? 1.6 : 1); this.coreL2.intensity = (6 + 5 * beat) * off;
+    hemi.intensity = inside ? 0.45 * off : 0.6;
+    if (inside && Math.sin(t * 2.4) > 0.997) Sound.tone(46, 0.35, 0.14, 'sine');
+    if (this.blue) this.warnM.opacity = 0.6 + 0.3 * Math.sin(t * 3);
+    // il frammento
+    if (this.crystal.visible) { this.crystal.rotation.y += dt * 1.2; this.crystal.position.y = 1.4 + Math.sin(t * 1.7) * 0.05; const s = 1 + Math.sin(t * 5.3) * 0.08; this.crystal.scale.set(s, 1.5 * (2 - s), s); }
+    if (S.gear.has('frammento') && !S.ended) { this.tick = (this.tick || 0) - dt; if (this.tick <= 0) { this.tick = 1.13; Sound.tone(3200, 0.02, 0.03, 'square'); } }
+    if (this.vision > 0) { this.vision -= dt; if (Math.random() < dt * 6) { flash = 0.5; Sound.glitch(); } }
+    // la valvola che gira
+    this.vRot = lerp(this.vRot, this.vWant, damp(2.5, dt)); this.valve.rotation.x = this.vRot;
+    // scariche azzurre
+    this.sparkT -= dt;
+    if (inside && live && this.sparkT <= 0) { this.sparkT = 0.3 + Math.random() * 1.2; const p = this.cables[Math.floor(Math.random() * this.cables.length)];
+      this.sparkLight.position.set(p.x, 0.6, p.z); this.sparkLight.intensity = 18; Sound.zap(0.06);
+      let n = 0; for (const s of this.sparks) if (s.life <= 0 && n < 6) { n++; s.life = 0.35 + Math.random() * 0.4; s.s.position.copy(p); s.v.set((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3); } }
+    this.sparkLight.intensity *= Math.exp(-dt * 14);
+    for (const s of this.sparks) { if (s.life <= 0) { s.s.material.opacity = 0; continue; } s.life -= dt; s.v.y -= 9 * dt; s.s.position.addScaledVector(s.v, dt); s.s.material.opacity = clamp(s.life * 3, 0, 1); }
+    // le ombre guardano la console
+    for (const N of this.shadows) if (N.group.visible) N.group.position.y = 0.05 + Math.sin(t * 2 + N.x) * 0.02;
+    // fuori: la seconda ciminiera
+    if (this.farOn) this.farAv.color.setHex(Math.sin(t * 2.4) > 0.3 ? 0xff2a18 : 0x2a0805);
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 3.0; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
+  },
+  ending() {
+    const k = state.flags.chosen || 'A';
+    return { text: 'Ho girato la valvola. Questa volta con gli occhi aperti.<br><br>Strada scelta: <b>' + k + ' — ' + CHOICES[k].name + '</b>. ' + CHOICES[k].short + '<br><br>ZATO-42 era soltanto il reattore pilota. Oltre il perimetro, all\'orizzonte, una seconda ciminiera lampeggia al ritmo del mio battito.<br><br><i>Fine del primo arco.</i>',
+      next: 0, nextLabel: 'CAPITOLO XI · OLTRE IL PERIMETRO — in arrivo' };
+  },
+};
+
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7, 8: CH8, 9: CH9, 10: CH10 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
