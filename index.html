@@ -2428,13 +2428,28 @@ function blendPose(P, k) {
     A.el.rotation.x = lerp(A.el.rotation.x, q[2], k); A.el.rotation.y = lerp(A.el.rotation.y, 0, k);
   });
 }
+/* posa «mani alla bocca»: regolabile */
+const HANDS = { period: 2.8, rubF: 10, shX: -0.95, shZ: -0.65, elX: -1.85, elY: 1.6, rubSh: 0.06, rubEl: 0.14, blowSh: 0.18, blowEl: 0.15, head: 0.2, blowHead: 0.12 };
+function warmPuff() {
+  const b = breath.find(b => b.life <= 0); if (!b) return;
+  const p = new THREE.Vector3();
+  if (DM.ready && DM.B.L_Wrist && DM.B.R_Wrist) { const q = new THREE.Vector3(); DM.B.L_Wrist.getWorldPosition(p); DM.B.R_Wrist.getWorldPosition(q); p.add(q).multiplyScalar(0.5); if (state.torch) DM.B.L_Wrist.getWorldPosition(p); }
+  else p.set(hero.x + Math.sin(hero.heading) * 0.3, hero.y + 1.5, hero.z + Math.cos(hero.heading) * 0.3);
+  p.y += 0.06; b.life = 1.3; b.s.visible = true; b.s.position.copy(p); b.s.scale.setScalar(0.05);
+}
 function animateHero(dt, t, lookTarget) {
   const R = hero.R, s = clamp(hero.speed / 2, 0, 1.6), run = clamp((hero.speed - 2.1) / 1.6, 0, 1), p = hero.phase;
   const moving = hero.speed > 0.15;
   hero.idle = moving ? 0 : hero.idle + dt;
   const freezing = state.heat < 25 ? 1 : 0;
-  const cold = Math.max(smooth01((hero.idle - 3.5) / 1.5), freezing * 0.6);
-  const shiver = cold * Math.sin(t * 37) * (0.012 + freezing * 0.01);
+  // fermo al freddo: dopo un attimo porta le mani alla bocca, le sfrega e ci soffia dentro (non nei posti caldi)
+  const warmPlace = !C || C.cold < 0.05 || (C.shelter && C.shelter(hero.x, hero.z) && state.heat > 85);
+  const cold = warmPlace ? 0 : Math.max(smooth01((hero.idle - 1.5) / 1.2), freezing * 0.6);
+  const shiver = cold * Math.sin(t * 37) * (0.004 + freezing * 0.012);
+  const HP = HANDS;
+  const blowT = (t % HP.period) / HP.period, blow = cold * Math.pow(Math.max(0, Math.sin(clamp((blowT - 0.62) / 0.3, 0, 1) * Math.PI)), 1.5);
+  const rub = cold * (1 - blow) * Math.sin(t * HP.rubF) * (0.6 + 0.6 * (state.heat < 50 ? 1 : 0));
+  if (blow > 0.7 && !hero.blown && !moving) { hero.blown = true; warmPuff(); } if (blow < 0.2) hero.blown = false;
   R.legs.forEach((L, i) => {
     const ph = p + i * Math.PI;
     const thigh = -Math.sin(ph) * (0.5 + 0.25 * run) * s;
@@ -2455,8 +2470,8 @@ function animateHero(dt, t, lookTarget) {
     const sd = i ? 1 : -1, ph = p + i * Math.PI;
     const swing = Math.sin(ph) * (0.42 + 0.35 * run) * s;
     const walkEl = -0.25 - 0.9 * run - 0.25 * Math.max(0, -Math.sin(ph)) * s;
-    let shX = lerp(swing, -0.55, cold), shZ = lerp(-sd * 0.1, sd * 0.42, cold);
-    let elX = lerp(walkEl, -1.75, cold), elY = lerp(0, -sd * 0.55, cold);
+    let shX = lerp(swing, HP.shX - blow * HP.blowSh + rub * sd * HP.rubSh, cold), shZ = lerp(-sd * 0.1, sd * HP.shZ, cold);
+    let elX = lerp(walkEl, HP.elX - blow * HP.blowEl, cold), elY = lerp(0, -sd * HP.elY + rub * HP.rubEl, cold);
     if (i === 0 && state.torch) { shX = -1.2 + swing * 0.15; shZ = 0.05; elX = -0.3; elY = 0; }
     A.sh.rotation.x = lerp(A.sh.rotation.x, shX, damp(12, dt));
     A.sh.rotation.z = lerp(A.sh.rotation.z, shZ + (i ? 1 : -1) * shiver * 3, damp(12, dt));
@@ -2478,7 +2493,7 @@ function animateHero(dt, t, lookTarget) {
   if (state.torch) want *= 0.3;
   hero.look = lerp(hero.look, want, damp(4, dt));
   R.neck.rotation.y = hero.look * 0.6; R.head.rotation.y = hero.look * 0.4;
-  R.head.rotation.x = -0.05 * run + cold * 0.15 + Math.sin(p * 2) * 0.02 * s;
+  R.head.rotation.x = -0.05 * run + cold * HP.head + blow * HP.blowHead + Math.sin(p * 2) * 0.02 * s;
   R.flaps.forEach((f, i) => { f.rotation.z = (i ? 1 : -1) * (0.05 + Math.abs(Math.cos(p)) * 0.12 * s); });
   const scarfTarget = -(0.15 * s + 0.35 * run) - windBoost * 0.3 - Math.sin(t * 2.3) * 0.08;
   hero.scarfV += ((scarfTarget - hero.scarfA) * 60 - hero.scarfV * 7) * dt;
@@ -6040,6 +6055,124 @@ const CH5 = {
    Il crinale sopra l'ospedale, la tormenta a raffiche, la casupola dell'operatore, la torre col cavo spezzato,
    sette figure ferme sul ciglio con il numero 417, una voce identica alla mia che è già più avanti.
    ===================================================================== */
+/* =====================================================================
+   OGGETTI DETTAGLIATI: tubi coibentati con flange e bulloni, casse militari, casse di legno,
+   blocchi di cemento, banchi da lavoro. Texture disegnate una volta sola e riusate.
+   ===================================================================== */
+const PTEX = {};
+function ptex(key, draw, w = 256, h = 256) {
+  if (PTEX[key]) return PTEX[key];
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const m = c.getContext('2d'); draw(m, w, h, mulberry32(key.length * 977 + w));
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; PTEX[key] = t; return t;
+}
+const grime = (m, w, h, r, n, rgb, a) => { for (let k = 0; k < n; k++) { m.fillStyle = `rgba(${rgb},${r() * a})`; const s = 2 + r() * 10; m.fillRect(r() * w, r() * h, s, s * (0.5 + r())); } };
+// rivestimento dei tubi: tela dipinta/alluminio, fasce metalliche, cuciture, colature di ruggine
+const insulTex = () => ptex('insul', (m, w, h, r) => {
+  m.fillStyle = '#b4b0a4'; m.fillRect(0, 0, w, h); grime(m, w, h, r, 500, '60,56,48', 0.12); grime(m, w, h, r, 200, '220,216,206', 0.15);
+  for (let x = 0; x < w; x += 8) { m.fillStyle = `rgba(0,0,0,${0.03 + r() * 0.03})`; m.fillRect(x, 0, 1, h); }        // pieghe della tela
+  m.fillStyle = 'rgba(70,66,60,0.55)'; m.fillRect(0, 0, w, 3); m.fillRect(0, h / 2, w, 2);                           // cuciture
+  m.fillStyle = '#7e7e78'; m.fillRect(0, h * 0.25, w, 7); m.fillRect(0, h * 0.75, w, 7);                              // fasce
+  m.fillStyle = 'rgba(255,255,255,0.25)'; m.fillRect(0, h * 0.25, w, 2); m.fillRect(0, h * 0.75, w, 2);
+  for (let k = 0; k < 6; k++) { const x = r() * w, y = r() * h; const g = m.createLinearGradient(0, y, 0, y + 60); g.addColorStop(0, 'rgba(120,64,30,0.45)'); g.addColorStop(1, 'rgba(120,64,30,0)'); m.fillStyle = g; m.fillRect(x, y, 3 + r() * 5, 60); }
+});
+const paintTex = (hex, key) => ptex('paint' + key, (m, w, h, r) => {
+  m.fillStyle = hex; m.fillRect(0, 0, w, h); grime(m, w, h, r, 600, '20,22,18', 0.12); grime(m, w, h, r, 150, '200,200,190', 0.08);
+  for (let k = 0; k < 50; k++) { m.strokeStyle = `rgba(190,190,180,${0.2 + r() * 0.3})`; m.lineWidth = 1; m.beginPath(); const x = r() * w, y = r() * h; m.moveTo(x, y); m.lineTo(x + r() * 24 - 12, y + r() * 24 - 12); m.stroke(); }   // graffi
+  for (let k = 0; k < 18; k++) { m.fillStyle = `rgba(${100 + r() * 30},${52 + r() * 20},24,${0.35 + r() * 0.3})`; m.beginPath(); m.arc(r() * w, r() * h, 1 + r() * 5, 0, 7); m.fill(); }     // ruggine sotto la vernice
+  m.fillStyle = 'rgba(0,0,0,0.18)'; m.fillRect(0, h - 18, w, 18);                                                    // sporco in basso
+});
+const pWoodTex = () => ptex('wood', (m, w, h, r) => {
+  const pl = 4; for (let p = 0; p < pl; p++) { const y0 = p * h / pl, c = 92 + r() * 30; m.fillStyle = `rgb(${c},${c * 0.74},${c * 0.5})`; m.fillRect(0, y0, w, h / pl);
+    for (let k = 0; k < 40; k++) { m.strokeStyle = `rgba(40,26,14,${0.08 + r() * 0.15})`; m.beginPath(); const yy = y0 + r() * h / pl; m.moveTo(0, yy); m.bezierCurveTo(w * 0.3, yy + r() * 6 - 3, w * 0.6, yy + r() * 6 - 3, w, yy); m.stroke(); }
+    m.fillStyle = 'rgba(20,12,6,0.7)'; m.fillRect(0, y0, w, 2); }
+  for (let k = 0; k < 8; k++) { m.fillStyle = 'rgba(40,40,44,0.9)'; m.beginPath(); m.arc(10 + (k % 2) * (w - 20), (Math.floor(k / 2) + 0.5) * h / pl, 3, 0, 7); m.fill(); }   // chiodi
+  grime(m, w, h, r, 200, '20,14,8', 0.15);
+});
+const concTex = () => ptex('conc', (m, w, h, r) => {
+  m.fillStyle = '#8a8c88'; m.fillRect(0, 0, w, h); grime(m, w, h, r, 900, '40,40,38', 0.12); grime(m, w, h, r, 300, '190,190,184', 0.12);
+  for (let k = 0; k < 120; k++) { m.fillStyle = 'rgba(30,30,30,0.5)'; m.beginPath(); m.arc(r() * w, r() * h, 0.6 + r() * 1.6, 0, 7); m.fill(); }       // bolle d'aria
+  m.strokeStyle = 'rgba(30,30,28,0.55)'; m.lineWidth = 1.2; for (let k = 0; k < 5; k++) { let x = r() * w, y = r() * h; m.beginPath(); m.moveTo(x, y); for (let s = 0; s < 6; s++) { x += r() * 26 - 13; y += r() * 20; m.lineTo(x, y); } m.stroke(); }   // crepe
+  const g = m.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(40,36,30,0.35)'); m.fillStyle = g; m.fillRect(0, 0, w, h);
+});
+const PMAT = {};
+const pmat = (key, make) => PMAT[key] || (PMAT[key] = make());
+const insulMat = len => { const t = insulTex().clone(); t.needsUpdate = true; t.repeat.set(1, Math.max(1, len / 1.4)); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0.05 }); };
+const rustMat = () => pmat('rust', () => { const t = rustTex.clone(); t.needsUpdate = true; t.repeat.set(1, 1); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, metalness: 0.45 }); });
+const boltMat = () => pmat('bolt', () => new THREE.MeshStandardMaterial({ color: 0x3a3c3e, roughness: 0.5, metalness: 0.7 }));
+/* un tubo da a a b (coordinate mondo), raggio r: rivestimento, flange con bulloni alle giunzioni, staffe */
+function makePipe(a, b, r, o = {}) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), dir = B.clone().sub(A), L = dir.length(); dir.normalize();
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), g = new THREE.Group(); world.add(g);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 18, 1, true), o.bare ? rustMat() : insulMat(L)); body.position.copy(A).lerp(B, 0.5); body.quaternion.copy(q); body.castShadow = body.receiveShadow = true; g.add(body);
+  const fl = [], bo = [], step = o.flange || 3.2, n = Math.max(1, Math.round(L / step));
+  for (let i = 0; i <= n; i++) { const t = i / n, p = A.clone().lerp(B, t);
+    const f = new THREE.CylinderGeometry(r * 1.32, r * 1.32, 0.09, 18); f.applyQuaternion(q); f.translate(p.x, p.y, p.z); fl.push(f);
+    for (let k = 0; k < 8; k++) { const an = k / 8 * Math.PI * 2, bg = new THREE.CylinderGeometry(0.018, 0.018, 0.14, 6); bg.translate(Math.cos(an) * r * 1.18, 0, Math.sin(an) * r * 1.18); bg.applyQuaternion(q); bg.translate(p.x, p.y, p.z); bo.push(bg); } }
+  const fm = new THREE.Mesh(mergeGeometries(fl), rustMat()); fm.castShadow = true; g.add(fm);
+  g.add(new THREE.Mesh(mergeGeometries(bo), boltMat()));
+  // staffe: a pavimento (se il tubo è basso) o a parete (verso o.wall: [nx, nz])
+  if (o.supports !== false && Math.abs(dir.y) < 0.5) { const br = [], m = Math.max(1, Math.round(L / 2.4));
+    for (let i = 0; i < m; i++) { const p = A.clone().lerp(B, (i + 0.5) / m);
+      if (o.wall) { const s = new THREE.BoxGeometry(o.wall[0] ? 0.5 : 0.08, 0.08, o.wall[1] ? 0.5 : 0.08); s.translate(p.x + (o.wall[0] || 0) * 0.25, p.y - r - 0.04, p.z + (o.wall[1] || 0) * 0.25); br.push(s);
+        const c = new THREE.TorusGeometry(r + 0.02, 0.02, 4, 16, Math.PI); c.rotateY(Math.atan2(dir.x, dir.z)); c.rotateZ(Math.PI); c.translate(p.x, p.y, p.z); br.push(c); }
+      else if (p.y - r > 0.15) { const s = new THREE.BoxGeometry(0.08, p.y - r, 0.08); s.translate(p.x, (p.y - r) / 2, p.z); br.push(s); const s2 = new THREE.BoxGeometry(0.5, 0.06, 0.5); s2.translate(p.x, p.y - r - 0.03, p.z); br.push(s2); } }
+    if (br.length) { const bm = new THREE.Mesh(mergeGeometries(br.map(x => x.index ? x.toNonIndexed() : x)), rustMat()); bm.castShadow = true; g.add(bm); } }
+  if (o.label) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.13), new THREE.MeshStandardMaterial({ map: textTex([o.label], 128, 40, '#c8b030', '#1a1a1a', 'bold 22px monospace') }));
+    const p = A.clone().lerp(B, 0.3); pl.position.copy(p).add(new THREE.Vector3(...(o.labelN || [0, 0, 1])).multiplyScalar(r + 0.01)); pl.lookAt(pl.position.clone().add(new THREE.Vector3(...(o.labelN || [0, 0, 1])))); g.add(pl); }
+  return g;
+}
+/* cassa militare di metallo: coperchio, cerniere, maniglie, rinforzi agli spigoli, scritta stampigliata */
+function makeCrate(x, y, z, w, h, d, ry = 0, o = {}) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; world.add(g);
+  const paint = new THREE.MeshStandardMaterial({ map: paintTex(o.color || '#4e5a3a', o.color || 'olive'), roughness: 0.75, metalness: 0.25 }), dark = rustMat();
+  const body = new THREE.Mesh(new RoundedBoxGeometry(w, h * 0.78, d, 2, 0.02), paint); body.position.y = h * 0.39; g.add(body);
+  const lid = new THREE.Mesh(new RoundedBoxGeometry(w + 0.03, h * 0.22, d + 0.03, 2, 0.025), paint); lid.position.y = h * 0.89; g.add(lid);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.035, h, 0.035), dark); e.position.set(sx * (w / 2 - 0.005), h / 2, sz * (d / 2 - 0.005)); g.add(e); }
+  for (const sx of [-1, 1]) { const hd = new THREE.Mesh(new THREE.TorusGeometry(Math.min(0.07, d * 0.18), 0.012, 4, 12, Math.PI), dark); hd.rotation.y = Math.PI / 2; hd.rotation.z = Math.PI; hd.position.set(sx * (w / 2 + 0.012), h * 0.62, 0); g.add(hd); }
+  for (const sx of [-0.3, 0.3]) { const lt = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.02), dark); lt.position.set(sx * w, h * 0.78, d / 2 + 0.018); g.add(lt); }
+  if (o.label) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.7, h * 0.3), new THREE.MeshStandardMaterial({ map: textTex([o.label], 256, 96, 'rgba(0,0,0,0)', '#d8d4b8', 'bold 44px monospace'), transparent: true, roughness: 0.9 })); pl.position.set(0, h * 0.42, d / 2 + 0.004); g.add(pl); }
+  if (o.snow) { const sn = new THREE.Mesh(new RoundedBoxGeometry(w * 0.96, 0.06, d * 0.96, 2, 0.03), plainSnowMat); sn.position.y = h + 0.02; g.add(sn); }
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+/* cassa di legno a doghe, con la scritta a stampo */
+function makeWoodCrate(x, y, z, w, h, d, ry = 0, o = {}) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; world.add(g);
+  const wm = new THREE.MeshStandardMaterial({ map: pWoodTex(), roughness: 0.9 });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wm); b.position.y = h / 2; g.add(b);
+  const tm = new THREE.MeshStandardMaterial({ color: 0x4a3420, roughness: 0.95 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.06, h + 0.01, 0.06), tm); e.position.set(sx * (w / 2 - 0.02), h / 2, sz * (d / 2 - 0.02)); g.add(e); }
+  for (const yy of [0.04, h - 0.04]) for (const sz of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.06, 0.03), tm); e.position.set(0, yy, sz * (d / 2 + 0.005)); g.add(e); }
+  if (o.label) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.75, h * 0.35), new THREE.MeshStandardMaterial({ map: textTex([o.label], 256, 96, 'rgba(0,0,0,0)', 'rgba(20,14,10,0.85)', 'bold 46px monospace'), transparent: true })); pl.position.set(0, h * 0.5, d / 2 + 0.022); g.add(pl); }
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+/* blocco di cemento prefabbricato (ФБС), con gli occhielli per la gru e la neve sopra */
+function makeConcreteBlock(x, y, z, w, h, d, ry = 0, o = {}) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; world.add(g);
+  const cm = new THREE.MeshStandardMaterial({ map: concTex(), roughness: 0.95 });
+  const b = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, 0.04), cm); b.position.y = h / 2; g.add(b);
+  const gr = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.05, d + 0.01), new THREE.MeshStandardMaterial({ color: 0x55574f, roughness: 1 })); gr.position.y = h * 0.42; g.add(gr);   // giunto di getto
+  for (const sz of [-1, 1]) { const lp = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.014, 5, 12, Math.PI), rustMat()); lp.rotation.y = Math.PI / 2; lp.position.set(0, h, sz * d * 0.3); lp.rotation.x = 0; g.add(lp); }
+  if (o.text) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w, d) * 0.8, h * 0.22), new THREE.MeshStandardMaterial({ map: textTex([o.text], 256, 64, 'rgba(0,0,0,0)', 'rgba(150,30,22,0.85)', 'bold 36px monospace'), transparent: true })); pl.position.set(w / 2 + 0.005, h * 0.7, 0); pl.rotation.y = Math.PI / 2; g.add(pl); }
+  if (o.snow !== false) { const sn = new THREE.Mesh(new RoundedBoxGeometry(w * 0.98, 0.12, d * 0.98, 2, 0.06), plainSnowMat); sn.position.y = h + 0.04; sn.scale.y = 0.8; g.add(sn);
+    const dr = new THREE.Mesh(new THREE.CylinderGeometry(0.01, d * 0.6, 0.4, 10, 1, false, 0, Math.PI), plainSnowMat); dr.rotation.z = Math.PI / 2; dr.position.set(-w / 2 - 0.15, 0.15, 0); dr.scale.set(1, 1, 0.8); g.add(dr); }   // neve accumulata dal vento
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+/* banco da lavoro: piano in lamiera, gambe, traverse, cassetto */
+function makeWorkbench(x, y, z, w, h, d, ry = 0, o = {}) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; world.add(g);
+  const pm = new THREE.MeshStandardMaterial({ map: paintTex(o.color || '#5a5e58', o.color || 'grey'), roughness: 0.7, metalness: 0.35 }), lm = rustMat();
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), pm); top.position.y = h - 0.025; g.add(top);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, h - 0.05, 0.05), lm); l.position.set(sx * (w / 2 - 0.05), (h - 0.05) / 2, sz * (d / 2 - 0.05)); g.add(l); }
+  const sh = new THREE.Mesh(new THREE.BoxGeometry(w - 0.1, 0.03, d - 0.1), lm); sh.position.y = 0.18; g.add(sh);
+  const dr = new THREE.Mesh(new THREE.BoxGeometry(w * 0.35, 0.16, d - 0.1), pm); dr.position.set(w * 0.25, h - 0.14, 0); g.add(dr);
+  const kn = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.02), boltMat()); kn.position.set(w * 0.25, h - 0.14, d / 2 - 0.04); g.add(kn);
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
 const L6 = { START: { x: -28, z: 0.6 }, NIVA: { x: -17.5, z: -5.2, r: 0.12 }, HUT: { x0: -3, x1: 5, z0: -9.2, z1: -3.6 }, BARREL: { x: 6.4, z: -6.2 },
   TOWER: { x: 12, z: -4 }, LADDER: { x: 12, z: -2.0 }, ANCHOR: { x: 17.2, z: 1.6 }, HATCH: { x: 21.5, z: -5.2 }, PLAT_Y: 6.0,
   COVERS: [{ x: -23.5, z: 0.4 }, { x: -17.5, z: -3.6 }, { x: -12.2, z: 0.2 }, { x: -8.4, z: -2.6 }] };
@@ -6086,7 +6219,7 @@ const CH6 = {
     { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['РАДИОУЗЕЛ ЗАТО-42', 'ЗАПРЕТНАЯ ЗОНА'], 512, 128, '#d8d4c4', '#a01a12', 'bold 40px monospace'), side: THREE.DoubleSide })); s.position.set(-8.1, groundH(-8, -3) + 1.5, -3.4); s.rotation.y = -Math.PI / 2; world.add(s); }
     // la Niva di servizio contro la recinzione, i ripari lungo il sentiero
     makeCar({ x: L6.NIVA.x, z: L6.NIVA.z, rot: L6.NIVA.r, color: 0x3a5a3a, buried: 0.7, kind: 'lada', state: 'broken' });
-    for (const c of [L6.COVERS[0], L6.COVERS[2], L6.COVERS[3]]) { const b = new THREE.Mesh(new RoundedBoxGeometry(1.2, 1.3, 2.2, 2, 0.15), concreteMat); b.position.set(c.x, groundH(c.x, c.z) + 0.6, c.z); shadowAll(b); ink(b); world.add(b); addBox(c.x - 0.6, c.x + 0.6, c.z - 1.1, c.z + 1.1);
+    for (const c of [L6.COVERS[0], L6.COVERS[2], L6.COVERS[3]]) { const b = makeConcreteBlock(c.x, groundH(c.x, c.z) - 0.05, c.z, 1.2, 1.3, 2.2, 0, { text: 'ФБС 24.6.6' }); b.traverse(m => { if (m.isMesh && m.material !== plainSnowMat) ink(m); }); addBox(c.x - 0.6, c.x + 0.6, c.z - 1.1, c.z + 1.1);
       const sn = new THREE.Mesh(pillow(1.6, 0.6, 2.4, Math.round(c.x * 7), 10), plainSnowMat); sn.position.set(c.x + 0.9, groundH(c.x, c.z), c.z); world.add(sn); }
     // la casupola in mattoni dell'operatore
     { const H = L6.HUT, c = document.createElement('canvas'); c.width = 256; c.height = 128; const m = c.getContext('2d'); m.fillStyle = '#5e4033'; m.fillRect(0, 0, 256, 128);
@@ -6379,7 +6512,7 @@ const CH7 = {
     // le tubazioni lungo le pareti
     const pm = mt(0xa8a49a, { roughness: 0.7 });
     for (const [x0, x1, z, y, r] of [[-24, -6, -1.6, 0.6, 0.3], [-24, -6, -1.6, 1.4, 0.24], [-6, 7, -3.6, 2.3, 0.35], [7, 21.5, -3.6, 0.7, 0.32], [7, 21.5, -3.6, 1.5, 0.24], [-14.5, 10, 12.5, 1.6, 0.2]]) {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, x1 - x0, 12), pm); p.rotation.z = Math.PI / 2; p.position.set(X((x0 + x1) / 2), F + y, z); p.castShadow = true; world.add(p); }
+      makePipe([X(x0), F + y, z], [X(x1), F + y, z], r, { wall: [0, z < 4 ? -1 : 1], label: y > 1.2 ? 'ПАР →' : null, labelN: [0, 0, z < 4 ? 1 : -1] }); }
     addBox(X(-24), X(-6), -2, -1.2); addBox(X(7), X(21.5), -4, -3.2);
     { const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['МАГИСТРАЛЬНАЯ ТЕПЛОТРАССА — КОЛЛЕКТОР № 4'], 512, 80, '#d8d4c4', '#1a1a1a', 'bold 22px monospace') })); pl.position.set(X(-22.6), F + 2.1, -1.92); world.add(pl); }
     for (let k = 0; k < 8; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.04), mt(0x5a5e62, { metalness: 0.6 })); r.position.set(X(-23.7), F + 0.3 + k * 0.3, 0); r.rotation.y = Math.PI / 2; world.add(r); }
@@ -6393,10 +6526,11 @@ const CH7 = {
       m.fillStyle = 'rgba(235,240,240,0.9)'; m.font = 'bold 30px serif'; m.fillText('В.', 960, 240);
       const t = new THREE.CanvasTexture(c); const tm = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), new THREE.MeshBasicMaterial({ map: t, transparent: true })); tm.position.set(X(L7.TALLY.x), F + 1.3, -1.9); world.add(tm); }
     // nicchia con la cassetta delle scorte
-    { const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 0.4), mt(0x4a5a3a, { metalness: 0.4 })); b.position.set(X(L7.SUPPLY.x), F + 0.18, L7.SUPPLY.z); world.add(b); this.supplyBox = b;
+    { this.supplyBox = makeCrate(X(L7.SUPPLY.x), F, L7.SUPPLY.z, 0.62, 0.36, 0.4, 0.15, { label: 'НЗ · 4' });
       const s = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['ОСТОРОЖНО! ГОРЯЧИЙ ПАР (130°C)'], 512, 80, '#e6c84a', '#a01a12', 'bold 30px monospace') })); s.position.set(X(-9.5), F + 1.95, -1.75); world.add(s); }
     // il tavolo tecnico, i manometri
-    { const tb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.6), mt(0x5a5e62, { metalness: 0.5 })); tb.position.set(X(L7.TABLE.x), F + 0.4, -1.2); world.add(tb); addBox(X(-8.3), X(-6.9), -1.6, -0.9).low = true;
+    { makeWorkbench(X(L7.TABLE.x), F, -1.2, 1.4, 0.82, 0.6, 0);
+      { const lg = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.24), new THREE.MeshStandardMaterial({ color: 0x8a2a20, roughness: 0.9 })); lg.position.set(X(L7.TABLE.x - 0.2), F + 0.84, -1.15); lg.rotation.y = 0.2; world.add(lg); } addBox(X(-8.3), X(-6.9), -1.6, -0.9).low = true;
       const sch = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['А ——', 'Б ══ ⚠', 'В ——'], 128, 72, '#d8d0b8', '#2a3a6a', 'bold 18px monospace') })); sch.position.set(X(L7.TABLE.x), F + 1.4, -1.9); world.add(sch); }
     this.gauges = [-3, 0, 3].map(x => { const g = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), new THREE.MeshBasicMaterial({ map: textTex(['◷'], 64, 64, '#e8e4d8', '#b0221c', 'bold 54px monospace') })); g.position.set(X(x), F + 1.75, -3.9); world.add(g); return g; });
     // le tre valvole
@@ -6404,7 +6538,7 @@ const CH7 = {
       const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8), mt(0x3a3a3a, { metalness: 0.6 })); pin.rotation.x = Math.PI / 2; g.add(pin);
       const wh = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 8, 20), mt(0x8a2a20, { metalness: 0.5 })); wh.position.z = 0.15; g.add(wh); wh.visible = i !== 2;
       const lb = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshStandardMaterial({ map: textTex(['ВЕНТИЛЬ ' + V.id], 128, 48, '#d8d4c4', '#1a1a1a', 'bold 22px monospace') })); lb.position.set(X(V.x), F + 1.55, -3.86); world.add(lb);
-      const vp = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.2, 10), mt(0x9a9488)); vp.position.set(X(V.x), F + 1.1, -3.45); world.add(vp); addBox(X(V.x - 0.3), X(V.x + 0.3), -4, -3.2);
+      makePipe([X(V.x), F, -3.45], [X(V.x), F + 2.3, -3.45], 0.22, { supports: false, flange: 1.1 }); addBox(X(V.x - 0.3), X(V.x + 0.3), -4, -3.2);
       return { g, wh }; });
     // getti di vapore: in galleria, nella camera, in fogna
     const steamTex = radialTex([[0, 'rgba(232,236,240,0.9)'], [1, 'rgba(232,236,240,0)']], 64);
@@ -6417,13 +6551,13 @@ const CH7 = {
     this.steamFigs = [[-4.5, 2.6], [5.6, -2.4], [-1.5, 3.0]].map(([x, z]) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.25, 4, 10), fm.clone()); b.position.y = 0.9; const h = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), b.material); h.position.y = 1.83; g.add(b, h); g.position.set(X(x), F, z); world.add(g); return { g, m: b.material }; });
     // la scala verso la fogna, il tubo dismesso col volantino, l'Inseguitore nell'acqua
     for (let k = 0; k < 4; k++) { const st = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.3), mt(0x5a5e62, { metalness: 0.6 })); st.position.set(X(L7.STAIR.x + 0.1), F - k * 0.05, 4.1 + k * 0.28); world.add(st); }
-    { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3, 10), mt(0x5a4a3a, { metalness: 0.4 })); p.rotation.z = Math.PI / 2; p.position.set(X(L7.WHEEL.x), F + 0.6, 12.3); world.add(p);
+    { makePipe([X(L7.WHEEL.x - 1.5), F + 0.6, 12.3], [X(L7.WHEEL.x + 1.5), F + 0.6, 12.3], 0.2, { bare: true, flange: 1.5 });
       this.spareWheel = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.045, 8, 20), mt(0x4a4a46, { metalness: 0.6 })); this.spareWheel.position.set(X(L7.WHEEL.x), F + 0.6, 11.9); world.add(this.spareWheel); }
     this.lurk = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0x020304, transparent: true, opacity: 0.0 })); this.lurk.scale.set(1.6, 0.25, 0.7); this.lurk.position.set(X(-14), -0.2, 9); world.add(this.lurk); this.lurkX = -14;
     // l'accampamento: materassi, coperte, pentolini, casse, scarpe, la scritta sul muro, il superstite
     for (const [x, z, r] of [[9, 2.6, 0.1], [11.2, 2.8, -0.05], [15.5, 2.7, 0.08], [19.5, 2.4, 0.2], [10.2, -2.6, 0]]) { const m = new THREE.Mesh(new RoundedBoxGeometry(1.9, 0.2, 0.9, 2, 0.06), mt(0x6a6250, { roughness: 1 })); m.position.set(X(x), F + 0.1, z); m.rotation.y = r; world.add(m);
       const bl = new THREE.Mesh(new RoundedBoxGeometry(1.2, 0.08, 0.9, 2, 0.03), mt(0x4a5040, { roughness: 1 })); bl.position.set(X(x + 0.3), F + 0.25, z); bl.rotation.y = r + 0.1; world.add(bl); }
-    for (const [x, z] of [[12.2, -2.9], [14, -3.1], [16.4, -1.0]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.5), mt(0x6a5236)); c.position.set(X(x), F + 0.25, z); world.add(c); addBox(X(x - 0.35), X(x + 0.35), z - 0.25, z + 0.25).low = true; }
+    for (const [x, z] of [[12.2, -2.9], [14, -3.1], [16.4, -1.0]]) { makeWoodCrate(X(x), F, z, 0.7, 0.5, 0.5, (x * 7) % 0.5 - 0.25, { label: x < 15 ? 'ТУШЁНКА' : 'ГАЛЕТЫ' }); addBox(X(x - 0.35), X(x + 0.35), z - 0.25, z + 0.25).low = true; }
     this.diaryMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.15), mt(0x2a2420)); this.diaryMesh.position.set(X(16.4), F + 0.52, -1.0); world.add(this.diaryMesh);
     for (let k = 0; k < 4; k++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.12, 10), mt(0x5a5a54, { metalness: 0.6 })); p.position.set(X(12 + k * 0.4), F + 0.06, 1.2 + (k % 2) * 0.3); world.add(p); }
     { const t = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.5), new THREE.MeshBasicMaterial({ map: textTex(['ЗДЕСЬ ТЕПЛО. НЕ ВЫХОДИТЕ НАВЕРХ.'], 512, 80, 'rgba(0,0,0,0)', '#d8d0c0', 'bold 30px monospace'), transparent: true })); t.position.set(X(13.5), F + 2.2, -3.18); world.add(t); }
@@ -7137,7 +7271,7 @@ const CH9 = {
       this.recM = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.32), mt(0x2a2a28)), X(1), F + 0.9, 7.1); this.mReels = [-0.11, 0.11].map(dx => add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 10), mt(0x8a7a5a)), X(1 + dx), F + 1.0, 7.1, false));
       this.crtN = 0; this.drawCRT(0); }
     // l'azoto: tubi lungo le pareti, fughe
-    { const pm = mt(0x9aa4aa, { metalness: 0.5, roughness: 0.4 }); for (const z of [-1.4, 1.4]) { const p = add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 22, 10), pm), X(19), F + 2.3, z); p.rotation.z = Math.PI / 2; }
+    { for (const z of [-1.4, 1.4]) makePipe([X(8), F + 2.3, z], [X(30), F + 2.3, z], 0.14, { wall: [0, Math.sign(z)], label: 'N₂ →', labelN: [0, 0, -Math.sign(z)] });
       const fogT = radialTex([[0, 'rgba(235,245,255,0.9)'], [1, 'rgba(235,245,255,0)']], 64);
       this.jets = L9.JETS.map(([x, z, ph]) => { const sp = []; for (let k = 0; k < 7; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fogT, transparent: true, depthWrite: false, opacity: 0 })); world.add(s); sp.push(s); }
         const fr = add(new THREE.Mesh(new THREE.CircleGeometry(1.2, 16), new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0, depthWrite: false })), X(x), F + 0.02, z * 0.6, false); fr.rotation.x = -Math.PI / 2;
@@ -7429,7 +7563,7 @@ const CH10 = {
       add(new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 9, 32), this.coreM), X(0), 4.5, 0); CIRCLES.push([X(0), 0, 2.9]);
       for (const y of [0.4, 2.6, 4.8, 7]) add(new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.1, 6, 32), mt(0x2a3036, { metalness: 0.8 })), X(0), y, 0).rotation.x = Math.PI / 2;
       const pm = mt(0x7a848c, { metalness: 0.6, roughness: 0.4 });
-      for (const [a, len] of [[0.6, 10], [2.1, 10.5], [3.9, 9.8], [5.1, 10.4]]) { const p = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, len, 12), pm), X(Math.cos(a) * (2.4 + len / 2)), 5.6, Math.sin(a) * (2.4 + len / 2)); p.rotation.z = Math.PI / 2; p.rotation.y = -a; }
+      for (const [a, len] of [[0.6, 10], [2.1, 10.5], [3.9, 9.8], [5.1, 10.4]]) makePipe([X(Math.cos(a) * 2.4), 5.6, Math.sin(a) * 2.4], [X(Math.cos(a) * (2.4 + len)), 5.6, Math.sin(a) * (2.4 + len)], 0.35, { supports: false, flange: 2.6 });
       this.cables = []; const r = mulberry32(1010);
       for (let k = 0; k < 14; k++) { const a = r() * 6.28, R = 2.6, ex = Math.cos(a) * (6 + r() * 5), ez = Math.sin(a) * (6 + r() * 3.6);
         const pts = [[X(Math.cos(a) * R), 0.3 + r() * 1.5, Math.sin(a) * R], [X((Math.cos(a) * R + ex) / 2), F + 0.06, (Math.sin(a) * R + ez) / 2], [X(ex), F + 0.06, ez], [X(ex * 1.08), 3 + r() * 3, ez * 1.05]];
@@ -8067,7 +8201,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { HANDS, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
