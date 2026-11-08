@@ -799,3 +799,11 @@ Ciclo modificato
 ![UE4 Abandoned Factory :: Behance](https://images.openai.com/static-rsc-4/b66Snf_zoKX5wDHwFkAPTnZ2cxy5QZKBOrOgsXQVF19sNIAtk2Kk_qVt2I7ykyr0y-TQPbD7YQJzfi_PT9aOwVmQ5PUOXIgxcQB7VZHHTrrZkjdiIZJerafWgb52O39KLgTdJhuqcCLeN9iHVtc-1mJz0T-_FVa1JOwZItYMu0jVsCBbqUCmJ5OeOlWt9MV9?purpose=fullsize)
 
 ![Project Borealis: Continuing Half-Life in UE4](https://images.op
+
+---
+
+### CAPITOLI XI–XX
+Il mondo oltre il perimetro. Nuove installazioni, nuove persone, nuove verità e le conseguenze della scelta di Dmitri.
+
+Non dobbiamo spiegare tutto nel finale. Dobbiamo dare al giocatore una risposta emotivamente soddisfacente sulla prima storia e contemporaneamente aprire un mistero ancora più grande.
+Il giocatore deve uscire da ZATO-42 convinto di aver terminato un viaggio, per scoprire che fino a quel momento aveva soltanto attraversato la prima porta.
