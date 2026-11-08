@@ -2200,6 +2200,9 @@ function updateDmitri(dt) {
   const wc = DM.wClip, half = DM.clip ? DM.clip.duration / 2 : 1;
   if (wc > 0.01) {
     const ph = ((hero.phase - Math.PI * 1.5) / (Math.PI * 2)) % 1;
+    // il mixer scrive sulle ossa solo se il valore cambia: contro un muro la fase resta ferma e le ossa
+    // conserverebbero le modifiche del fotogramma prima (la piega del busto si sommava fino a capovolgerlo)
+    for (const pm of DM.mixer._bindings || []) { const n = pm.valueSize; pm.buffer.fill(NaN, n, 3 * n); }
     DM.mixer.setTime((ph < 0 ? ph + 1 : ph) * half);
   }
   const torchArm = state.torch ? 1 : 0;
@@ -2474,6 +2477,16 @@ function warmHandsIK(t, dt = 0.016) {
     aimBone(S, fromS, toS, w);
     E.getWorldPosition(V.e); Wr.getWorldPosition(V.w);
     aimBone(E, V.w.clone().sub(V.e).normalize(), V.t.clone().sub(V.e).normalize(), w);
+    // la mano non prosegue la linea dell'avambraccio (le mani si incrociavano a farfalla): dita in su, palmo verso la bocca
+    const fb = Wr.children.filter(c => c.isBone);
+    if (fb.length) {
+      Wr.getWorldPosition(V.w); const tip = new THREE.Vector3(), tp = new THREE.Vector3();
+      for (const c of fb) { c.getWorldPosition(tp); tip.add(tp); } tip.divideScalar(fb.length).sub(V.w);
+      if (tip.lengthSq() > 1e-8) {
+        const want = new THREE.Vector3(0, 1, 0).addScaledVector(V.f, 0.25).addScaledVector(V.o, -0.12).normalize();
+        aimBone(Wr, tip.normalize(), want, w);
+      }
+    }
   }
 }
 function animateHero(dt, t, lookTarget) {
