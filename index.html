@@ -6173,6 +6173,40 @@ function makeWorkbench(x, y, z, w, h, d, ry = 0, o = {}) {
   return g;
 }
 
+/* quadri di comando: pulsanti, levette, spie, strumenti a lancetta, targhette incise */
+const consoleTex = () => ptex('console', (m, w, h, r) => {
+  m.fillStyle = '#4e5a50'; m.fillRect(0, 0, w, h); grime(m, w, h, r, 300, '20,24,20', 0.12);
+  m.strokeStyle = 'rgba(20,24,20,0.6)'; m.lineWidth = 2; for (let x = 0; x < w; x += 128) { m.strokeRect(x + 4, 4, 120, h - 8); }
+  for (let blk = 0; blk < 4; blk++) { const x0 = blk * 128 + 14;
+    if (blk % 2 === 0) for (let k = 0; k < 2; k++) { const cx = x0 + 26 + k * 52, cy = 50; m.fillStyle = '#d8d4c4'; m.beginPath(); m.arc(cx, cy, 22, 0, 7); m.fill(); m.strokeStyle = '#1a1a1a'; m.lineWidth = 2; m.stroke();
+      for (let t = 0; t < 9; t++) { const a = Math.PI * (0.8 + t * 0.175); m.beginPath(); m.moveTo(cx + Math.cos(a) * 17, cy + Math.sin(a) * 17); m.lineTo(cx + Math.cos(a) * 21, cy + Math.sin(a) * 21); m.stroke(); }
+      const a = Math.PI * (0.9 + r() * 1.2); m.strokeStyle = '#a01a12'; m.beginPath(); m.moveTo(cx, cy); m.lineTo(cx + Math.cos(a) * 18, cy + Math.sin(a) * 18); m.stroke(); }
+    else for (let k = 0; k < 6; k++) { const cx = x0 + 12 + (k % 3) * 36, cy = 30 + Math.floor(k / 3) * 34; m.fillStyle = ['#c83a2a', '#3ab04a', '#e0a020', '#d8d4c4'][Math.floor(r() * 4)]; m.beginPath(); m.arc(cx, cy, 8, 0, 7); m.fill(); m.fillStyle = 'rgba(255,255,255,0.4)'; m.beginPath(); m.arc(cx - 2, cy - 2, 3, 0, 7); m.fill(); }
+    for (let k = 0; k < 8; k++) { const cx = x0 + 8 + (k % 4) * 26, cy = 120 + Math.floor(k / 4) * 46; m.fillStyle = '#1a1c1a'; m.fillRect(cx, cy, 18, 26); m.fillStyle = r() < 0.5 ? '#c8c4b4' : '#7a7a74'; m.fillRect(cx + 4, cy + (r() < 0.5 ? 2 : 14), 10, 10); }   // levette
+    m.fillStyle = '#d8d4c4'; m.font = 'bold 11px monospace'; m.fillText(['НАСОС', 'КОНТУР', 'ТУРБ.', 'АВАР.'][blk], x0 + 2, h - 14); }
+});
+const radioFaceTex = () => ptex('radioface', (m, w, h, r) => {
+  m.fillStyle = '#4a5244'; m.fillRect(0, 0, w, h); grime(m, w, h, r, 300, '20,20,16', 0.15);
+  m.fillStyle = '#121410'; m.fillRect(18, 22, 120, 70); m.strokeStyle = '#8a8a7a'; m.lineWidth = 2; m.strokeRect(18, 22, 120, 70);
+  m.strokeStyle = '#c8c4b0'; m.lineWidth = 1; for (let k = 0; k < 15; k++) { m.beginPath(); m.moveTo(24 + k * 7.6, 80); m.lineTo(24 + k * 7.6, k % 5 ? 74 : 68); m.stroke(); }
+  m.strokeStyle = '#d02a1a'; m.lineWidth = 2; m.beginPath(); m.moveTo(78, 88); m.lineTo(96, 36); m.stroke();
+  for (let k = 0; k < 4; k++) { const cx = 170 + (k % 2) * 46, cy = 40 + Math.floor(k / 2) * 52; m.fillStyle = '#1a1a18'; m.beginPath(); m.arc(cx, cy, 16, 0, 7); m.fill(); m.fillStyle = '#5a5a54'; m.beginPath(); m.arc(cx, cy, 10, 0, 7); m.fill(); m.strokeStyle = '#d8d4c4'; m.beginPath(); m.moveTo(cx, cy); m.lineTo(cx + 9 * Math.cos(r() * 6), cy + 9 * Math.sin(r() * 6)); m.stroke(); }
+  m.fillStyle = '#2a2c28'; for (let y = 108; y < h - 14; y += 6) m.fillRect(18, y, 120, 3);                          // griglia dell'altoparlante
+  m.fillStyle = '#d8d4c4'; m.font = 'bold 12px monospace'; m.fillText('Р-105 · КВ', 170, h - 18);
+});
+/* banco di comando con il piano inclinato pieno di strumenti */
+function makeConsole(x, y, z, w, h, d, ry = 0, o = {}) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; (o.parent || world).add(g);
+  const pm = new THREE.MeshStandardMaterial({ map: paintTex(o.color || '#6e7466', o.color || 'consgrey'), roughness: 0.7, metalness: 0.3 });
+  const b = new THREE.Mesh(new RoundedBoxGeometry(w, h * 0.92, d, 2, 0.02), pm); b.position.y = h * 0.46; g.add(b);
+  const ct = consoleTex().clone(); ct.needsUpdate = true; ct.repeat.set(Math.max(1, Math.round(w / 1.4)), 1);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.06, d * 0.82), new THREE.MeshStandardMaterial({ map: ct, roughness: 0.55, metalness: 0.2 })); top.rotation.x = -Math.PI / 2 + 0.22; top.position.set(0, h * 0.92 + 0.05, 0.02); g.add(top);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, 0.08), rustMat()); lip.position.set(0, h * 0.92 - 0.02, d / 2); g.add(lip);
+  const kick = new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, 0.12, 0.02), new THREE.MeshStandardMaterial({ color: 0x1c1e1c, roughness: 0.8 })); kick.position.set(0, 0.06, d / 2 + 0.005); g.add(kick);
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
 const L6 = { START: { x: -28, z: 0.6 }, NIVA: { x: -17.5, z: -5.2, r: 0.12 }, HUT: { x0: -3, x1: 5, z0: -9.2, z1: -3.6 }, BARREL: { x: 6.4, z: -6.2 },
   TOWER: { x: 12, z: -4 }, LADDER: { x: 12, z: -2.0 }, ANCHOR: { x: 17.2, z: 1.6 }, HATCH: { x: 21.5, z: -5.2 }, PLAT_Y: 6.0,
   COVERS: [{ x: -23.5, z: 0.4 }, { x: -17.5, z: -3.6 }, { x: -12.2, z: 0.2 }, { x: -8.4, z: -2.6 }] };
@@ -6234,16 +6268,16 @@ const CH6 = {
       const sg = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['АППАРАТНАЯ СВЯЗИ'], 512, 96, '#d8d4c4', '#1a1a1a', 'bold 44px monospace'), transparent: true })); sg.position.set(H.x0 + 3.6, this.hutY + 2.35, H.z1 + 0.09); world.add(sg); this.hutSign = sg.material;
       // dentro: banco del trasmettitore, oscilloscopi verdi, registratore a bobine, la tabella, la stufetta
       const y = this.hutY;
-      const bench = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.85, 0.75), mt(0x4a3a2a)); bench.position.set(H.x0 + 2.4, y + 0.42, H.z0 + 0.55); world.add(bench); addBox(H.x0 + 0.3, H.x0 + 4.5, H.z0, H.z0 + 0.95).low = true;
-      for (let k = 0; k < 3; k++) { const tx = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.45), mt(0x5a6252, { metalness: 0.3 })); tx.position.set(H.x0 + 1.0 + k * 1.1, y + 1.2, H.z0 + 0.4); world.add(tx);
+      makeWorkbench(H.x0 + 2.4, y, H.z0 + 0.55, 4.2, 0.85, 0.75, 0, { color: '#5a4a38' }); addBox(H.x0 + 0.3, H.x0 + 4.5, H.z0, H.z0 + 0.95).low = true;
+      for (let k = 0; k < 3; k++) { const txm = new THREE.MeshStandardMaterial({ map: paintTex('#5a6252', 'radio'), roughness: 0.7, metalness: 0.3 }), tx = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.45), [txm, txm, txm, txm, new THREE.MeshStandardMaterial({ map: radioFaceTex(), roughness: 0.6, metalness: 0.2 }), txm]); tx.castShadow = true; tx.position.set(H.x0 + 1.0 + k * 1.1, y + 1.2, H.z0 + 0.4); world.add(tx);
         const sc = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16), new THREE.MeshBasicMaterial({ color: 0x60ff90 })); sc.position.set(H.x0 + 0.85 + k * 1.1, y + 1.25, H.z0 + 0.63); world.add(sc);
         for (let i = 0; i < 4; i++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffa030 : 0xff5020 })); l.position.set(H.x0 + 1.2 + k * 1.1 + i * 0.06, y + 1.0, H.z0 + 0.63); world.add(l); } }
       this.walkieMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.06), mt(0x3f4a35)); this.walkieMesh.position.set(H.x0 + 3.6, y + 0.97, H.z0 + 0.7); world.add(this.walkieMesh);
       const rec = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.5), mt(0x2a2c2e)); rec.position.set(H.x1 - 0.7, y + 0.75, H.z0 + 0.6); world.add(rec); addBox(H.x1 - 1.1, H.x1 - 0.2, H.z0 + 0.2, H.z0 + 1.0).low = true;
-      const tbl = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.6), mt(0x4a3a2a)); tbl.position.set(H.x1 - 0.7, y + 0.3, H.z0 + 0.6); world.add(tbl);
+      makeWorkbench(H.x1 - 0.7, y, H.z0 + 0.6, 0.8, 0.6, 0.6, 0, { color: '#5a4a38' });
       this.reelsR = [-0.18, 0.18].map(dx => { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 16), mt(0x8a8a80, { metalness: 0.5 })); r.position.set(H.x1 - 0.7 + dx, y + 0.92, H.z0 + 0.6); world.add(r); return r; });
       const chart = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.7), new THREE.MeshStandardMaterial({ map: textTex(['ИНСТРУКЦИЯ ПО СВЯЗИ', 'КАНАЛ 142.8 МГц', 'СЕКТОР Б', '— — — —', '— В.'], 256, 200, '#e2dcc8', '#2a2620', 'bold 22px monospace') })); chart.position.set(H.x0 + 0.09, y + 1.5, H.z0 + 3.0); chart.rotation.y = Math.PI / 2; world.add(chart);
-      const tb = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.35), mt(0x8a2018, { metalness: 0.3 })); tb.position.set(H.x1 - 0.8, y + 0.15, H.z1 - 0.9); world.add(tb);
+      makeCrate(H.x1 - 0.8, y, H.z1 - 0.9, 0.6, 0.3, 0.35, 0.3, { color: '#8a2a1e', label: 'ИНСТР.' });
       const stove = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.6, 12), mt(0x1e2022, { metalness: 0.6 })); stove.position.set(H.x0 + 0.6, y + 0.3, H.z1 - 0.7); world.add(stove);
       this.hutLight = new THREE.PointLight(0x60ff90, 3.5, 7, 1.5); this.hutLight.position.set(H.x0 + 2.2, y + 1.8, H.z0 + 1.6); world.add(this.hutLight);
       const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), new THREE.MeshBasicMaterial({ color: 0x3a8a5a })); wl.position.set(H.x0 + 1.2, y + 1.5, H.z1 + 0.08); world.add(wl);   // la luce verde dietro il vetro
@@ -6262,7 +6296,7 @@ const CH6 = {
       for (let k = 0; k < 24; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.04), steel); r.position.set(L6.LADDER.x, 0.3 + k * 0.26, L6.LADDER.z + 0.15); world.add(r); }
       for (const dx of [-0.25, 0.25]) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.04, 6.4, 0.04), steel); s.position.set(L6.LADDER.x + dx, 3.2, L6.LADDER.z + 0.15); world.add(s); }
       const plat = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.08, 3.0), mt(0x4a4a46, { metalness: 0.5 })); plat.position.set(T.x, L6.PLAT_Y, T.z); world.add(plat);
-      this.jbox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), mt(0x5a6a5a, { metalness: 0.5 })); this.jbox.position.set(T.x + 0.6, L6.PLAT_Y + 0.5, T.z + 1.2); world.add(this.jbox);
+      this.jbox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), [0, 1, 2, 3, 4, 5].map(i => i === 4 ? new THREE.MeshStandardMaterial({ map: textTex(['⚡', 'ЩИТОК', 'АНТ.'], 128, 154, '#5a6a5a', '#e6c84a', 'bold 28px monospace'), roughness: 0.6, metalness: 0.3 }) : new THREE.MeshStandardMaterial({ map: paintTex('#5a6a5a', 'jbox'), roughness: 0.6, metalness: 0.4 }))); this.jbox.position.set(T.x + 0.6, L6.PLAT_Y + 0.5, T.z + 1.2); world.add(this.jbox);
       this.redMat = new THREE.MeshBasicMaterial({ color: 0xff2010 }); const rl = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), this.redMat); rl.position.set(T.x, H + 0.4, T.z); world.add(rl);
       this.redLight = new THREE.PointLight(0xff2010, 0, 40, 1.2); this.redLight.position.copy(rl.position); world.add(this.redLight);
       this.redGlow = makeGlow(rl.position.clone(), 4, 0.8);
@@ -6860,7 +6894,7 @@ const CH8 = {
       this.batt = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 10), mt(0xb8a040, { metalness: 0.6 })), X(-1.2), F + 0.6, -1.6); this.batt.rotation.z = Math.PI / 2;
       const l = new THREE.PointLight(0xe8e0c0, 5, 8, 1.5); l.position.set(X(-2), 2.6, -1); inG.add(l); }
     // la sala turbine: tre turbine, colonne, finestroni ghiacciati
-    { const tm = mt(0x3e5a52, { metalness: 0.5, roughness: 0.5 }), dark = mt(0x2a2c2c, { metalness: 0.6, roughness: 0.5 });
+    { const tm = new THREE.MeshStandardMaterial({ map: paintTex('#3e5a52', 'turb'), metalness: 0.45, roughness: 0.5 }), dark = rustMat();
       this.turbBoxes = L8.TURB.map(([a, b]) => { const cx = (a + b) / 2, L = b - a;
         const h = add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, L, 18), tm), X(cx), F + 1.0, 0); h.rotation.z = Math.PI / 2;
         add(new THREE.Mesh(new THREE.BoxGeometry(L + 0.4, 1.0, 2.6), dark), X(cx), F + 0.5, 0);
@@ -6880,7 +6914,7 @@ const CH8 = {
       const N = makeNPC({ x: X(x), z, heading: h, tint: suitT, helmet: true, walk: true, dim: 0.5, noOutline: true }); N.home = [X(x), z, h]; return N; });
     this.brigCR = [[40.5, 2.2, 2.6], [46.2, -1.8, -0.6]].map(([x, z, h]) => makeNPC({ x: X(x), z, heading: h, tint: suitT, helmet: true, dim: 0.5, noOutline: true }));
     // la sala controllo: banchi a semicerchio, orologi fermi, quattro leve, il registratore, la bacheca
-    { const CR = L8.CR, desk = mt(0x8a8470, { roughness: 0.7 }), panel = mt(0x6a7a6a, { roughness: 0.6 });
+    { const CR = L8.CR, desk = new THREE.MeshStandardMaterial({ map: paintTex('#8a8470', 'gshu'), roughness: 0.7, metalness: 0.2 }), panel = new THREE.MeshStandardMaterial({ map: consoleTex(), roughness: 0.55, metalness: 0.2 });
       for (let k = 0; k < 5; k++) { const a = -0.6 + k * 0.3, x = 43 + Math.sin(a) * 4.2, z = -3.2 + Math.cos(a) * 0.9 - Math.abs(a) * 0.8; const d = add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 0.9), desk), X(x), F + 0.45, z); d.rotation.y = -a;
         const p = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.7), panel), X(x), F + 0.92, z); p.rotation.y = -a; }
       addBox(X(39.2), X(46.8), -3.7, -2.3).low = true;
@@ -7258,7 +7292,7 @@ const CH9 = {
         addBox(X(x - 0.8), X(x + 0.8), -11.8, -10.6); return x; });
       this.frozen = makeNPC({ x: X(-13.5), z: -11.25, heading: 0, tint: { key: 'frozen', fn: recolor(150, 190, 220, 1.1, 0.8) }, dim: 0.35, noOutline: true });
       this.hand = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map: textTex(['✋'], 64, 80, 'rgba(0,0,0,0)', '#e8f4ff', 'bold 60px serif'), transparent: true, opacity: 0, depthWrite: false })); add(this.hand, X(-13.4), 1.45, -10.58, false);
-      const bench = add(new THREE.Mesh(new THREE.BoxGeometry(3, 0.9, 0.8), mt(0xd0d4d4, { metalness: 0.3 })), X(-15), F + 0.45, -5.8); addBox(X(-16.5), X(-13.5), -6.2, -5.4);
+      makeWorkbench(X(-15), F, -5.8, 3, 0.9, 0.8, 0, { color: '#c8ccc8' }); addBox(X(-16.5), X(-13.5), -6.2, -5.4);
       for (let k = 0; k < 7; k++) { const t = add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8), ice), X(-15.9 + k * 0.22), F + 1.0, -5.8, false); }
       const term = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.5), mt(0xc8c0a8)), X(-10), F + 1.15, -5.6); add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 0.7), mt(0xb0b4b4)), X(-10), F + 0.45, -5.6); addBox(X(-10.5), X(-9.5), -6, -5.2);
       this.termM = new THREE.MeshBasicMaterial({ map: textTex(['> _'], 128, 96, '#061006', '#60e070', 'bold 26px monospace') }); const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.34), this.termM); add(sc, X(-10), F + 1.17, -5.34, false);
@@ -7267,7 +7301,7 @@ const CH9 = {
     { this.crt = document.createElement('canvas'); this.crt.width = 768; this.crt.height = 384; this.crtT = new THREE.CanvasTexture(this.crt); this.crtT.colorSpace = THREE.SRGBColorSpace;
       add(new THREE.Mesh(new THREE.BoxGeometry(4.6, 2.3, 0.6), mt(0x3a3a36)), X(-0.5), F + 1.6, 8.6);
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 2.1), new THREE.MeshBasicMaterial({ map: this.crtT })); scr.rotation.y = Math.PI; add(scr, X(-0.5), F + 1.6, 8.29, false);
-      add(new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 0.8), mt(0x7a7466)), X(-0.5), F + 0.4, 7.2); addBox(X(-2.5), X(1.5), 6.8, 9);
+      makeConsole(X(-0.5), F, 7.2, 4, 0.8, 0.8, Math.PI); addBox(X(-2.5), X(1.5), 6.8, 9);
       this.recM = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.32), mt(0x2a2a28)), X(1), F + 0.9, 7.1); this.mReels = [-0.11, 0.11].map(dx => add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 10), mt(0x8a7a5a)), X(1 + dx), F + 1.0, 7.1, false));
       this.crtN = 0; this.drawCRT(0); }
     // l'azoto: tubi lungo le pareti, fughe
@@ -7281,7 +7315,7 @@ const CH9 = {
       this.bangDoor = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.12), mt(0x5a6268, { metalness: 0.6 })), X(L9.BANG), F + 1.1, 1.55);
       for (const x of L9.NICHES) add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })), X(x), 2.4, -2.6, false); }
     // anticamera: console e diario
-    { add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 0.7), mt(0x5a5e58)), X(35), F + 0.5, -3.3); addBox(X(34.3), X(35.7), -3.8, -2.9);
+    { makeConsole(X(35), F, -3.3, 1.4, 1.0, 0.7, 0); addBox(X(34.3), X(35.7), -3.8, -2.9);
       this.diaryM = add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.22), mt(0x2a1a14)), X(35), F + 1.04, -3.2); }
     // luci al neon (alcune tremolano)
     this.neons = [];
@@ -7587,7 +7621,7 @@ const CH10 = {
       this.warnM = new THREE.MeshBasicMaterial({ map: textTex(['ВНИМАНИЕ: СБРОС ЦИКЛА НЕОБРАТИМ'], 1024, 90, 'rgba(0,0,0,0)', '#6ab8ff', 'bold 50px monospace'), transparent: true, opacity: 0, depthWrite: false });
       const wpl = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.45), this.warnM); wpl.rotation.x = -Math.PI / 2; wpl.rotation.z = Math.PI / 2; add(wpl, X(L10.VALVE.x - 1.6), F + 0.02, 0, false); }
     // console, braciere, pannelli
-    { add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.0, 0.9), mt(0x5a5e58)), X(L10.CONSOLE.x), F + 0.5, L10.CONSOLE.z - 0.3); addBox(X(-1.6), X(1.6), L10.CONSOLE.z - 0.75, L10.CONSOLE.z + 0.15);
+    { makeConsole(X(L10.CONSOLE.x), F, L10.CONSOLE.z - 0.3, 3.2, 1.0, 0.9, 0); addBox(X(-1.6), X(1.6), L10.CONSOLE.z - 0.75, L10.CONSOLE.z + 0.15);
       this.conC = document.createElement('canvas'); this.conC.width = 512; this.conC.height = 256; this.conT = new THREE.CanvasTexture(this.conC); this.conT.colorSpace = THREE.SRGBColorSpace;
       const sc = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: this.conT })); add(sc, X(L10.CONSOLE.x), F + 1.7, L10.CONSOLE.z - 0.7, false); this.drawCon('idle');
       this.braz = makeFireBarrel(X(L10.BRAZ.x), L10.BRAZ.z);
@@ -7793,6 +7827,9 @@ const CH10 = {
     const cxa = Math.sin(camAz), cza = Math.cos(camAz);
     for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
       const want = vx * cxa + vz * cza > 0.2 && Math.hypot(vx, vz) < 10 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+    // il cilindro diventa trasparente quando copre Dmitri
+    { const vx = L10.X - hero.x, vz = -hero.z, along = vx * cxa + vz * cza, perp = Math.abs(vx * cza - vz * cxa);
+      const want = inside && along > 0 && perp < 3.2 ? 0.22 : 1; this.coreM.transparent = true; this.coreM.opacity = lerp(this.coreM.opacity, want, damp(5, dt)); this.coreM.depthWrite = this.coreM.opacity > 0.9; }
     // il nucleo pulsa; blackout; luci azzurre dopo la scelta
     this.pulse = Math.max(0, (this.pulse || 0) - dt); this.blink = Math.max(0, (this.blink || 0) - dt);
     const off = (this.pulse > 0 && this.pulse < 1.0) || (this.blink > 0 && Math.sin(t * 40) > 0) ? 0 : 1;
