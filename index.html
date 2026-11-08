@@ -243,7 +243,7 @@
     <button class="vhs ch" data-ch="6">VI · LA STAZIONE RADIO<small>il walkie-talkie</small></button>
     <button class="vhs ch" data-ch="7">VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne</small></button>
     <button class="vhs ch" data-ch="8">VIII · LA ТЭЦ<small>la ciminiera</small></button>
-    <button class="vhs ch soon" data-ch="9" disabled>IX · I LABORATORI SOTTERRANEI<small>il ciclo termico · in arrivo</small></button>
+    <button class="vhs ch" data-ch="9">IX · I LABORATORI SOTTERRANEI<small>il ciclo termico</small></button>
     <button class="vhs ch soon" data-ch="10" disabled>X · LA VALVOLA<small>fine del ciclo · in arrivo</small></button>
   </div>
   <div class="menu-row"><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
@@ -2846,6 +2846,7 @@ const ITEMS = {
   chiaveConsole: { icon: null, img: keyIcon, name: 'Chiave della console', desc: 'Dall\'armadietto 0417. Per la console della sala controllo (ГЩУ).' },
   fotoBrigata: { icon: null, img: paperIcon, name: 'Fotografia della Brigata 3', desc: 'Otto uomini davanti alla centrale. Io al centro, Semënov accanto a me. Sul retro: «ПОСЛЕДНЯЯ СМЕНА. 12.02.1991.»' },
   piastrina: { icon: null, img: drawIcon(x => { x.fillStyle = '#9a9a90'; x.beginPath(); x.ellipse(0, 0, 26, 36, 0, 0, 7); x.fill(); x.fillStyle = '#2a2a28'; x.font = 'bold 18px monospace'; x.fillText('0418', -22, 6); }), name: 'Piastrina 0418', desc: 'Dal fondo dell\'armadietto 0418. La stessa che Semënov portava al posto di blocco.' },
+  fusibile: { icon: null, img: drawIcon(x => { x.fillStyle = '#c8c0a0'; x.fillRect(-12, -30, 24, 60); x.fillStyle = '#8a8a86'; x.fillRect(-14, -36, 28, 10); x.fillRect(-14, 26, 28, 10); }), name: 'Fusibile', desc: 'Dalla cassetta tecnica del corridoio. Per la stufetta industriale.' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -6924,12 +6925,364 @@ const CH8 = {
   },
   ending() {
     return { text: 'Il montacarichi mi ha lasciato in un corridoio bianco, sotto la centrale.<br><br>Ho sentito la mia voce sul nastro. Mi avevano ordinato di chiudere la valvola. Io ho detto: «Ancora un giro».<br><br>Non sono soltanto una vittima del Ciclo. L\'ho voluto io. Ma per riportare indietro chi?',
-      next: 0, nextLabel: 'CAPITOLO IX · I LABORATORI SOTTERRANEI — in arrivo' };
+      next: 9, nextLabel: 'CAPITOLO IX · I LABORATORI SOTTERRANEI' };
   },
 };
 const F8 = N => groundH(N.x, N.z);
 
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7, 8: CH8 };
+const L9 = { X: 120, START: { x: -24.6, z: 0 }, CRYO: { x0: -21, x1: -9, z0: -12 }, PRINT_END: -15.4, BOX: { x: -11, z: 1.8 }, HEAT: { x: -4, z: -1.5 },
+  MON: { x0: -6, x1: 5, z1: 9 }, B: { x0: 8, x1: 30 }, JETS: [[11.5, -1.3, 0], [15.5, 1.3, 1.6], [19.5, -1.3, 0.8], [24, 1.3, 2.4]], NICHES: [13.5, 22], BANG: 18, ANTE: { x0: 30, x1: 40 }, CORE: { x: 46 } };
+function ground9(x, z) { return 0.05; }
+const CH9 = {
+  id: 9, roman: 'IX', name: 'I laboratori sotterranei', clueCount: 3, cold: 0.22, attention: false, ground: ground9,
+  docs: { rapporto: 'Rapporto sul Ciclo · «Il tempo viene azzerato ogni giorno e la materia arretra. L\'unico elemento che mantiene la memoria è la coscienza dell\'operatore. Soggetto V.»',
+    direttore: 'Registrazione del Direttore · «Il tecnico Voronin si è rifiutato di evacuare… ha vincolato il sistema alla propria coscienza.»',
+    diario: 'Diario del reattore · 12.02.1991 (ultima) · «Se chiudo la valvola, nessuno di quelli rimasti tornerà. Il mio numero è 0417. Io sono la chiave di questo inverno.»' },
+  start: { x: L9.X + L9.START.x, z: L9.START.z, heading: Math.PI / 2 }, bounds: [L9.X - 25.6, L9.X + 52, -12, 9],
+  env() { setSun(8, -0.7, 0.7); scene.fog.density = 0.006; hemi.intensity = 0.5; },
+  shelter() { return true; },
+  snow() { snowBase(); },
+  build() {
+    const X = x => L9.X + x, F = 0.05, mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6 }, o));
+    for (const g of ['walkie', 'guanti', 'cappotto']) if (!state.gear.has(g)) state.gear.add(g);
+    this.walls = []; const wall = CH3.wallKit.call(this);
+    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(110, 40), new THREE.MeshBasicMaterial({ color: 0x050607 })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(X(13), -0.3, -1); world.add(voidM);
+    const add = (m, x, y, z, sh = true) => { m.position.set(x, y, z); if (sh) m.castShadow = m.receiveShadow = true; world.add(m); return m; };
+    // pavimenti a piastrelle, pareti bianche
+    const tc = document.createElement('canvas'); tc.width = tc.height = 128; const tm = tc.getContext('2d'); tm.fillStyle = '#c8ccc8'; tm.fillRect(0, 0, 128, 128); tm.strokeStyle = '#8a908c'; tm.lineWidth = 2;
+    for (let k = 0; k <= 4; k++) { tm.beginPath(); tm.moveTo(k * 32, 0); tm.lineTo(k * 32, 128); tm.moveTo(0, k * 32); tm.lineTo(128, k * 32); tm.stroke(); }
+    for (let k = 0; k < 300; k++) { tm.fillStyle = `rgba(40,40,36,${Math.random() * 0.12})`; tm.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+    const tt = new THREE.CanvasTexture(tc); tt.colorSpace = THREE.SRGBColorSpace; tt.wrapS = tt.wrapT = THREE.RepeatWrapping;
+    const floor = (x0, x1, z0, z1, c = 0xffffff) => { const t = tt.clone(); t.needsUpdate = true; t.repeat.set((x1 - x0) / 1.6, (z1 - z0) / 1.6); const p = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshStandardMaterial({ map: t, color: c, roughness: 0.5 })); p.rotation.x = -Math.PI / 2; p.position.set(X((x0 + x1) / 2), F, (z0 + z1) / 2); p.receiveShadow = true; world.add(p); };
+    floor(-26, 8, -2, 2); floor(L9.CRYO.x0, L9.CRYO.x1, L9.CRYO.z0, -2, 0xb8d0e0); floor(L9.MON.x0, L9.MON.x1, 2, L9.MON.z1, 0xb0b0a8); floor(8, 30, -1.6, 1.6, 0xa8b0b4);
+    for (const x of L9.NICHES) floor(x - 0.7, x + 0.7, -2.8, -1.6, 0x9aa0a4); floor(30, 40, -4, 4, 0x8a8e90); floor(40, 52, -6, 6, 0x5a6268);
+    const white = mt(0xe4e8e6, { roughness: 0.7 }), pale = mt(0xc4d4dc, { roughness: 0.5 }), grey = mt(0x8a9094, { roughness: 0.7 }), dark = mt(0x4a5258, { roughness: 0.6 });
+    // corridoio bianco (porte: criogenia a nord, sala monitor a sud)
+    wall(white, X(-26), -2, X(8), -2, 3, [[10.1, 11.7]]); wall(white, X(-26), 2, X(8), 2, 3, [[25.1, 26.6]]); wall(white, X(-26), -2, X(-26), 2, 3);
+    wall(white, X(8), -2, X(8), -1.6, 3); wall(white, X(8), 1.6, X(8), 2, 3);
+    // laboratorio criogenico
+    const C9 = L9.CRYO; wall(pale, X(C9.x0), C9.z0, X(C9.x1), C9.z0, 3); wall(pale, X(C9.x0), C9.z0, X(C9.x0), -2, 3); wall(pale, X(C9.x1), C9.z0, X(C9.x1), -2, 3);
+    // sala monitor
+    const M = L9.MON; wall(grey, X(M.x0), M.z1, X(M.x1), M.z1, 3); wall(grey, X(M.x0), 2, X(M.x0), M.z1, 3); wall(grey, X(M.x1), 2, X(M.x1), M.z1, 3);
+    // corridoio dell'azoto con due nicchie a nord
+    const B = L9.B; let gaps = L9.NICHES.map(x => [x - 0.6 - B.x0, x + 0.6 - B.x0]);
+    wall(dark, X(B.x0), -1.6, X(B.x1), -1.6, 3, gaps); wall(dark, X(B.x0), 1.6, X(B.x1), 1.6, 3);
+    for (const x of L9.NICHES) { wall(dark, X(x - 0.7), -2.9, X(x + 0.7), -2.9, 3); wall(dark, X(x - 0.7), -2.9, X(x - 0.7), -1.6, 3); wall(dark, X(x + 0.7), -2.9, X(x + 0.7), -1.6, 3); }
+    // anticamera e camera del reattore
+    const A = L9.ANTE; wall(dark, X(A.x0), -4, X(A.x0), -1.6, 3.4); wall(dark, X(A.x0), 1.6, X(A.x0), 4, 3.4); wall(dark, X(A.x0), -4, X(A.x1), -4, 3.4); wall(dark, X(A.x0), 4, X(A.x1), 4, 3.4);
+    wall(dark, X(A.x1), -4, X(A.x1), 4, 3.4, [[3, 5]]);
+    this.reDoor = addBox(X(B.x1 - 0.1), X(B.x1 + 0.1), -1.6, 1.6); this.inDoor = addBox(X(A.x1 - 0.1), X(A.x1 + 0.1), -1, 1);
+    { const rd = mt(0x5a6670, { metalness: 0.7, roughness: 0.35 }); this.rDoorM = add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.8, 3.2), rd), X(B.x1), F + 1.4, 0); this.iDoorM = add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.8, 2), rd), X(A.x1), F + 1.4, 0);
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.32), new THREE.MeshStandardMaterial({ map: textTex(['РЕАКТОР «ТЕРМИЧЕСКИЙ ЦИКЛ И ЭНЕРГЕТИЧЕСКАЯ ПАМЯТЬ»'], 1024, 110, '#d8d4c4', '#1a1a1a', 'bold 34px monospace') })); pl.rotation.y = -Math.PI / 2; add(pl, X(B.x1 - 0.15), 2.55, 0, false);
+      this.padM = new THREE.MeshBasicMaterial({ map: textTex(['ТЕРМИНАЛ ДОСТУПА', 'УРОВЕНЬ 4', '_ _ _ _'], 256, 160, '#0a1408', '#70d080', 'bold 24px monospace') });
+      const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.3), this.padM); pad.rotation.y = -Math.PI / 2; add(pad, X(B.x1 - 0.15), 1.35, -1.25, false);
+      this.stopM = new THREE.MeshBasicMaterial({ map: textTex(['ОСТАНОВКА ЦИКЛА', '— НЕОБРАТИМО —'], 256, 110, '#140404', '#ff4a30', 'bold 26px monospace'), transparent: true, opacity: 0 });
+      const st = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.3), this.stopM); st.rotation.y = -Math.PI / 2; add(st, X(A.x1 - 0.15), 1.5, -1.6, false); }
+    // il cilindro del reattore, la grande valvola dietro la porta interna
+    { const core = this.coreM = new THREE.MeshStandardMaterial({ color: 0x9aa8b4, metalness: 0.7, roughness: 0.3, emissive: 0x2a6aff, emissiveIntensity: 0.3 });
+      add(new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 5, 28), core), X(L9.CORE.x), 2.5, 0);
+      for (const y of [0.6, 2.5, 4.4]) add(new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.08, 6, 28), mt(0x3a4248, { metalness: 0.8 })), X(L9.CORE.x), y, 0).rotation.x = Math.PI / 2;
+      this.coreL = new THREE.PointLight(0x4a8aff, 10, 14, 1.3); this.coreL.position.set(X(L9.CORE.x - 3), 2, 0); world.add(this.coreL);
+      this.valve = new THREE.Group(); this.valve.position.set(X(L9.CORE.x - 2.4), 1.5, 0); world.add(this.valve);
+      const vw = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.08, 10, 30), mt(0x8a2a20, { metalness: 0.6 })); vw.rotation.y = Math.PI / 2; this.valve.add(vw);
+      for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.5, 0.06), mt(0x8a2a20, { metalness: 0.6 })); sp.rotation.x = k * Math.PI / 3; this.valve.add(sp); } }
+    // sopra l'ingresso, dal montacarichi
+    { const s = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.34), new THREE.MeshStandardMaterial({ map: textTex(['СЕКРЕТНЫЙ ОБЪЕКТ «УКРЫТИЕ» — ЛАБОРАТОРНЫЙ БЛОК'], 1024, 100, '#d8d4c4', '#1a1a1a', 'bold 34px monospace') })); s.rotation.y = Math.PI / 2; add(s, X(-25.9), 2.5, 0, false);
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 1.8), mt(0x4a5258, { metalness: 0.7 })), X(-26.05), F + 1.3, 0); }
+    // carrelli rovesciati (riparo), siringhe, cartelle
+    const cart = (x, z, r, tip) => { const g = new THREE.Group(); g.position.set(X(x), F, z); g.rotation.y = r; world.add(g);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.6), mt(0xb8bcc0, { metalness: 0.6, roughness: 0.4 })); top.position.y = tip ? 0.3 : 0.9; if (tip) top.rotation.x = Math.PI / 2; g.add(top);
+      const sh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.04, 0.6), top.material); sh.position.y = 0.35; if (!tip) g.add(sh);
+      for (const [dx, dz] of [[-0.5, -0.25], [0.5, -0.25], [-0.5, 0.25], [0.5, 0.25]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), top.material); l.position.set(dx, 0.45, dz); if (tip) { l.rotation.x = Math.PI / 2; l.position.set(dx, 0.3 + dz, 0.45); } g.add(l); }
+      g.traverse(o => { if (o.isMesh) o.castShadow = true; }); addOBB(X(x), z, 0.6, 0.35, r); };
+    for (const [x, z, r, t] of [[-21, 1.1, 0.2, 0], [-13, -1.1, -0.3, 1], [-8.5, 1.2, 0.1, 0], [-1.5, -1.0, 0.5, 1], [3.5, 1.1, -0.2, 0], [-16, -4.2, 0.4, 0]]) cart(x, z, r, t);
+    { const r = mulberry32(919); const sy = mt(0xe8ecf0), pf = mt(0xd8c8a0, { roughness: 1 });
+      for (let k = 0; k < 36; k++) { const isP = r() < 0.5, m = new THREE.Mesh(isP ? new THREE.BoxGeometry(0.3, 0.01, 0.22) : new THREE.CylinderGeometry(0.012, 0.012, 0.14, 5), isP ? pf : sy); m.position.set(X(-24 + r() * 31), F + 0.01, (r() - 0.5) * 3.4); m.rotation.set(isP ? 0 : Math.PI / 2, r() * 6, 0); world.add(m); } }
+    // le impronte rigide, che si fermano davanti alla porta del laboratorio criogenico
+    { const pr = new THREE.MeshStandardMaterial({ color: 0x3a3e40, roughness: 0.9, transparent: true, opacity: 0.6 });
+      for (let k = 0; k < 15; k++) { const x = -24 + k * 0.58; if (x > L9.PRINT_END) break; const p = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.28), pr); p.rotation.x = -Math.PI / 2; p.rotation.z = -Math.PI / 2; p.position.set(X(x), F + 0.005, (k % 2 ? 0.13 : -0.13) - 0.6); world.add(p); } }
+    // targhetta incisa
+    { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.4), new THREE.MeshStandardMaterial({ map: textTex(['ПЕРСОНАЛУ ЗАПРЕЩЕНО ПОКИДАТЬ ОБЪЕКТ', 'он всё ещё здесь.'], 512, 140, '#c8c0a8', '#2a2a2a', 'bold 26px monospace') })); add(s, X(-7), 1.6, -1.92, false); }
+    // cassetta tecnica coi fusibili, la stufetta industriale
+    { this.boxDoor = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.12), mt(0x5a6a5a, { metalness: 0.5 })), X(L9.BOX.x), 1.4, 1.9); const s = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex(['ЩИТОК'], 128, 32, '#e6c84a', '#1a1a1a', 'bold 22px monospace') })); add(s, X(L9.BOX.x), 1.85, 1.83, false); s.rotation.y = Math.PI;
+      const H = L9.HEAT, h = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.4), mt(0x6a6a5a, { metalness: 0.5 })), X(H.x), F + 0.35, H.z - 0.2);
+      this.coilM = new THREE.MeshBasicMaterial({ color: 0x1a0805 }); for (let k = 0; k < 4; k++) add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.04), this.coilM), X(H.x), F + 0.15 + k * 0.14, H.z + 0.02, false);
+      addBox(X(H.x - 0.5), X(H.x + 0.5), H.z - 0.5, H.z + 0.05).low = true;
+      this.heatL = new THREE.PointLight(0xff5020, 0, 5, 1.6); this.heatL.position.set(X(H.x), 0.6, H.z + 0.6); world.add(this.heatL);
+      this.heater = { x: X(H.x), z: H.z + 0.6, lit: false, update() {} }; fires.push(this.heater);
+      this.vent = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.4), grey), X(H.x + 0.5), 2.95, -1.2, false); }
+    // laboratorio criogenico: celle, banco, terminale
+    { const glass = new THREE.MeshStandardMaterial({ color: 0x9ad0ff, transparent: true, opacity: 0.25, roughness: 0.05, metalness: 0.2, depthWrite: false });
+      const ice = new THREE.MeshStandardMaterial({ color: 0x7ac8ff, transparent: true, opacity: 0.45, roughness: 0.1, emissive: 0x1a5a9a, emissiveIntensity: 0.5, depthWrite: false });
+      this.cells = [-19.5, -16.5, -13.5, -10.5].map((x, i) => { add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.2), glass), X(x), F + 1.2, -11.2, false); add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.15, 1.3), dark), X(x), F + 2.45, -11.2);
+        if (i === 1 || i === 2) add(new THREE.Mesh(new THREE.BoxGeometry(1.4, i === 2 ? 2.2 : 0.6, 1.0), ice), X(x), F + (i === 2 ? 1.1 : 0.3), -11.2, false);
+        addBox(X(x - 0.8), X(x + 0.8), -11.8, -10.6); return x; });
+      this.frozen = makeNPC({ x: X(-13.5), z: -11.25, heading: 0, tint: { key: 'frozen', fn: recolor(150, 190, 220, 1.1, 0.8) }, dim: 0.35, noOutline: true });
+      this.hand = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map: textTex(['✋'], 64, 80, 'rgba(0,0,0,0)', '#e8f4ff', 'bold 60px serif'), transparent: true, opacity: 0, depthWrite: false })); add(this.hand, X(-13.4), 1.45, -10.58, false);
+      const bench = add(new THREE.Mesh(new THREE.BoxGeometry(3, 0.9, 0.8), mt(0xd0d4d4, { metalness: 0.3 })), X(-15), F + 0.45, -5.8); addBox(X(-16.5), X(-13.5), -6.2, -5.4);
+      for (let k = 0; k < 7; k++) { const t = add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8), ice), X(-15.9 + k * 0.22), F + 1.0, -5.8, false); }
+      const term = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.5), mt(0xc8c0a8)), X(-10), F + 1.15, -5.6); add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 0.7), mt(0xb0b4b4)), X(-10), F + 0.45, -5.6); addBox(X(-10.5), X(-9.5), -6, -5.2);
+      this.termM = new THREE.MeshBasicMaterial({ map: textTex(['> _'], 128, 96, '#061006', '#60e070', 'bold 26px monospace') }); const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.34), this.termM); add(sc, X(-10), F + 1.17, -5.34, false);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['ХОЛОДИЛЬНЫЕ КАМЕРЫ — ХРАНЕНИЕ ОБРАЗЦОВ'], 1024, 100, '#d8d4c4', '#1a1a1a', 'bold 36px monospace') })); add(s, X(-15.2), 2.55, -1.93, false); }
+    // sala monitor: sei CRT, il registratore con la microcassetta
+    { this.crt = document.createElement('canvas'); this.crt.width = 768; this.crt.height = 384; this.crtT = new THREE.CanvasTexture(this.crt); this.crtT.colorSpace = THREE.SRGBColorSpace;
+      add(new THREE.Mesh(new THREE.BoxGeometry(4.6, 2.3, 0.6), mt(0x3a3a36)), X(-0.5), F + 1.6, 8.6);
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 2.1), new THREE.MeshBasicMaterial({ map: this.crtT })); scr.rotation.y = Math.PI; add(scr, X(-0.5), F + 1.6, 8.29, false);
+      add(new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 0.8), mt(0x7a7466)), X(-0.5), F + 0.4, 7.2); addBox(X(-2.5), X(1.5), 6.8, 9);
+      this.recM = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.32), mt(0x2a2a28)), X(1), F + 0.9, 7.1); this.mReels = [-0.11, 0.11].map(dx => add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 10), mt(0x8a7a5a)), X(1 + dx), F + 1.0, 7.1, false));
+      this.crtN = 0; this.drawCRT(0); }
+    // l'azoto: tubi lungo le pareti, fughe
+    { const pm = mt(0x9aa4aa, { metalness: 0.5, roughness: 0.4 }); for (const z of [-1.4, 1.4]) { const p = add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 22, 10), pm), X(19), F + 2.3, z); p.rotation.z = Math.PI / 2; }
+      const fogT = radialTex([[0, 'rgba(235,245,255,0.9)'], [1, 'rgba(235,245,255,0)']], 64);
+      this.jets = L9.JETS.map(([x, z, ph]) => { const sp = []; for (let k = 0; k < 7; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fogT, transparent: true, depthWrite: false, opacity: 0 })); world.add(s); sp.push(s); }
+        const fr = add(new THREE.Mesh(new THREE.CircleGeometry(1.2, 16), new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0, depthWrite: false })), X(x), F + 0.02, z * 0.6, false); fr.rotation.x = -Math.PI / 2;
+        return { x: X(x), z, ph, sp, fr, on: 0, period: 5.2 }; });
+      this.hitCool = 0; this.hits = 0;
+      // la porta che si piega quando l'Inseguitore la colpisce
+      this.bangDoor = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.12), mt(0x5a6268, { metalness: 0.6 })), X(L9.BANG), F + 1.1, 1.55);
+      for (const x of L9.NICHES) add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })), X(x), 2.4, -2.6, false); }
+    // anticamera: console e diario
+    { add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 0.7), mt(0x5a5e58)), X(35), F + 0.5, -3.3); addBox(X(34.3), X(35.7), -3.8, -2.9);
+      this.diaryM = add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.22), mt(0x2a1a14)), X(35), F + 1.04, -3.2); }
+    // luci al neon (alcune tremolano)
+    this.neons = [];
+    for (const [x, z, c] of [[-20, 0, 0xe8f0ff], [-9, 0, 0xe8f0ff], [1, 2.5, 0xe8f0ff], [-15, -7, 0x9ad0ff], [18, 0, 0xc8e0ff], [35, 0, 0xe8e0d0]]) {
+      const l = new THREE.PointLight(c, 8, 13, 1.3); l.position.set(X(x), 2.85, z); world.add(l); const b = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.16), new THREE.MeshBasicMaterial({ color: 0xf4f8ff })), X(x), 2.95, z, false); this.neons.push({ l, b, base: 6, ph: Math.random() * 9 }); }
+    this.redL = new THREE.PointLight(0xff2010, 0, 9, 1.4); this.redL.position.set(X(7), 2.6, 0); world.add(this.redL);
+    // i quattro soldati: maschera antigas, fucile, un cono di luce
+    const mk = (path, z, live = true) => { const N = makeNPC({ x: X(path[0]), z, heading: Math.PI / 2, tint: TINT.soldier, mask: true, rifle: true, walk: true, noOutline: true });
+      const sp = { intensity: 0 };
+      const cg = new THREE.ConeGeometry(1.4, 5.5, 16, 1, true); cg.rotateX(-Math.PI / 2); cg.translate(0, 0, 2.75); const cmat = coneMat(0xdde8ff); const cone = new THREE.Mesh(cg, cmat); cone.position.set(0.15, 1.3, 0.35); cone.rotation.x = 0.2; N.group.add(cone);
+      return Object.assign(N, { path: path.map(X), pz: z, dir: 1, wait: 0, alert: 0, aimK: 0, sp, cmat, active: live, fired: false }); };
+    this.soldiers = [mk([-20, 6], 0.2, false), mk([-19.5, -11], -8.2), mk([-4.5, 3.5], 5.4), mk([9.5, 28], 0)];
+    this.soldiers[0].group.visible = false; this.soldiers[0].dir = -1; this.soldiers[0].x = X(6);
+    this.flashS = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffe0a0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: false })); world.add(this.flashS);
+    this.stalker = makeFigure('stalker', { cool: 1e9 });
+  },
+  drawCRT(t) {
+    const c = this.crt, m = c.getContext('2d'), places = ['ДВОР', 'ОСТАНОВКА 6', 'КПП', 'ДОМ КУЛЬТУРЫ', 'БОЛЬНИЦА № 3', 'РАДИОСТАНЦИЯ'];
+    m.fillStyle = '#0a0c0a'; m.fillRect(0, 0, 768, 384);
+    for (let k = 0; k < 6; k++) { const x0 = (k % 3) * 256 + 8, y0 = Math.floor(k / 3) * 192 + 8, w = 240, h = 176;
+      const off = k === 1 || k === 3 || k === 5;
+      if (off) { m.fillStyle = '#121614'; m.fillRect(x0, y0, w, h); m.fillStyle = 'rgba(200,220,210,0.05)'; m.fillRect(x0 + 20, y0 + 14, 60, 30); continue; }
+      const apt = k === 0 && this.aptT > 0;
+      m.fillStyle = '#2a322c'; m.fillRect(x0, y0, w, h);
+      if (apt) { // il corridoio del palazzo, la porta, una figura col mio cappotto
+        m.fillStyle = '#4a544c'; m.fillRect(x0 + 20, y0 + 20, 200, 130); m.fillStyle = '#1a201c'; m.fillRect(x0 + 150, y0 + 40, 40, 100); m.fillStyle = '#8a9a8c'; m.fillRect(x0 + 160, y0 + 30, 22, 10);
+        m.fillStyle = '#c8d8c8'; m.font = 'bold 12px monospace'; m.fillText('417', x0 + 160, y0 + 39);
+        const fx = this.aptT < 4 ? x0 + 30 + this.aptT * 30 : x0 + 150; m.fillStyle = '#0a0e0a'; m.fillRect(fx, y0 + 70, 18, 70); m.beginPath(); m.arc(fx + 9, y0 + 62, 9, 0, 7); m.fill();
+        if (this.aptT > 6) { for (let n = 0; n < 1200; n++) { m.fillStyle = Math.random() < 0.5 ? '#6a7a6c' : '#101410'; m.fillRect(x0 + Math.random() * w, y0 + Math.random() * h, 3, 2); } }
+      } else {
+        const pl = places[(k + Math.floor(t / 3)) % 6];
+        m.fillStyle = '#5a665c'; m.fillRect(x0, y0 + 110, w, 66);
+        m.fillStyle = '#3a443c'; for (let b = 0; b < 3; b++) m.fillRect(x0 + 14 + b * 76, y0 + 30 + (b % 2) * 18, 60, 90 - (b % 2) * 18);
+        m.fillStyle = '#9aaa9c'; for (let b = 0; b < 12; b++) m.fillRect(x0 + 20 + (b % 6) * 34, y0 + 46 + Math.floor(b / 6) * 26, 8, 10);
+        m.fillStyle = '#c8d8c8'; m.font = 'bold 13px monospace'; m.fillText('КАМ ' + (k + 1) + ' · ' + pl, x0 + 8, y0 + 168);
+      }
+      m.fillStyle = '#c8d8c8'; m.font = 'bold 12px monospace'; m.fillText('12.02.91  23:40', x0 + 128, y0 + 18);
+      for (let y = 0; y < h; y += 3) { m.fillStyle = 'rgba(0,0,0,0.25)'; m.fillRect(x0, y0 + y, w, 1); }
+      m.fillStyle = `rgba(200,230,210,${0.04 + Math.random() * 0.05})`; m.fillRect(x0, y0 + ((t * 60) % h), w, 6);
+    }
+    this.crtT.needsUpdate = true;
+  },
+  items() {
+    const S = state, self = this, X = x => L9.X + x, have = k => state.items.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    return [
+      { id: 'impronte', x: X(L9.PRINT_END - 0.2), z: -0.6, r: 1.3, kneel: true, label: 'Le impronte rigide', done: () => f.prints, use() { self.printsStop(); } },
+      { id: 'targhetta', x: X(-7), z: -1.2, r: 1.1, my: 1.6, label: 'Una targhetta sulla parete', use() {
+          say([Q('«ПЕРСОНАЛУ ЗАПРЕЩЕНО ПОКИДАТЬ ОБЪЕКТ»') + ' — Al personale è vietato lasciare l\'installazione.', 'Sotto, qualcuno ha inciso: ' + Q('«ОН ВСЁ ЕЩЁ ЗДЕСЬ.»') + ' — Lui è ancora qui.']); say('Passo oltre.'); } },
+      { id: 'cassetta', x: X(L9.BOX.x), z: 1.1, r: 1.1, my: 1.4, label: 'Cassetta tecnica', gone: () => have('fusibile') || f.heat, use() {
+          Sound.creak(); self.boxDoor.rotation.y = 1.2; S.items.add('fusibile'); Sound.pick(); say('Una cassetta tecnica. Dentro, tra fusibili bruciati, ce n\'è uno ancora buono. Lo prendo.'); refreshObjective(); } },
+      { id: 'stufetta', x: X(L9.HEAT.x), z: L9.HEAT.z + 0.9, r: 1.2, my: 0.9, label: () => f.heat ? 'La stufetta' : 'Stufetta industriale', use() {
+          if (f.heat) { say('Resistenze elettriche al massimo. È l\'unico punto caldo di questo piano.'); return; }
+          if (!have('fusibile')) { say(['Una piccola stufetta industriale collegata a una presa di emergenza. Le resistenze sono spente.', 'Apro il pannello laterale: il cavo è a posto, ma il fusibile è bruciato. Ne serve un altro.']); f.needFuse = true; refreshObjective(); return; }
+          S.items.delete('fusibile'); f.heat = true; self.heater.lit = true; Sound.clunk(); S.checkpoint = { x: X(L9.HEAT.x), z: L9.HEAT.z + 1.3 }; refreshObjective();
+          say(['Inserisco il fusibile. Le resistenze diventano rosse. Il calore comincia lentamente a diffondersi.', 'Resistenze elettriche al massimo. È l\'unico punto caldo di questo piano.']);
+          say('Avvicino le mani. Per qualche istante il rumore delle apparecchiature sembra diminuire.');
+          act(() => { Sound.burst(600, 2, 1.2, 0.08, 'bandpass'); }); say('…non dovevi tornare.', 'VOCE DAL CONDOTTO'); say('Alzo lo sguardo. Il condotto di ventilazione è vuoto.'); } },
+      { id: 'provette', x: X(-15), z: -4.9, r: 1.3, my: 1.1, label: 'Banco dei campioni', use() {
+          say(['Provette, contenitori metallici, cartelle cliniche. La sostanza nei campioni assomiglia alla neve in superficie, ma non si scioglie.', 'Prendo una provetta e la guardo controluce.']);
+          say('«È la stessa sostanza dell\'ospedale.»', 'DMITRI'); say('La rimetto al suo posto.');
+          if (!f.cellNoise) { f.cellNoise = true; act(() => Sound.knock(0)); say('Un rumore, dalla terza cella.'); refreshObjective(); } } },
+      { id: 'cella', x: X(-13.5), z: -9.9, r: 1.3, my: 1.5, label: 'Cella criogenica n. 3', done: () => f.cell, use() {
+          if (f.cell) { say('Dentro c\'è una figura immobile, ibernata nel ghiaccio azzurro. Indossa un camice da laboratorio, ma ha la mia stessa corporatura.'); return; }
+          f.cell = true; refreshObjective();
+          say(['Dentro c\'è una figura immobile, ibernata nel ghiaccio azzurro. Indossa un camice da laboratorio, ma ha la mia stessa corporatura.', 'Il volto è coperto da uno strato di brina.']);
+          say('Appoggio una mano sul vetro.'); say('«Chi sei?»', 'DMITRI'); say('Nessuna risposta.');
+          act(() => { self.handT = 0.001; Sound.glitch(); }); say(['La condensa si forma lentamente sul vetro, proprio sotto la mia mano.', 'Per un istante sembra apparire una seconda impronta. Dall\'interno.']);
+          say('Arretro. Non apro la cella.'); } },
+      { id: 'rapporto', x: X(-10), z: -4.7, r: 1.2, my: 1.3, clue: true, label: 'Il terminale', use() {
+          act(() => { Sound.click(); self.termM.map = textTex(['ДОСТУП', 'ПОДТВЕРЖДЁН', 'ВОРОНИН Д. А.'], 128, 96, '#061006', '#60e070', 'bold 15px monospace'); self.termM.needsUpdate = true; });
+          say(['Premo un tasto. Una schermata di accesso. Il sistema riconosce da solo il mio tesserino:', Q('«ДОСТУП ПОДТВЕРЖДЁН — ВОРОНИН Д. А.»') + ' — Accesso confermato.']); say('«Ancora io…»', 'DMITRI');
+          say([Q('«ПРОЕКТ «ТЕРМИЧЕСКИЙ ЦИКЛ» — АНАЛИТИЧЕСКАЯ ЗАПИСКА.»') + ' — Nota analitica.', '«In caso di guasto del reattore alle ore 23:40, la città entra in un anello temporale chiuso. Il tempo viene azzerato ogni giorno e la materia fisica arretra al suo stato precedente.»',
+            '«L\'unico elemento che mantiene la continuità della memoria e lascia tracce persistenti nello spazio è la coscienza dell\'operatore che ha avviato lo sfiato d\'emergenza.»', 'Identificazione del soggetto: ' + Q('«СУБЪЕКТ В.»') + ' — Soggetto V.'], 'TERMINALE');
+          say('«La materia torna indietro…» Guardo la mia mano. «Ma la memoria rimane.»', 'DMITRI');
+          say('Le impronte. Le registrazioni. Le fotografie. Non sono semplici ricordi: sono residui di qualcosa che continua a ripetersi.'); } },
+      { id: 'monitor', x: X(-0.5), z: 6.2, r: 1.4, my: 1.6, label: 'I monitor', done: () => f.mon, use() {
+          if (f.mon) { say('Il cortile. La fermata. Il posto di blocco. Il Дом культуры. L\'ospedale. La stazione radio. Tutta la città, alle 23:40.'); return; }
+          f.mon = true; refreshObjective();
+          say(['Sei monitor CRT. Tre sono spenti. Gli altri mostrano la città: il cortile, la fermata del filobus, il posto di blocco, il Дом культуры, l\'ospedale, la stazione radio.', 'Riprese di telecamere di sorveglianza.']);
+          act(() => { self.aptT = 0.001; }); say('Su uno schermo compare il mio appartamento. Le finestre sono già inchiodate dall\'interno.'); say('«Questa ripresa…»', 'DMITRI');
+          say(['Il corridoio del palazzo. Una figura attraversa l\'inquadratura. Indossa il mio cappotto.', 'Si ferma davanti alla porta dell\'appartamento. Poi l\'immagine si interrompe.']);
+          say('Provo a riavvolgere il filmato. Il sistema non risponde.'); } },
+      { id: 'direttore', x: X(1), z: 6.4, r: 1.1, my: 1.1, clue: true, label: 'Il registratore', use() {
+          say(['Accanto al registratore, una microcassetta militare. Etichetta: ' + Q('«ДИРЕКТОР ПРОЕКТА — ПОСЛЕДНЯЯ ЗАПИСЬ»') + ' — Direttore del progetto, ultima registrazione.', 'La inserisco. PLAY.']);
+          act(() => { Sound.tape(); self.mSpin = true; });
+          say('…Abbiamo perso il controllo dell\'isolamento. La temperatura sta precipitando in maniera esponenziale.', 'DIRETTORE'); say('Ma la cosa peggiore è un\'altra. Il tecnico Voronin si è rifiutato di evacuare.', 'DIRETTORE');
+          say('È convinto che se permettiamo al Ciclo di concludersi, le persone scompariranno definitivamente.', 'DIRETTORE');
+          act(() => Sound.thud()); say('Si è chiuso nel livello inferiore e ha vincolato il sistema alla propria coscienza. Ogni mattina, per lui, ricomincia da capo vicino alla sua stessa casa.', 'DIRETTORE');
+          act(() => { self.mSpin = false; Sound.click(); }); say('La registrazione termina. Silenzio.');
+          say('«Mi sono rifiutato di evacuare…» Guardo i monitor. «Perché pensavo di poterli salvare.»', 'DMITRI');
+          act(() => Sound.radio(1.2)); say('Il walkie-talkie si accende da solo. Una voce distorta:'); say('«Non hai salvato nessuno.»', 'WALKIE-TALKIE'); say('La comunicazione si interrompe. Non rispondo.'); } },
+      { id: 'tastierino', x: X(L9.B.x1 - 0.9), z: -1.0, r: 1.1, my: 1.4, label: 'Terminale di accesso', done: () => f.code, use() {
+          if (!S.clues.has('direttore') || !S.clues.has('rapporto')) { say(['Una porta corazzata. ' + Q('«РЕАКТОР «ТЕРМИЧЕСКИЙ ЦИКЛ И ЭНЕРГЕТИЧЕСКАЯ ПАМЯТЬ»»') + '. Accanto, un tastierino numerico.', 'Prima voglio capire cosa c\'è in questo blocco. Il laboratorio, la sala monitor.']); return; }
+          self.code(); } },
+      { id: 'diario', x: X(35), z: -2.4, r: 1.2, my: 1.2, clue: true, label: 'Il diario di bordo', needs: () => f.code, use() {
+          self.diaryM.visible = false;
+          say('Sul leggio della console, un diario di bordo. La copertina è bruciata sui bordi.');
+          say([Q('«ЗАПИСЬ В ЖУРНАЛЕ СПЕЦОБЪЕКТА — 12.02.1991 (ПОСЛЕДНЯЯ).»'), '«La valvola è stata aperta manualmente. Il circuito di protezione è stato vincolato al sottoscritto.»',
+            '«Se chiudo la valvola, il Ciclo verrà interrotto e la realtà potrà proseguire. Ma nessuno di quelli rimasti nella città tornerà.»', '«Se la lascio aperta, la neve ricomincerà.»', '«Il mio numero è 0417. Io sono la chiave di questo inverno.»'], 'DIARIO DEL REATTORE');
+          say('Chiudo il diario. Non ho più bisogno di guardare il tesserino. 0417 non è una matricola: è il mio accesso al sistema. È il motivo per cui ogni volta ritorno.');
+          say('«Se chiudo la valvola… loro non torneranno.» Mi volto verso il cilindro. «Se la lascio aperta… ricomincia tutto.»', 'DMITRI');
+          say('Per la prima volta la mia paura non riguarda la morte. Riguarda quello che potrebbe succedere se smettessi di tentare.'); } },
+      { id: 'cuore', x: X(L9.ANTE.x1 - 0.9), z: 0.6, r: 1.3, my: 1.4, label: 'La porta interna', needs: () => S.clues.has('diario'), use() {
+          if (!S.clues.has('diario')) { say('La porta interna della camera. Il rumore del reattore, dall\'altra parte. Prima… il diario sulla console.'); return; }
+          self.finale(); } },
+    ];
+  },
+  printsStop() {
+    const S = state, f = S.flags; f.prints = true;
+    say(['Le impronte rigide attraversano il corridoio. Le stesse che ho seguito fin dall\'inizio.', 'Ma qui, davanti alla porta del laboratorio criogenico, si interrompono. Non proseguono oltre.']);
+    say('«Perché ti sei fermato proprio qui?»', 'DMITRI');
+    act(() => { this.redOn = true; Sound.bolt(); const S1 = this.soldiers[0]; S1.active = true; S1.group.visible = true; });
+    say(['Una luce rossa si accende in fondo al corridoio. CLACK. Una porta si apre lentamente.', 'Una figura con la maschera antigas, il cappotto grigio-verde e un fucile. Non respira. Non lascia impronte.']);
+    say('La sua torcia attraversa il corridoio. Se resto immobile, la luce mi passa davanti.'); act(() => refreshObjective());
+  },
+  code() {
+    const S = state, f = S.flags; f.code = true; interactables = interactables.filter(i => i.id !== 'tastierino');
+    say(['Il sistema richiede il codice identificativo del tecnico responsabile. Guardo il mio tesserino.', '0417.']);
+    for (let k = 1; k <= 4; k++) act(() => { Sound.tone(900 + k * 60, 0.08, 0.06, 'square'); this.padM.map = textTex(['ТЕРМИНАЛ ДОСТУПА', 'УРОВЕНЬ 4', '0417'.slice(0, k).split('').join(' ') + ' _'.repeat(4 - k)], 256, 160, '#0a1408', '#70d080', 'bold 24px monospace'); this.padM.needsUpdate = true; });
+    act(() => { Sound.tone(1320, 0.3, 0.08, 'triangle'); this.padM.map = textTex(['ДОСТУП', 'РАЗРЕШЁН'], 256, 160, '#0a1408', '#70d080', 'bold 30px monospace'); this.padM.needsUpdate = true; this.rOpen = 0.001; Sound.clunk(); S.checkpoint = { x: L9.X + L9.ANTE.x0 + 1.5, z: 0.5 }; refreshObjective(); });
+    say(['Il terminale emette un suono: ' + Q('«ДОСТУП РАЗРЕШЁН»') + ' — Accesso consentito.', 'La porta comincia ad aprirsi. Un\'anticamera, e oltre una stanza circolare: un grande cilindro metallico, una luce azzurra che pulsa a intervalli regolari.']);
+  },
+  finale() {
+    const S = state, f = S.flags; if (f.leaving) return; f.leaving = true; interactables = [];
+    act(() => { this.dim = true; Sound.sting(); });
+    say('Avanzo verso la porta interna. Il rumore del reattore diventa sempre più forte. Le luci si abbassano.');
+    say('Operatore 0417. Identificazione confermata.', 'ALTOPARLANTE'); say('Benvenuto nuovamente nel Ciclo Termico.', 'ALTOPARLANTE');
+    act(() => { this.stopM.opacity = 1; Sound.tone(660, 0.4, 0.07, 'square'); }); say('La procedura di arresto è disponibile.', 'ALTOPARLANTE');
+    say('Sul display: ' + Q('«ОСТАНОВКА ЦИКЛА — НЕОБРАТИМО»') + ' — Arresto del Ciclo, irreversibile.');
+    say('Guardo la porta. Poi il diario.'); say('«Quante volte sono arrivato fin qui?»', 'DMITRI'); say('Non disponiamo di un numero attendibile.', 'ALTOPARLANTE');
+    act(() => { this.iOpen = 0.001; Sound.clunk(); shake = 0.4; });
+    say(['La porta corazzata si apre completamente. Davanti a me, la grande valvola principale.', 'La stessa che mi ha lasciato le cicatrici sul palmo.']);
+    say('Avanzo.');
+    act(() => { this.blackout = 0.001; });
+    this.endPending = true;
+  },
+  gapLines(reason) {
+    if (reason === 'sparo') return ['CLACK. Poi lo sparo. Il colpo arriva prima del suono.', 'Le piastrelle fredde sotto la guancia. Una maschera si china su di me, senza fretta.', 'Mi risveglio più indietro. Sul cappotto, nessun buco. Attorno a me, le mie impronte.'];
+    if (reason === 'azoto') return ['L\'azoto mi avvolge le gambe. Un freddo che non è freddo: è il silenzio di tutto il corpo.', 'Mi risveglio più indietro, rannicchiato. Attorno a me, le mie impronte.'];
+    return null;
+  },
+  phase() { const f = state.flags, c = state.clues, have = k => state.items.has(k);
+    if (!f.prints) return 1; if (!f.heat) return have('fusibile') ? 3 : 2; if (!f.cell) return 4; if (!c.has('rapporto')) return 5; if (!f.mon) return 6; if (!c.has('direttore')) return 7; if (!f.code) return 8; if (!c.has('diario')) return 9; return 10; },
+  objective() { return ['', 'Esplora il blocco laboratori', 'Supera le guardie silenziose · trova un fusibile per la stufetta', 'Riattiva la stufetta industriale', 'Esplora il laboratorio di criogenia', 'Leggi il terminale del laboratorio',
+    'Trova la sala monitor', 'Ascolta la registrazione del Direttore', 'Attraversa il corridoio dell\'azoto fino alla porta del reattore', 'Esamina la console dell\'anticamera', 'Entra nella camera del reattore'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase();
+    return [null, by('impronte'), by('cassetta'), by('stufetta'), by('cella'), by('rapporto'), by('monitor'), by('direttore'), by('tastierino'), by('diario'), by('cuore')][p]; },
+  thought() { return ['', 'Le impronte. Le stesse di sempre.', 'Se resto fermo, la luce mi passa davanti. Una cassetta tecnica, sulla parete sud.', 'Il fusibile. La stufetta, poco più avanti.', 'La porta del laboratorio criogenico.', 'Il terminale, sul lato del laboratorio.', 'Una porta laterale, verso sud.', 'Un registratore sul banco.', 'La porta del reattore, oltre l\'azoto.', 'Una console nell\'anticamera.', 'La porta interna.'][this.phase()]; },
+  hint() { return ['', 'Segui le impronte lungo il corridoio: si fermano davanti alla porta del laboratorio, a nord.', 'I soldati vedono solo chi si muove nel loro cono di luce: fermati quando ti passa addosso, usa i carrelli come riparo. La cassetta tecnica è sulla parete sud del corridoio.',
+    'La stufetta è sulla parete nord, a metà corridoio.', 'Entra dalla porta a nord. La cella n. 3 è la terza da sinistra, in fondo.', 'Il terminale è sul lato destro del laboratorio.', 'La sala monitor è a sud, verso la fine del corridoio bianco.', 'Il registratore è sul banco, a destra dei monitor.',
+    'Fughe di azoto: aspetta che il getto si fermi e passa nelle zone libere. Nelle nicchie a nord puoi aspettare. Il tastierino è a sinistra della porta in fondo.', 'Il diario è sulla console, a sinistra nell\'anticamera.', 'La porta interna è in fondo all\'anticamera.'][this.phase()]; },
+  coldTip() { return 'La stufetta industriale, nel corridoio centrale.'; },
+  intro() {
+    setTimeout(() => { act(() => Sound.radio(0.8)); say('Il walkie-talkie emette una scarica. KRRR…'); say('«Sembra un ospedale.» Mi fermo davanti a una parete. «Ma non lo è.»', 'DMITRI');
+      act(() => { Sound.clunk(); }); say('Le porte del montacarichi si chiudono da sole. Il pannello dei comandi si spegne. Non è più possibile tornare alla centrale.'); }, 0);
+    return ['Il montacarichi rallenta con un colpo secco. Le porte blindate si aprono.', 'Un lungo corridoio bianco, plafoniere al neon che si accendono e si spengono a intervalli irregolari.',
+      'Sopra c\'erano carbone, ruggine, tubazioni. Qui tutto è pulito, ordinato, quasi ospedaliero. Sopra l\'ingresso: ' + Q('«СЕКРЕТНЫЙ ОБЪЕКТ «УКРЫТИЕ» — ЛАБОРАТОРНЫЙ БЛОК»') + ' — Installazione segreta «Rifugio».'];
+  },
+  heroHook() { return false; },
+  update(dt, t) {
+    const S = state, f = S.flags, live = S.started && !S.ended && !S.gap, X = L9.X, lx = hero.x - X;
+    snowLayers.forEach(L => L.pts.material.opacity = 0);
+    if (!this.zoomed) { this.zoomed = true; zoomTarget = Math.max(zoomTarget, 2.0); }
+    const cxa = Math.sin(camAz), cza = Math.cos(camAz);
+    for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
+      const want = vx * cxa + vz * cza > 0.2 && Math.hypot(vx, vz) < 8 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+    // neon che tremolano, luce rossa, stufetta, CRT
+    const dimK = this.dim ? 0.35 : 1;
+    this.neons.forEach((N, i) => { const fl = i % 3 === 1 && Math.sin(t * 13 + N.ph) * Math.sin(t * 3.1 + N.ph) > 0.6 ? 0.1 : 1; N.l.intensity = N.base * fl * dimK; N.b.material.color.setScalar(fl > 0.5 ? 0.95 * dimK : 0.25); });
+    this.redL.intensity = this.redOn ? 8 + Math.sin(t * 6) * 3 : 0;
+    this.heatL.intensity = f.heat ? 5 + Math.sin(t * 7) * 0.4 : 0; this.coilM.color.setHex(f.heat ? 0xff4010 : 0x1a0805);
+    if (this.aptT > 0) this.aptT += dt;
+    this.crtAcc = (this.crtAcc || 0) + dt; if (this.crtAcc > 0.25 && Math.abs(lx - (-0.5)) < 9 && hero.z > 0) { this.crtAcc = 0; this.drawCRT(t); }
+    if (this.mSpin) this.mReels.forEach((r, i) => r.rotation.y += dt * (i ? 5 : 4));
+    if (this.handT > 0) { this.handT += dt; this.hand.material.opacity = Math.min(0.8, this.handT * 0.4) * Math.max(0, 1 - (this.handT - 4) * 0.3); }
+    // il freddo del laboratorio criogenico
+    if (hero.z < -2.1 && lx < -8) { S.heat = Math.max(1, S.heat - dt * 1.6); tell('cryo', ['La temperatura precipita. Celle trasparenti ai lati della stanza: alcune vuote, altre con residui di ghiaccio azzurro.', 'Le apparecchiature sono ancora alimentate.']); }
+    if (hero.z > 2.1) tell('monroom', 'Una piccola sala di controllo. Sulla parete, sei monitor CRT.');
+    // i soldati
+    let anyAlert = 0;
+    for (const N of this.soldiers) {
+      if (!N.active || !N.ready) { if (N.ready) { N.group.position.set(N.x, F9, N.z); } continue; }
+      const d = Math.hypot(hero.x - N.x, hero.z - N.z);
+      let a = Math.atan2(hero.x - N.x, hero.z - N.z) - N.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
+      const inCone = d < 6.2 && Math.abs(a) < 0.45 && rayWall(N.x, N.z, (hero.x - N.x) / d, (hero.z - N.z) / d, d) >= d - 0.3;
+      const moving = hero.speed > 0.35;
+      if (live && !reading() && !downed() && (inCone && moving || (d < 1.0 && moving))) N.alert = Math.min(2, N.alert + dt * (d < 3 ? 1.6 : 1));
+      else N.alert = Math.max(0, N.alert - dt * (inCone ? 0.25 : 0.6));
+      if (N.alert > 0.35 && !N.bolted) { N.bolted = true; Sound.bolt(); dreadSpike = 1; tell('seen', 'CLACK. L\'otturatore. Il fucile si alza verso di me. Fermo. Non muoverti.'); }
+      if (N.alert < 0.1) N.bolted = false;
+      if (N.alert > 1.25 && live) { N.alert = 0; N.bolted = false; const p = new THREE.Vector3(); if (N.muzzle) N.muzzle.getWorldPosition(p); else p.set(N.x, 1.4, N.z);
+        this.flashS.position.copy(p); this.flashS.material.opacity = 1; Sound.gunshot(d); shake = 0.7; flash = Math.max(flash, 0.3); memoryGap('sparo'); }
+      anyAlert = Math.max(anyAlert, N.alert);
+      const aimW = N.alert > 0.3 ? 1 : 0; N.aimK = lerp(N.aimK, aimW, damp(aimW ? 9 : 2.5, dt)); setAim(N, N.aimK);
+      if (aimW) { let dh = Math.atan2(hero.x - N.x, hero.z - N.z) - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(8, dt); }
+      else if (N.aimK < 0.2) {
+        if (N.wait > 0) { N.wait -= dt; const want = N.dir > 0 ? Math.PI / 2 : -Math.PI / 2; let dh = want - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(2.5, dt); N.mixer.update(dt * 0.3); }
+        else { N.x += N.dir * 0.9 * dt; N.mixer.update(dt * 0.8); const want = N.dir > 0 ? Math.PI / 2 : -Math.PI / 2; let dh = want - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(5, dt);
+          if (N.x > N.path[1] || N.x < N.path[0]) { N.x = clamp(N.x, N.path[0], N.path[1]); N.dir *= -1; N.wait = 2.2; } }
+        N.z = N.pz;
+      }
+      N.group.position.set(N.x, F9, N.z); N.group.rotation.y = N.heading;
+      N.sp.intensity = 30; N.cmat.uniforms.uOpacity.value = 0.08 + N.alert * 0.06;
+    }
+    this.flashS.material.opacity *= Math.exp(-dt * 12);
+    // le fughe di azoto
+    this.hitCool = Math.max(0, this.hitCool - dt);
+    for (const J of this.jets) {
+      const cyc = ((t + J.ph) % J.period) / J.period, on = cyc < 0.42 ? 1 : 0; J.on = lerp(J.on, on, damp(6, dt));
+      J.sp.forEach((s, k) => { const q = (t * 0.9 + k / 7) % 1; s.position.set(J.x + Math.sin(k * 2.3) * q * 1.2, 0.15 + q * 0.5, J.z * (1 - q * 0.8)); s.scale.setScalar(0.5 + q * 1.8); s.material.opacity = J.on * 0.75 * Math.sin(q * Math.PI); });
+      J.fr.material.opacity = J.on * 0.35;
+      const d = Math.hypot(hero.x - J.x, hero.z - J.z * 0.6);
+      if (live && J.on > 0.6 && d < 1.15 && this.hitCool <= 0 && !downed()) { this.hitCool = 1.4; this.hits++; S.heat = Math.max(1, S.heat - 22); flash = 0.4; Sound.burst(2600, 0.5, 0.7, 0.3, 'highpass'); hero.kvx = (hero.x - J.x) * 3; hero.kvz = (hero.z - J.z * 0.6) * 3;
+        if (this.hits >= 3 || S.heat < 8) { this.hits = 0; memoryGap('azoto'); } else showMsg('L\'azoto mi gela le gambe!<br>Aspetta che la fuga si fermi.'); }
+    }
+    if (lx > 8.5 && lx < 30) tell('nitro', ['Dalle tubazioni fuoriesce azoto criogenico. Il gas si deposita sul pavimento: una nebbia bianca e bassa.', 'Le valvole automatiche interrompono il rilascio a intervalli. Devo passare quando si fermano.']);
+    // l'Inseguitore dietro la parete: passi, poi un colpo contro la porta
+    if (lx > 12.5 && !this.bangDone && live) { this.tunk = (this.tunk || 0) + dt; this.tunkT = (this.tunkT || 0) - dt;
+      if (this.tunkT <= 0 && this.tunk < 5) { this.tunkT = 0.75; Sound.thud(); tell('tunk', 'TUNK… TUNK… TUNK… Passi, dietro la parete. Pesanti. Seguono i miei.'); }
+      if (this.tunk > 5 && Math.abs(lx - L9.BANG) < 5) { this.bangDone = true; Sound.clunk(); Sound.burst(200, 0.6, 0.6, 0.5, 'lowpass'); shake = 0.8; dreadSpike = 1; this.bangK = 0.001;
+        tell('bang', ['Un colpo violento contro una porta. La lamiera si piega verso l\'interno.', 'Le nicchie, a nord. Aspetto. Il rumore si allontana.']); } }
+    if (this.bangK > 0 && this.bangK < 1) { this.bangK = Math.min(1, this.bangK + dt * 6); this.bangDoor.scale.z = 1 + this.bangK * 2.2; this.bangDoor.position.z = 1.55 - this.bangK * 0.12; this.bangDoor.rotation.x = -this.bangK * 0.06; }
+    // le porte del reattore
+    if (this.rOpen > 0 && this.rOpen < 1) { this.rOpen = Math.min(1, this.rOpen + dt * 0.4); this.rDoorM.position.z = smooth01(this.rOpen) * 3.0; if (this.rOpen > 0.5) this.reDoor.off = true; }
+    if (this.iOpen > 0 && this.iOpen < 1) { this.iOpen = Math.min(1, this.iOpen + dt * 0.4); this.iDoorM.position.z = smooth01(this.iOpen) * 2.0; if (this.iOpen > 0.5) this.inDoor.off = true; }
+    this.coreM.emissiveIntensity = 0.3 + 0.3 * Math.max(0, Math.sin(t * 2.6)); this.coreL.intensity = (8 + 6 * Math.max(0, Math.sin(t * 2.6))) * (this.iOpen > 0 ? 1.4 : 1);
+    if (Math.abs(lx - 40) < 12 && Math.sin(t * 2.6) > 0.995) Sound.tone(50, 0.3, 0.12, 'sine');
+    if (this.blackout > 0) { this.blackout += dt; if (this.blackout > 0.5) $('fade').classList.add('on'); }
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 2.4; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; $('fade').classList.remove('on'); endChapter(); } }
+  },
+  ending() {
+    return { text: 'Il tempo e la materia tornano indietro ogni notte. Solo la mia coscienza resta: è quella a tenere aperto il Ciclo.<br><br>Mi sono rifiutato di evacuare. Ho vincolato il sistema a me stesso, perché chiudere la valvola significava abbandonarli.<br><br>Il mio numero è 0417. Io sono la chiave di questo inverno.',
+      next: 0, nextLabel: 'CAPITOLO X · LA VALVOLA — in arrivo' };
+  },
+};
+const F9 = 0.05;
+
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7, 8: CH8, 9: CH9 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
