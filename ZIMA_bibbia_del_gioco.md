@@ -245,3 +245,15 @@ Calco in gesso dell'impronta, provette, walkie-talkie, lanterna, abiti come prog
 ---
 
 *Stato attuale del progetto: capitoli I–III giocabili, pubblicati su GitHub Pages (repository «-L-inverno-lungo»).*
+
+---
+
+## Struttura in due archi
+
+**Primo arco — Capitoli I–X:** la città, il freddo, i ricordi, Nina, i misteri e i 312 cicli. Il Capitolo X («La valvola — Fine del ciclo») chiude la vicenda di ZATO-42: la storia di Dmitri in città, la prima parte del mistero dei 312 cicli, la sua responsabilità, il destino della città e del reattore, la scelta irreversibile (biforcazione / estrazione / sincronizzazione).
+
+**Secondo arco — Capitoli XI–XX:** il mondo oltre il perimetro. Nuove installazioni, nuove persone, nuove verità e le conseguenze della scelta di Dmitri.
+
+**Resta aperto:** chi ha costruito il sistema dei reattori; perché ZATO-42 era solo il reattore n. 01; chi impartiva gli ordini dall'esterno; cosa esiste oltre il perimetro; il vero ruolo di Dmitri.
+
+**Principio:** il finale non spiega tutto. Dà una risposta emotivamente soddisfacente sulla prima storia e apre un mistero più grande. Il giocatore deve uscire da ZATO-42 convinto di aver terminato un viaggio, per scoprire di aver soltanto attraversato la prima porta.
