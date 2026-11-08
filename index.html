@@ -242,7 +242,7 @@
     <button class="vhs ch" data-ch="5">V · L'OSPEDALE N. 3<small>le provette</small></button>
     <button class="vhs ch" data-ch="6">VI · LA STAZIONE RADIO<small>il walkie-talkie</small></button>
     <button class="vhs ch" data-ch="7">VII · SOTTO LA CITTÀ<small>il teleriscaldamento e le fogne</small></button>
-    <button class="vhs ch soon" data-ch="8" disabled>VIII · LA ТЭЦ<small>la ciminiera · in arrivo</small></button>
+    <button class="vhs ch" data-ch="8">VIII · LA ТЭЦ<small>la ciminiera</small></button>
     <button class="vhs ch soon" data-ch="9" disabled>IX · I LABORATORI SOTTERRANEI<small>il ciclo termico · in arrivo</small></button>
     <button class="vhs ch soon" data-ch="10" disabled>X · LA VALVOLA<small>fine del ciclo · in arrivo</small></button>
   </div>
@@ -2843,6 +2843,9 @@ const ITEMS = {
   colbacco: { icon: null, img: drawIcon(x => { x.fillStyle = '#3a342c'; x.beginPath(); x.ellipse(0, -4, 34, 26, 0, Math.PI, 0); x.fill(); x.fillRect(-34, -6, 68, 14); x.fillRect(-36, 4, 12, 26); x.fillRect(24, 4, 12, 26); }), name: 'Colbacco foderato', desc: 'Dalla Niva della stazione radio. Il vento morde un po\' meno.', have: () => state.gear.has('colbacco') },
   rompighiaccio: { icon: null, img: drawIcon(x => { x.fillStyle = '#7a7e82'; x.save(); x.rotate(0.6); x.fillRect(-5, -40, 10, 70); x.fillRect(-18, -44, 36, 12); x.restore(); }), name: 'Chiave rompighiaccio', desc: 'Per liberare i tiranti ghiacciati dell\'antenna.' },
   volantino: { icon: null, img: drawIcon(x => { x.strokeStyle = '#5a5a54'; x.lineWidth = 8; x.beginPath(); x.arc(0, 0, 30, 0, 7); x.stroke(); x.beginPath(); x.moveTo(-30, 0); x.lineTo(30, 0); x.moveTo(0, -30); x.lineTo(0, 30); x.stroke(); }), name: 'Volantino di ghisa', desc: 'Dal tubo dismesso della fogna. Compatibile con la valvola В-3.' },
+  chiaveConsole: { icon: null, img: keyIcon, name: 'Chiave della console', desc: 'Dall\'armadietto 0417. Per la console della sala controllo (ГЩУ).' },
+  fotoBrigata: { icon: null, img: paperIcon, name: 'Fotografia della Brigata 3', desc: 'Otto uomini davanti alla centrale. Io al centro, Semënov accanto a me. Sul retro: «ПОСЛЕДНЯЯ СМЕНА. 12.02.1991.»' },
+  piastrina: { icon: null, img: drawIcon(x => { x.fillStyle = '#9a9a90'; x.beginPath(); x.ellipse(0, 0, 26, 36, 0, 0, 7); x.fill(); x.fillStyle = '#2a2a28'; x.font = 'bold 18px monospace'; x.fillText('0418', -22, 6); }), name: 'Piastrina 0418', desc: 'Dal fondo dell\'armadietto 0418. La stessa che Semënov portava al posto di blocco.' },
   chiaveGen: { icon: null, img: keyIcon, name: 'Chiave «ДГУ»', desc: 'La chiave del locale del generatore diesel.' },
   calco: { icon: null, img: castIcon, name: 'Calco in gesso', desc: 'Il calco di un\'impronta di stivale, taglia 43, taglio obliquo sul tacco. «Impronta n. 1». La mia.' },
   chiaveCabina: { icon: null, img: keyIcon, name: 'Chiave della cabina', desc: 'Chiavetta con l\'etichetta «КИНОАППАРАТНАЯ»: la cabina di proiezione.' },
@@ -6472,11 +6475,461 @@ const CH7 = {
   },
   ending() {
     return { text: 'Entro nel piazzale della centrale. La ciminiera bianca e rossa si staglia contro il cielo spento.<br><br>Ho visto 312 tacche col mio cacciavite. Ho letto di un tecnico col cappotto blu e il numero 0417 che passa e fa ricominciare la neve.<br><br>Il tecnico sono io.',
-      next: 0, nextLabel: 'CAPITOLO VIII · LA ТЭЦ — in arrivo' };
+      next: 8, nextLabel: 'CAPITOLO VIII · LA ТЭЦ' };
   },
 };
 
-const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7 };
+const L8 = { X: 120, START: { x: -19.6, z: 6.2 }, CHIM: { x: -17, z: -16.5 }, TRUCK: { x: 6, z: -7.6 }, BARREL: { x: 3.6, z: -4.4 }, GATE: { x: 2, z: -14.6 }, FUELDOOR: { x: 18, z: -9 },
+  WIN: { x: 9.5, y: 8.6 }, BELT: { z0: 2.05, z1: 3.4, a: -21, b: -17, c: -9, d: -6, H: 2.4 }, CABLE: { x0: -17.5, x1: -6.4 }, LOCK: [-5, -4, -3, -2, -1, 0],
+  TURB: [[7.5, 11.5], [14.5, 18.5], [21.5, 25.5]], STAIR: { x: 28.4, z: -5.6 }, CR: { x0: 36, x1: 50 }, COR: { x0: 58, x1: 74 } };
+function ground8(x, z) {
+  const B = L8.BELT, lx = x - L8.X;
+  if (CH8.beltOn && x > 40 && z > B.z0 - 0.02 && z < B.z1 + 0.1 && lx > B.a && lx < B.d) {
+    const h = lx < B.b ? (lx - B.a) / (B.b - B.a) : lx < B.c ? 1 : 1 - (lx - B.c) / (B.d - B.c);
+    return 0.05 + smooth01(clamp(h, 0, 1)) * B.H;
+  }
+  return x > 40 ? 0.05 : 0.02 + Math.sin(x * 0.31) * Math.cos(z * 0.27) * 0.03;
+}
+const CH8 = {
+  id: 8, roman: 'VIII', name: 'La ТЭЦ', clueCount: 3, cold: 0.3, attention: false, ground: ground8,
+  docs: { registro: 'Registro di turno · Brigata 3 · 12.02.1991 · «23:15 — tutta la potenza sul circuito «Ciclo». 23:38 — Voronin e Semënov scendono nel pozzo della valvola principale.»',
+    scatola: 'Scatola nera · 23:40 · «Ancora un giro di valvola e torna tutto come prima!» — la voce è la mia',
+    telegramma: 'Telegramma segreto · «vietato aprire manualmente la valvola di sfiato… anello temporale chiuso nel raggio di 15 km»' },
+  start: { x: L8.START.x, z: L8.START.z, heading: 2.3 }, bounds: [-24, 24, -14.2, 10],
+  env() { setSun(9, -0.7, 0.7); scene.fog.density = 0.017; hemi.intensity = 0.45; },
+  shelter(x) { return x > 40; },
+  snow() {
+    snowBase();
+    // la neve impastata di polvere di carbone
+    cCtx.fillStyle = 'rgba(48,46,44,0.62)'; cCtx.fillRect(0, 0, COL_W, COL_H);
+    for (let k = 0; k < 900; k++) { const [px, py] = toC(-HX + rand() * GW, -HZ + rand() * GD); cCtx.fillStyle = `rgba(${rand() < 0.5 ? '18,17,16' : '90,88,84'},${0.15 + rand() * 0.3})`; cCtx.beginPath(); cCtx.arc(px, py, (0.2 + rand() * 1.2) * CPPU, 0, 7); cCtx.fill(); }
+  },
+  build() {
+    const X = x => L8.X + x, F = 0.05, mt = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o));
+    for (const g of ['walkie', 'guanti', 'cappotto']) if (!state.gear.has(g)) state.gear.add(g);
+    this.walls = []; const wall = CH3.wallKit.call(this);
+    this.beltOn = true;
+    /* ---------- IL PIAZZALE ---------- */
+    const out = this.outG = new THREE.Group(); world.add(out);
+    const put = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; out.add(m); return m; };
+    // la ciminiera bianca e rossa
+    { const cc = document.createElement('canvas'); cc.width = 16; cc.height = 512; const cm = cc.getContext('2d');
+      for (let i = 0; i < 14; i++) { cm.fillStyle = i % 2 ? '#c8c2b8' : '#9a3a30'; cm.fillRect(0, i * 512 / 14, 16, 512 / 14); }
+      for (let k = 0; k < 300; k++) { cm.fillStyle = `rgba(20,18,16,${Math.random() * 0.25})`; cm.fillRect(Math.random() * 16, Math.random() * 512, 2, 6); }
+      const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace; ct.wrapS = THREE.RepeatWrapping; ct.repeat.x = 6;
+      put(new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.3, 72, 24, 1, true), new THREE.MeshStandardMaterial({ map: ct, roughness: 0.9, side: THREE.DoubleSide })), L8.CHIM.x, 36, L8.CHIM.z);
+      put(new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.8, 1.2, 24), mt(0x5a5652)), L8.CHIM.x, 0.6, L8.CHIM.z);
+      CIRCLES.push([L8.CHIM.x, L8.CHIM.z, 3.9]);
+      this.aviation = new THREE.MeshBasicMaterial({ color: 0x2a0805 });
+      for (const y of [36, 71]) for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4, r = 3.3 - y / 72 * 1.1; put(new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 4), this.aviation), L8.CHIM.x + Math.cos(a) * r, y, L8.CHIM.z + Math.sin(a) * r); } }
+    // la facciata della centrale, con i finestroni
+    { const c = document.createElement('canvas'); c.width = 1024; c.height = 384; const m = c.getContext('2d');
+      m.fillStyle = '#6e6a62'; m.fillRect(0, 0, 1024, 384); for (let k = 0; k < 1600; k++) { m.fillStyle = `rgba(${Math.random() < 0.5 ? '30,28,26' : '150,146,138'},${Math.random() * 0.12})`; m.fillRect(Math.random() * 1024, Math.random() * 384, 4, 4); }
+      for (let col = 0; col < 16; col++) for (let row = 0; row < 3; row++) { const x0 = 18 + col * 63, y0 = 30 + row * 112; m.fillStyle = '#1a1e24'; m.fillRect(x0, y0, 46, 84); m.strokeStyle = '#4a4a46'; m.lineWidth = 3;
+        for (let k = 1; k < 3; k++) { m.beginPath(); m.moveTo(x0 + k * 15, y0); m.lineTo(x0 + k * 15, y0 + 84); m.stroke(); } for (let k = 1; k < 4; k++) { m.beginPath(); m.moveTo(x0, y0 + k * 21); m.lineTo(x0 + 46, y0 + k * 21); m.stroke(); }
+        if (Math.random() < 0.35) { m.fillStyle = 'rgba(200,210,220,0.18)'; m.fillRect(x0 + 2, y0 + 2, 20, 30); } }
+      m.fillStyle = 'rgba(14,12,10,0.6)'; for (let k = 0; k < 40; k++) m.fillRect(Math.random() * 1024, 340 + Math.random() * 44, 20 + Math.random() * 60, 50);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      const fac = put(new THREE.Mesh(new THREE.BoxGeometry(40, 16, 10), [mt(0x5e5a54), mt(0x5e5a54), mt(0x3a3836), mt(0x5e5a54), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }), mt(0x5e5a54)]), 8, 8, -20);
+      addBox(-12, 28, -25, -15);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.2), new THREE.MeshStandardMaterial({ map: textTex(['ТЭЦ ЗАТО-42 ИМ. В. И. ЛЕНИНА'], 1024, 88, '#b8b0a0', '#7a1a14', 'bold 60px serif'), emissive: 0x220806, roughness: 0.8 }));
+      put(sg, 2, 13.4, -14.94);
+      // il portone principale, bloccato dal ghiaccio
+      put(new THREE.Mesh(new THREE.BoxGeometry(4.2, 4.6, 0.3), mt(0x3e4246, { metalness: 0.5, roughness: 0.6 })), L8.GATE.x, 2.3, -14.95);
+      put(new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.5, 0.6), mt(0xc8d0d8, { roughness: 0.3 })), L8.GATE.x, 0.25, -14.6);
+      // la finestra in alto dove compare la sagoma
+      this.winGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.1), new THREE.MeshBasicMaterial({ color: 0x8a96a0, transparent: true, opacity: 0 })); put(this.winGlow, L8.WIN.x, L8.WIN.y, -14.93);
+      const sil = new THREE.Group(); const sm = new THREE.MeshBasicMaterial({ color: 0x050607, transparent: true, opacity: 0 });
+      const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.9, 4, 8), sm); sb.position.y = -0.3; const sh = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), sm); sh.position.y = 0.45; sil.add(sb, sh); sil.position.set(L8.WIN.x, L8.WIN.y, -14.9); out.add(sil); this.silM = sm; }
+    // l'ala del reparto combustibile e la galleria inclinata del nastro
+    { const wing = put(new THREE.Mesh(new THREE.BoxGeometry(12, 9, 6), mt(0x625e56)), 18, 4.5, -12); addBox(12, 24, -15, -9);
+      const dr = put(new THREE.Mesh(new THREE.BoxGeometry(2.4, 3, 0.2), mt(0x4a3a2a, { roughness: 0.8 })), L8.FUELDOOR.x, 1.5, -8.95);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.5), new THREE.MeshStandardMaterial({ map: textTex(['ТОПЛИВНЫЙ ЦЕХ — УГОЛЬНЫЙ КОНВЕЙЕР'], 1024, 90, '#d8d4c4', '#1a1a1a', 'bold 46px monospace') })); put(sg, L8.FUELDOOR.x, 3.7, -8.88);
+      const gal = put(new THREE.Mesh(new THREE.BoxGeometry(22, 2.2, 2.4), mt(0x7a766c)), 31, 12, -12); gal.rotation.z = 0.42;
+      this.fuelLamp = new THREE.PointLight(0xffb060, 8, 9, 1.6); this.fuelLamp.position.set(L8.FUELDOOR.x, 4.2, -8.2); out.add(this.fuelLamp); }
+    // il КамАЗ carico di carbone, cumuli e vagonetti
+    this.truck = makeKamaz(L8.TRUCK.x, L8.TRUCK.z, 0);
+    { const coal = mt(0x141312, { roughness: 0.7, metalness: 0.15 }), r = mulberry32(88);
+      for (let k = 0; k < 70; k++) { const s = 0.12 + r() * 0.22, m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), coal); m.position.set(L8.TRUCK.x - 3.6 - r() * 2.2, s * 0.6, L8.TRUCK.z + (r() - 0.5) * 2.4); m.rotation.set(r() * 3, r() * 3, r() * 3); out.add(m); }
+      for (const [x, z, R] of [[-6, -11.5, 2.6], [20, 2.5, 3.2], [-2, 7.5, 1.8]]) { const h = new THREE.Mesh(new THREE.ConeGeometry(R, R * 0.7, 9), coal); h.position.set(x, R * 0.33, z); h.scale.z = 0.7; h.receiveShadow = true; out.add(h); CIRCLES.push([x, z, R * 0.8]); } }
+    this.barrel = makeFireBarrel(L8.BARREL.x, L8.BARREL.z);
+    // l'uscita del collettore, alle spalle
+    { put(new THREE.Mesh(new THREE.BoxGeometry(3, 2.6, 2.4), mt(0x6a6a62)), -21.5, 1.3, 8.6); addBox(-23, -20, 7.4, 9.8);
+      put(new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.0, 0.1), mt(0x5a6268, { metalness: 0.6 })), -21.5, 1.0, 7.38); }
+    // pali della luce, quasi tutti spenti
+    for (const [x, z, on] of [[-10, 3, 1], [8, 4, 0], [14, -4, 1], [-4, -10, 0]]) { const p = put(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 6, 6), mt(0x3a3c3e, { metalness: 0.5 })), x, 3, z); CIRCLES.push([x, z, 0.2]);
+      if (on) { const l = new THREE.PointLight(0xffa860, 14, 14, 1.5); l.position.set(x, 5.8, z); out.add(l); put(new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc080 })), x, 5.9, z); } }
+
+    /* ---------- DENTRO LA CENTRALE (lontano, come gli altri interni) ---------- */
+    const inG = this.inG = new THREE.Group(); world.add(inG); inG.visible = false;
+    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(130, 40), new THREE.MeshBasicMaterial({ color: 0x050607 })); voidM.rotation.x = -Math.PI / 2; voidM.position.set(X(25), -0.3, 0); inG.add(voidM);
+    const add = (m, x, y, z, sh = true) => { m.position.set(x, y, z); if (sh) m.castShadow = m.receiveShadow = true; inG.add(m); return m; };
+    const cc = document.createElement('canvas'); cc.width = cc.height = 128; const cm = cc.getContext('2d'); cm.fillStyle = '#5c5a54'; cm.fillRect(0, 0, 128, 128);
+    for (let k = 0; k < 700; k++) { cm.fillStyle = `rgba(${Math.random() < 0.7 ? '22,20,18' : '140,140,130'},${Math.random() * 0.18})`; cm.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+    const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace; ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.repeat.set(4, 1); const conc = new THREE.MeshStandardMaterial({ map: ct, roughness: 0.95 });
+    const tile = new THREE.MeshStandardMaterial({ color: 0x8a9294, roughness: 0.6 });
+    const floor = (x0, x1, z0, z1, c = 0x5a5850) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshStandardMaterial({ map: ct, color: c, roughness: 0.85 })); p.rotation.x = -Math.PI / 2; p.position.set(X((x0 + x1) / 2), F, (z0 + z1) / 2); p.receiveShadow = true; inG.add(p); return p; };
+    floor(-24, -6, -5, 3.5, 0x3e3c38); floor(-6, 4, -5, 3.5, 0x6a6e6a); floor(4, 30, -7, 7, 0x5a5e5c); floor(L8.CR.x0, L8.CR.x1, -5, 5, 0x6a5a48); floor(L8.COR.x0, L8.COR.x1, -1.6, 1.6, 0xe8ecee);
+    const wallIn = (...a) => { const m = wall(...a); world.remove(m); inG.add(m); return m; };
+    // reparto combustibile
+    wallIn(conc, X(-24), -5, X(4), -5, 5.5); wallIn(conc, X(-24), 3.5, X(4), 3.5, 5.5); wallIn(conc, X(-24), -5, X(-24), 3.5, 5.5);
+    wallIn(conc, X(-6), -5, X(-6), 3.5, 4.2, [[7.05, 8.4]]);
+    // spogliatoio → sala turbine
+    wallIn(conc, X(4), -7, X(4), 7, 6, [[6, 8]]); wallIn(conc, X(4), -7, X(30), -7, 6); wallIn(conc, X(4), 7, X(30), 7, 6); wallIn(conc, X(30), -7, X(30), 7, 6);
+    // sala controllo e corridoio bianco
+    const cream = mt(0xb8b0a0);
+    wallIn(cream, X(L8.CR.x0), -5, X(L8.CR.x1), -5, 3.2); wallIn(cream, X(L8.CR.x0), 5, X(L8.CR.x1), 5, 3.2); wallIn(cream, X(L8.CR.x0), -5, X(L8.CR.x0), 5, 3.2); wallIn(cream, X(L8.CR.x1), -5, X(L8.CR.x1), 5, 3.2, [[3.9, 6.1]]);
+    const white = new THREE.MeshStandardMaterial({ color: 0xf0f4f6, roughness: 0.5, emissive: 0x404448 });
+    wallIn(white, X(L8.COR.x0), -1.6, X(L8.COR.x1), -1.6, 3); wallIn(white, X(L8.COR.x0), 1.6, X(L8.COR.x1), 1.6, 3); wallIn(white, X(L8.COR.x0), -1.6, X(L8.COR.x0), 1.6, 3); wallIn(white, X(L8.COR.x1), -1.6, X(L8.COR.x1), 1.6, 3);
+    this.liftDoor = addBox(X(L8.CR.x1 - 0.1), X(L8.CR.x1 + 0.1), -1.2, 1.2);
+    // i cavi tranciati sul pavimento del reparto combustibile
+    const C8 = L8.CABLE; this.sparkPts = [];
+    for (let k = 0; k < 7; k++) { const z0 = -4.6 + k * 0.85, pts = []; for (let s = 0; s <= 8; s++) { const x = C8.x0 + (C8.x1 - C8.x0) * s / 8; pts.push([X(x), F + 0.04 + Math.abs(Math.sin(s * 1.7 + k)) * 0.05, z0 + Math.sin(s * 1.3 + k * 2) * 0.35]); }
+      const cm2 = curveCable(pts, 0.035); world.remove(cm2); inG.add(cm2); this.sparkPts.push(new THREE.Vector3(...pts[2 + (k % 5)])); }
+    this.sparkLight = new THREE.PointLight(0xa8d8ff, 0, 8, 2); inG.add(this.sparkLight); this.sparks = [];
+    for (let k = 0; k < 28; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexB, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: false })); s.scale.set(0.18, 0.18, 1); inG.add(s); this.sparks.push({ s, v: new THREE.Vector3(), life: 0 }); }
+    this.sparkT = 0.5; this.shockT = 0;
+    // il nastro trasportatore inclinato, coi rulli e il carbone congelato
+    { const B = L8.BELT, bm = mt(0x1e1e1c, { roughness: 0.6 }), frame = mt(0x5a5246, { metalness: 0.5, roughness: 0.6 }), coal = mt(0x121110, { roughness: 0.7 }), zc = (B.z0 + B.z1) / 2, w = B.z1 - B.z0;
+      const seg = (xa, ya, xb, yb) => { const L = Math.hypot(xb - xa, yb - ya), a = Math.atan2(yb - ya, xb - xa);
+        const s = add(new THREE.Mesh(new THREE.BoxGeometry(L, 0.12, w), bm), X((xa + xb) / 2), (ya + yb) / 2 - 0.04, zc); s.rotation.z = a;
+        for (const zz of [B.z0 - 0.04, B.z1 + 0.02]) { const r = add(new THREE.Mesh(new THREE.BoxGeometry(L, 0.22, 0.08), frame), X((xa + xb) / 2), (ya + yb) / 2 + 0.02, zz); r.rotation.z = a; } };
+      seg(B.a, F, B.b, F + B.H); seg(B.b, F + B.H, B.c, F + B.H); seg(B.c, F + B.H, B.d, F);
+      for (let x = B.a + 1; x < B.d - 0.5; x += 1.4) { const y = ground8(X(x), zc); if (y > 0.6) { for (const zz of [B.z0, B.z1]) add(new THREE.Mesh(new THREE.BoxGeometry(0.1, y, 0.1), frame), X(x), y / 2, zz);
+          const rl = add(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, w + 0.1, 8), frame), X(x), y - 0.12, zc); rl.rotation.x = Math.PI / 2; } }
+      const r = mulberry32(31); for (let k = 0; k < 60; k++) { const x = B.a + 0.6 + r() * (B.d - B.a - 1.2), z = B.z0 + 0.15 + r() * (w - 0.3); if (Math.abs(z - zc) < 0.3) continue; const s = 0.06 + r() * 0.1, m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), coal); m.position.set(X(x), ground8(X(x), zc) + s * 0.5, z); inG.add(m); }
+      const rail = addBox(X(B.a + 0.9), X(B.d), B.z0 - 0.12, B.z0 - 0.02); rail.low = true;
+      // un secondo nastro più alto, inutilizzabile, e le tramogge
+      const n2 = add(new THREE.Mesh(new THREE.BoxGeometry(17, 0.3, 1.3), frame), X(-14), 4.4, -2.5); n2.rotation.z = 0.08;
+      for (const x of [-20, -11]) { const h = add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 0.4, 1.6, 8), mt(0x4a4640, { metalness: 0.4 })), X(x), 3.4, -3.6); }
+      this.glove = add(new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.08, 0.3, 2, 0.03), mt(0xc8a050, { roughness: 1 })), X(-13), F + B.H + 0.08, zc); }
+    { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.4), new THREE.MeshStandardMaterial({ map: textTex(['ОПАСНО! ВЫСОКОЕ НАПРЯЖЕНИЕ'], 512, 80, '#e6c84a', '#a01a12', 'bold 34px monospace') })); add(s, X(-18.5), 1.9, -4.9, false); }
+    for (const [x, z] of [[-21, 0], [-14, -1], [-8, 0]]) { const l = new THREE.PointLight(0xffb070, 5, 9, 1.4); l.position.set(X(x), 4.2, z); inG.add(l); add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd090 })), X(x), 4.2, z, false); }
+    // lo spogliatoio della Brigata 3: sei armadietti
+    this.lockers = L8.LOCK.map((x, i) => { const num = ['0415', '0416', '0417', '0418', '0419', '0420'][i], g = new THREE.Group(); g.position.set(X(x), F, -4.6); inG.add(g);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.9, 0.6), mt(0x4a5a5a, { metalness: 0.4, roughness: 0.6 })); body.position.y = 0.95; body.castShadow = true; g.add(body);
+      const door = new THREE.Group(); door.position.set(-0.42, 0, 0.31); g.add(door);
+      const dm = new THREE.Mesh(new THREE.BoxGeometry(0.84, 1.86, 0.03), mt(0x5a6a6a, { metalness: 0.4, roughness: 0.55 })); dm.position.set(0.42, 0.95, 0); door.add(dm);
+      const lb = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.14), new THREE.MeshBasicMaterial({ map: textTex([num], 128, 44, '#d8d4c4', '#1a1a1a', 'bold 30px monospace') })); lb.position.set(0.42, 1.6, 0.02); door.add(lb);
+      if (i === 1 || i === 4) door.rotation.y = -1.1;
+      return { g, door, open: i === 1 || i === 4 ? 1 : 0 }; });
+    addBox(X(-5.5), X(0.5), -5, -4.25);
+    { const bn = add(new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 0.5), mt(0x6a5236)), X(-2.5), F + 0.45, -1.6); for (const x of [-4.2, -0.8]) add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), mt(0x3a3a38)), X(x), F + 0.22, -1.6); addBox(X(-4.5), X(-0.5), -1.85, -1.35).low = true;
+      this.suit = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.12), mt(0x2a3a5a, { roughness: 1 })), X(-3), F + 1.2, -4.35); this.suit.visible = false;
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['РАЗДЕВАЛКА — БРИГАДА № 3'], 512, 80, '#d8d4c4', '#1a1a1a', 'bold 30px monospace') })); add(pl, X(-2.5), 2.6, -4.92, false);
+      this.batt = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 10), mt(0xb8a040, { metalness: 0.6 })), X(-1.2), F + 0.6, -1.6); this.batt.rotation.z = Math.PI / 2;
+      const l = new THREE.PointLight(0xe8e0c0, 5, 8, 1.5); l.position.set(X(-2), 2.6, -1); inG.add(l); }
+    // la sala turbine: tre turbine, colonne, finestroni ghiacciati
+    { const tm = mt(0x3e5a52, { metalness: 0.5, roughness: 0.5 }), dark = mt(0x2a2c2c, { metalness: 0.6, roughness: 0.5 });
+      this.turbBoxes = L8.TURB.map(([a, b]) => { const cx = (a + b) / 2, L = b - a;
+        const h = add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, L, 18), tm), X(cx), F + 1.0, 0); h.rotation.z = Math.PI / 2;
+        add(new THREE.Mesh(new THREE.BoxGeometry(L + 0.4, 1.0, 2.6), dark), X(cx), F + 0.5, 0);
+        const g = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16), new THREE.MeshBasicMaterial({ map: textTex(['◷'], 64, 64, '#e8e4d8', '#b0221c', 'bold 54px monospace') })); add(g, X(a - 0.25), F + 1.3, 0, false); g.rotation.y = -Math.PI / 2;
+        addBox(X(a - 0.2), X(b + 0.2), -1.35, 1.35); return { a, b, g }; });
+      for (const x of [7, 13, 20, 27]) for (const z of [-4.4, 4.4]) { add(new THREE.Mesh(new THREE.BoxGeometry(0.6, z > 0 ? 2.6 : 6, 0.6), mt(0x6a6660)), X(x), z > 0 ? 1.3 : 3, z); addBox(X(x - 0.3), X(x + 0.3), z - 0.3, z + 0.3); }
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.42), new THREE.MeshStandardMaterial({ map: textTex(['ТУРБИННЫЙ ЗАЛ — БРИГАДА № 3'], 512, 70, '#d8d4c4', '#1a1a1a', 'bold 30px monospace') })); add(pl, X(10), 3.6, -6.92, false);
+      for (let k = 0; k < 6; k++) { const w = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.6), new THREE.MeshBasicMaterial({ map: textTex([' '], 64, 96, '#9ab4c8', '#ffffff', '10px serif'), transparent: true, opacity: 0.55 })); add(w, X(6.5 + k * 4), 3.6, -6.9, false); }
+      for (const x of [8, 16, 24]) { const l = new THREE.PointLight(0x9ab8d8, 11, 14, 1.3); l.position.set(X(x), 4.2, 0); inG.add(l); }
+      // la passerella in alto e la scala verso la sala controllo
+      add(new THREE.Mesh(new THREE.BoxGeometry(25, 0.12, 1.2), mt(0x4a4640, { metalness: 0.6 })), X(17), 3.4, -6.3);
+      for (let k = 0; k < 9; k++) add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.32), mt(0x5a5e62, { metalness: 0.6 })), X(L8.STAIR.x - 0.2), F + 0.2 + k * 0.36, -2.9 - k * 0.42);
+      const pl2 = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['↑ ГЩУ'], 256, 48, '#d8d4c4', '#1a1a1a', 'bold 28px monospace') })); add(pl2, X(29.9), 2.4, -5.2, false); pl2.rotation.y = -Math.PI / 2; }
+    // la Brigata 3: sei figure con le tute imbottite e gli elmetti arancioni
+    const suitT = { key: 'brig3', fn: recolor(70, 80, 92, 0.75, 0.6) };
+    this.brig = [[9, -4.8, 0.4], [12.6, 5.1, 2.6], [16.5, -5.2, 0.2], [19.5, 3.4, 3.0], [23.5, -3.4, -0.4], [26.2, 4.6, 2.8]].map(([x, z, h]) => {
+      const N = makeNPC({ x: X(x), z, heading: h, tint: suitT, helmet: true, walk: true, dim: 0.5, noOutline: true }); N.home = [X(x), z, h]; return N; });
+    this.brigCR = [[40.5, 2.2, 2.6], [46.2, -1.8, -0.6]].map(([x, z, h]) => makeNPC({ x: X(x), z, heading: h, tint: suitT, helmet: true, dim: 0.5, noOutline: true }));
+    // la sala controllo: banchi a semicerchio, orologi fermi, quattro leve, il registratore, la bacheca
+    { const CR = L8.CR, desk = mt(0x8a8470, { roughness: 0.7 }), panel = mt(0x6a7a6a, { roughness: 0.6 });
+      for (let k = 0; k < 5; k++) { const a = -0.6 + k * 0.3, x = 43 + Math.sin(a) * 4.2, z = -3.2 + Math.cos(a) * 0.9 - Math.abs(a) * 0.8; const d = add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 0.9), desk), X(x), F + 0.45, z); d.rotation.y = -a;
+        const p = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.7), panel), X(x), F + 0.92, z); p.rotation.y = -a; }
+      addBox(X(39.2), X(46.8), -3.7, -2.3).low = true;
+      const wallP = add(new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, 0.2), mt(0x5a6a5c, { roughness: 0.6 })), X(43), F + 1.8, -4.85);
+      const cl = document.createElement('canvas'); cl.width = 1024; cl.height = 180; const m = cl.getContext('2d'); m.fillStyle = 'rgba(0,0,0,0)'; m.fillRect(0, 0, 1024, 180);
+      for (let k = 0; k < 9; k++) { const x0 = 60 + k * 112; m.fillStyle = '#e8e4d8'; m.beginPath(); m.arc(x0, 70, 34, 0, 7); m.fill(); m.strokeStyle = '#1a1a1a'; m.lineWidth = 5;
+        m.beginPath(); m.moveTo(x0, 70); m.lineTo(x0 + Math.sin(-0.52) * 26, 70 - Math.cos(-0.52) * 26); m.stroke(); m.lineWidth = 3; m.beginPath(); m.moveTo(x0, 70); m.lineTo(x0 + Math.sin(4.19) * 30, 70 - Math.cos(4.19) * 30); m.stroke();
+        m.fillStyle = '#d8d4c4'; m.font = 'bold 22px monospace'; m.fillText('23:40', x0 - 32, 140); }
+      const clt = new THREE.CanvasTexture(cl); clt.colorSpace = THREE.SRGBColorSpace; add(new THREE.Mesh(new THREE.PlaneGeometry(10, 1.76), new THREE.MeshBasicMaterial({ map: clt, transparent: true })), X(43), 2.6, -4.72, false);
+      this.alarmM = new THREE.MeshBasicMaterial({ map: textTex(['АВАРИЯ — КОНТУР «ЦИКЛ»'], 512, 70, '#2a0604', '#ff3020', 'bold 34px monospace') });
+      add(new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.44), this.alarmM), X(43), 1.6, -4.72, false);
+      this.okM = new THREE.MeshBasicMaterial({ map: textTex(['СПЕЦОБЪЕКТ «ЦИКЛ» — ДОСТУП ОТКРЫТ'], 640, 70, '#06140c', '#70e8a0', 'bold 30px monospace'), transparent: true, opacity: 0 });
+      add(new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.4), this.okM), X(43), 1.08, -4.72, false);
+      this.consoleLed = new THREE.MeshBasicMaterial({ color: 0x301008 }); add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.12), this.consoleLed), X(42), F + 0.98, -3.1, false);
+      this.levers = [0, 1, 2, 3].map(i => { const g = new THREE.Group(); g.position.set(X(42.6 + i * 0.4), F + 0.95, -3.2); inG.add(g);
+        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), mt(0x8a8a8a, { metalness: 0.7 })); s.position.y = 0.25; g.add(s);
+        const k = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), mt(0x9a1a14)); k.position.y = 0.5; g.add(k); g.rotation.x = -0.6; return g; });
+      // il registratore della scatola nera
+      { const rec = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.25, 0.45), mt(0x2a2a28, { metalness: 0.4 })), X(45.2), F + 1.05, -3.0); this.reels = [-0.16, 0.16].map(dx => { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 14), mt(0x8a7a5a)); r.position.set(X(45.2 + dx), F + 1.19, -3.0); inG.add(r); return r; });
+        this.bbM = new THREE.MeshBasicMaterial({ map: textTex(['BLACK BOX — 12.02.1991 — 23:40'], 512, 60, '#081008', '#80d090', 'bold 28px monospace'), transparent: true, opacity: 0.25 }); add(new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.11), this.bbM), X(45.2), F + 1.42, -3.22, false); }
+      this.restartM = new THREE.MeshBasicMaterial({ map: textTex(['ПОВТОРНЫЙ ЗАПУСК РАЗРЕШЁН'], 512, 70, '#100404', '#ff5040', 'bold 34px monospace'), transparent: true, opacity: 0 });
+      add(new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.2), this.restartM), X(45.2), F + 1.62, -3.24, false);
+      // la bacheca col telegramma
+      add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.05), mt(0x6a4a2a)), X(37.4), 1.6, -4.85); add(new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.65), mt(0xd8d0b8, { roughness: 1 })), X(37.3), 1.62, -4.8, false);
+      // il montacarichi: porte blindate e la luce azzurra dalla grata
+      this.liftL = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 1.1), mt(0x4a5258, { metalness: 0.7, roughness: 0.4 })), X(CR.x1), F + 1.3, -0.55); this.liftR = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 1.1), mt(0x4a5258, { metalness: 0.7, roughness: 0.4 })), X(CR.x1), F + 1.3, 0.55);
+      this.blueL = new THREE.PointLight(0x5aa8ff, 0, 7, 1.4); this.blueL.position.set(X(CR.x1 - 1), 0.4, 0); inG.add(this.blueL);
+      this.grate = add(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ color: 0x2a5a9a, transparent: true, opacity: 0.0 })), X(CR.x1 - 1), F + 0.01, 0, false); this.grate.rotation.x = -Math.PI / 2;
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.3), new THREE.MeshStandardMaterial({ map: textTex(['ГЛАВНЫЙ ЩИТ УПРАВЛЕНИЯ'], 512, 70, '#d8d4c4', '#1a1a1a', 'bold 34px monospace') })); add(pl, X(CR.x0 + 0.08), 2.5, 2.6, false); pl.rotation.y = Math.PI / 2;
+      for (const [x, z] of [[39, 1], [45, 1], [48.5, -2]]) { const l = new THREE.PointLight(0xe8dcc0, 4.5, 8, 1.5); l.position.set(X(x), 2.8, z); inG.add(l); } }
+    // il corridoio bianco e la porta corazzata in fondo
+    { const COR = L8.COR; add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 2.2), mt(0x6a7a8a, { metalness: 0.7, roughness: 0.35 })), X(COR.x1 - 0.15), F + 1.3, 0);
+      const bl = new THREE.PointLight(0x6ab0ff, 14, 10, 1.3); bl.position.set(X(COR.x1 - 1.2), 2.2, 0); inG.add(bl);
+      for (const x of [61, 65, 69]) { const l = new THREE.PointLight(0xf0f4ff, 5, 7, 1.5); l.position.set(X(x), 2.7, 0); inG.add(l); } }
+    // l'Inseguitore sulla passerella
+    this.stalker = makeFigure('stalker', { cool: 1e9 });
+    this.leverK = [0, 0, 0, 0]; this.reelSpin = 0;
+    // le luci accese solo nella zona dove si trova Dmitri (meno luci = molto più fluido su iPhone)
+    this.zoneL = { a: [], b: [], c: [] }; inG.traverse(o => { if (o.isPointLight) { const lx = o.position.x - L8.X; this.zoneL[lx < 32 ? 'a' : lx < 55 ? 'b' : 'c'].push(o); } });
+  },
+  setZone(z) { for (const k in this.zoneL) this.zoneL[k].forEach(l => l.visible = k === z); },
+  items() {
+    const S = state, self = this, X = x => L8.X + x, have = k => state.items.has(k);
+    const f = new Proxy({}, { get: (_, k) => state.flags[k], set: (_, k, v) => { state.flags[k] = v; return true; } });
+    return [
+      { id: 'ciminiera', x: L8.CHIM.x + 1.6, z: L8.CHIM.z + 4.4, r: 1.6, my: 2, label: 'Base della ciminiera', use() {
+          say('Centocinquanta metri di cemento a strisce bianche e rosse. Non esce un filo di fumo, eppure sotto i miei piedi la terra vibra.'); } },
+      { id: 'portone', x: L8.GATE.x, z: -13.9, r: 1.6, label: 'Ingresso principale', use() {
+          say(['Il portone dell\'ingresso principale. Il ghiaccio l\'ha saldato al telaio.', 'L\'unico accesso aperto è quello del reparto combustibile, dove arriva il carbone.']); } },
+      { id: 'kamaz', x: L8.TRUCK.x - 1, z: L8.TRUCK.z + 1.7, r: 1.6, my: 1.6, label: 'Il КамАЗ', use() {
+          say(['Il camion è ancora carico. Il motore è morto, ma qualcuno ha lasciato la chiave inserita.', 'Nel cassone, pezzi di carbone e una manciata di legna asciutta.']);
+          if (!f.wood) { f.wood = true; say('Prendo la legna. Servirà per il bidone.'); } } },
+      { id: 'fuoco', x: L8.BARREL.x + 0.8, z: L8.BARREL.z + 0.7, r: 1.6, my: 1.3, label: () => self.barrel.lit ? 'Il fuoco' : 'Accendi il bidone', done: () => self.barrel.lit, use() {
+          if (self.barrel.lit) { say('La luce arancione sulla neve nera.'); return; }
+          if (!f.wood) { say(['Il bidone contiene ancora qualche pezzo di legna, ma è poco. Ne servirebbe dell\'altra.', 'Il КамАЗ, lì accanto.']); return; }
+          self.barrel.lit = true; Sound.ignite(); S.checkpoint = { x: L8.BARREL.x + 1.0, z: L8.BARREL.z + 1.1 }; refreshObjective();
+          say('Carbone e legna imbevuta di nafta. Brucerà a lungo.');
+          act(() => { self.silT = 0.001; Sound.sting(); });
+          say(['Per qualche secondo la luce arancione illumina la neve nera e la facciata della centrale.', 'Poi, dietro una finestra al piano superiore, compare una sagoma.', 'Non si muove.']); } },
+      { id: 'reparto', x: L8.FUELDOOR.x, z: -8.1, r: 1.5, label: 'Reparto combustibile', use() {
+          if (!self.barrel.lit) { say('Prima il fuoco. Non so quanto resterò là dentro.'); return; }
+          self.enterPlant(); } },
+      // dentro
+      { id: 'guanto', x: X(-13), z: (L8.BELT.z0 + L8.BELT.z1) / 2, r: 1.1, my: 2.9, pick: true, label: 'Qualcosa tra i rulli', gone: () => f.glove, use() {
+          f.glove = true; self.glove.visible = false; Sound.pick();
+          say(['Un guanto da lavoro, incastrato tra due rulli. Sul polso c\'è una targhetta:', Q('«БРИГАДА № 3»') + ' — Brigata n. 3.']);
+          say('Lo osservo per qualche secondo. Poi lo lascio cadere.'); refreshObjective(); } },
+      { id: 'pila', x: X(-1.2), z: -1.0, r: 1.0, pick: true, label: 'Una pila sulla panca', gone: () => f.batt, use() { f.batt = true; self.batt.visible = false; addBattery(45); say('Una pila per la torcia, dimenticata sulla panca.'); } },
+      { id: 'registro', x: X(-3), z: -3.6, r: 1.0, clue: true, label: 'Armadietto 0417', use() { self.open0417(); } },
+      { id: 'a0418', x: X(-2), z: -3.6, r: 1.0, label: 'Armadietto 0418', done: () => f.l0418, use() {
+          if (!S.clues.has('registro')) { say('«0418…» Il secondo numero appartiene a Semënov, il soldato del posto di blocco.', 'DMITRI'); say('«Semënov… lavorava qui?» Prima il mio.', 'DMITRI'); return; }
+          f.l0418 = true; self.lockers[3].openT = 0.001; Sound.creak(); S.items.add('piastrina'); refreshObjective();
+          say(['L\'armadietto 0418 è vuoto.', 'Sul fondo c\'è soltanto una piastrina militare con il numero 0418. La stessa che Semënov portava al posto di blocco.']);
+          act(() => { if (!self.stalkerOut) { self.stalkerArm = true; } }); } },
+      { id: 'altri', x: X(-4.5), z: -3.6, r: 0.9, label: 'Altri armadietti', use() { say('Gli altri armadietti sono chiusi con piccoli lucchetti. 0415, 0416, 0419, 0420. Nomi che non mi dicono niente.'); } },
+      { id: 'scala', x: X(L8.STAIR.x - 0.3), z: -2.4, r: 1.4, label: 'Scala verso la sala controllo', use() {
+          if (!f.l0418) { say('«Prima lo spogliatoio.»', 'DMITRI'); return; } self.goUp(); } },
+      { id: 'telegramma', x: X(37.4), z: -3.9, r: 1.2, clue: true, label: 'La bacheca', use() {
+          say([Q('«СОВЕРШЕННО СЕКРЕТНО — НАЧАЛЬНИКУ СМЕНЫ ГЩУ.»') + ' — Top secret. Al capoturno della sala controllo.',
+            '«In caso di guasto dell\'esperimento «Ciclo Termico» è categoricamente vietato aprire manualmente la valvola di sfiato.»',
+            '«Il riavvio del circuito provocherà un anello temporale chiuso nel raggio di 15 km.»'], 'TELEGRAMMA');
+          if (S.clues.has('scatola')) { say(['Abbasso il foglio. L\'esperimento era fallito. Mi avevano ordinato di chiudere la valvola.', 'Io ho scelto di non farlo.']); say('«Non per distruggere la città… Per riportare indietro qualcosa.»', 'DMITRI'); say('Ma cosa?'); }
+          else say('«Un anello temporale…»', 'DMITRI'); } },
+      { id: 'console', x: X(42), z: -2.2, r: 1.1, my: 1.2, label: 'Fessura della chiave', done: () => f.keyIn, use() {
+          if (!have('chiaveConsole')) { say('Una fessura per la chiave della console.'); return; }
+          f.keyIn = true; S.items.delete('chiaveConsole'); Sound.click(); self.consoleLed.color.setHex(0x40ff70); refreshObjective();
+          say(['Inserisco la chiave recuperata nello spogliatoio. Il pannello si illumina.', 'Quattro leve, contrassegnate da numeri consumati. Non è possibile distinguere l\'ordine.']); } },
+      { id: 'leve', x: X(43.2), z: -2.2, r: 1.1, my: 1.3, label: 'Le quattro leve', needs: () => f.keyIn, done: () => f.levers, use() { if (!f.keyIn) { say('Quattro leve, ferme. Il pannello è spento: serve la chiave della console.'); return; } self.pullLevers(); } },
+      { id: 'scatola', x: X(45.2), z: -2.2, r: 1.1, my: 1.3, clue: true, label: 'Il registratore', needs: () => f.levers, use() { if (!f.levers) { say('Un registratore magnetico collegato al sistema di controllo. Senza corrente.'); return; } self.blackBox(); } },
+      { id: 'lift', x: X(48.9), z: 0, r: 1.4, label: 'Il montacarichi', needs: () => f.liftOpen, use() {
+          if (!f.liftOpen) { say('Le porte blindate del montacarichi. Chiuse. Nessuna corrente.'); return; }
+          if (!S.clues.has('telegramma')) { say('Prima di andare… sulla bacheca, accanto all\'ingresso, c\'è un foglio con il timbro rosso.'); return; }
+          self.descend(); } },
+    ];
+  },
+  enterPlant() {
+    const S = state, f = S.flags; f.inside = true; hero.speed = 0; Sound.clunk(); interactables.forEach(() => {});
+    $('fade').classList.add('on');
+    setTimeout(() => {
+      this.outG.visible = false; this.inG.visible = true; this.truck.visible = false; this.barrel.light.visible = false; this.setZone('a');
+      scene.fog.density = 0.007; hemi.intensity = 0.42;
+      BOUNDS = [L8.X - 23.8, L8.X + L8.COR.x1 - 0.2, -7, 7];
+      hero.x = L8.X - 22.6; hero.z = -1.5; hero.heading = Math.PI / 2; hero.y = groundH(hero.x, hero.z); hero.trail.length = 0;
+      hero.group.position.set(hero.x, hero.y, hero.z); camTarget.set(hero.x, hero.y + 0.8, hero.z); S.checkpoint = { x: hero.x + 0.4, z: hero.z };
+      $('fade').classList.remove('on'); refreshObjective();
+      say(['Il reparto combustibile è enorme. I nastri trasportatori attraversano la struttura a diverse altezze, carichi di carbone congelato.', 'Sul pavimento, cavi tranciati sputano scintille a intermittenza.']);
+    }, 1300);
+  },
+  open0417() {
+    const S = state, f = S.flags; this.lockers[2].openT = 0.001; Sound.creak(); this.suit.visible = true;
+    S.items.add('chiaveConsole'); S.items.add('fotoBrigata'); S.checkpoint = { x: L8.X - 1.5, z: 0.6 };
+    say('«0417.» Il primo numero è il mio.', 'DMITRI');
+    say(['Dentro: una tuta da lavoro, una fotografia, una busta ingiallita. Sulla busta:', Q('«ВОРОНИН Д. А. — СТАРШИЙ ТЕХНИК»') + ' — Voronin D. A., tecnico senior.']);
+    say(['La fotografia mostra otto uomini davanti alla centrale. Io sono al centro. Accanto a me c\'è Semënov.', 'Sul retro, a mano: ' + Q('«ПОСЛЕДНЯЯ СМЕНА. 12.02.1991.»') + ' — Ultimo turno.']);
+    say('«Eravamo una squadra.»', 'DMITRI');
+    say([Q('«ЖУРНАЛ СМЕНЫ — ТЭЦ ЗАТО-42, БРИГАДА № 3.»') + ' 12.02.1991. Tecnico senior: Voronin D. A., matricola 0417. Assistente: Semënov V. I., matricola 0418.',
+      '«23:15 — Ricevuto ordine di convogliare tutta la potenza delle turbine sul circuito sotterraneo «Ciclo».»', '«23:38 — Voronin e Semënov sono scesi nel pozzo della valvola principale con una scala.»'], 'REGISTRO DI TURNO');
+    say('«Sono sceso con lui.» Non ricordo di averlo fatto.', 'DMITRI');
+    act(() => { Sound.pick(); refreshObjective(); }); say('In fondo all\'armadietto, la chiave della console. La prendo.');
+  },
+  goUp() {
+    const S = state, f = S.flags; f.ctrl = true; hero.speed = 0; interactables = interactables.filter(i => i.id !== 'scala');
+    Sound.step(); $('fade').classList.add('on');
+    setTimeout(() => { const X = L8.X;
+      hero.x = X + L8.CR.x0 + 1.2; hero.z = 3.4; hero.heading = Math.PI / 2; hero.y = groundH(hero.x, hero.z); hero.trail.length = 0; hero.group.position.set(hero.x, hero.y, hero.z); camTarget.set(hero.x, hero.y + 0.8, hero.z);
+      this.setZone('b'); S.checkpoint = { x: hero.x + 0.5, z: hero.z }; this.stalker.state = 'hidden'; this.stalker.op = 0; this.stalker.cool = 1e9;
+      $('fade').classList.remove('on'); refreshObjective();
+      say(['La sala controllo domina dall\'alto l\'intera centrale. Banchi semicircolari, manometri, interruttori.', 'Tutti gli orologi sono fermi alle 23:40.', 'Sul pannello principale lampeggia una scritta rossa: ' + Q('«АВАРИЯ — КОНТУР «ЦИКЛ»»') + ' — Guasto, circuito «Ciclo».']);
+      say('Due figure con l\'elmetto arancione, ferme tra i banchi. Non respirano.');
+    }, 1200);
+  },
+  pullLevers() {
+    const S = state, f = S.flags; if (f.levers || this.pulling) return; this.pulling = true;
+    say('Appoggio la mano sulla prima leva. Mi fermo. Le dita tremano.'); say('«No…»', 'DMITRI');
+    const pull = (i, txt) => { act(() => { this.leverK[i] = 0.001; Sound.clunk(); shake = 0.25; }); say(txt); };
+    pull(2, 'La mano si sposta da sola sulla terza leva. CLAC.'); pull(0, 'Poi sulla prima. CLAC.'); pull(3, 'Poi sulla quarta. CLAC.'); pull(1, 'Infine sulla seconda.');
+    say('3 → 1 → 4 → 2. Una sequenza che il mio corpo conosce già.');
+    act(() => { f.levers = true; this.pulling = false; Sound.thud(); shake = 0.7; flash = 0.3; this.bbM.opacity = 1; Sound.setHum && Sound.setHum(0.05); refreshObjective(); });
+    say(['La corrente attraversa i pannelli. Sotto la sala controllo, un enorme rumore meccanico: il montacarichi blindato si attiva.', 'Ma insieme alla corrente parte anche qualcos\'altro. Sul banco centrale si accende un display: ' + Q('«BLACK BOX — 12.02.1991 — 23:40»') + '.']);
+  },
+  blackBox() {
+    const S = state, f = S.flags; if (this.played) return; this.played = true;
+    act(() => { Sound.tape(); this.reelSpin = 30; }); say('Premo PLAY. All\'inizio si sente soltanto il rumore delle turbine.', 'SCATOLA NERA');
+    say('Pressione nel reattore in caduta! Ripeto, pressione in caduta! L\'esperimento è compromesso!', 'OPERATRICE');
+    act(() => Sound.clunk()); say('La città sta congelando! Voronin, chiudi la valvola!', 'OPERATRICE');
+    act(() => Sound.breath(3)); say('Dima, il metallo è incandescente! Ti stai bruciando le mani! Scendiamo, ti prego!', 'SEMЁNOV');
+    say('Reggi la scala, Semënov! Non lascerò che finisca così!', 'VORONIN · NASTRO');
+    say('Non possiamo più tenerla aperta!', 'SEMЁNOV');
+    say('Ancora un giro di valvola e torna tutto come prima!', 'VORONIN · NASTRO');
+    act(() => { this.reelSpin = 0; Sound.glitch(); }); say(['La registrazione si interrompe.', 'Guardo le mie mani. Le cicatrici circolari sul palmo sembrano bruciare.']);
+    say('«Ancora un giro…»', 'DMITRI'); say('«Ero io.»', 'DMITRI');
+    act(() => { Sound.tape(); this.reelSpin = 20; }); say('Il nastro riparte da solo. È ancora la mia voce, ma più lontana. Più stanca.');
+    say('Sono tornato in sala controllo. Ho riaperto l\'accesso. Stavolta andrà bene. Ancora un giro.', 'VORONIN · NASTRO');
+    act(() => { this.reelSpin = 0; this.restartM.opacity = 1; Sound.tone(880, 0.3, 0.08, 'square'); }); say('Il registratore si spegne. Sul monitor, una sola scritta: ' + Q('«ПОВТОРНЫЙ ЗАПУСК РАЗРЕШЁН»') + ' — Riavvio autorizzato.');
+    act(() => { f.liftOpen = true; this.liftT = 0.001; Sound.clunk(); refreshObjective(); }); say(['Il pannello cambia indicazione: ' + Q('«СПЕЦОБЪЕКТ «ЦИКЛ» — ДОСТУП ОТКРЫТ»') + ' — Installazione speciale «Ciclo», accesso aperto.', 'Una luce azzurra filtra dal pavimento, attraverso la grata del montacarichi.']);
+  },
+  descend() {
+    const S = state, f = S.flags; if (f.leaving) return; f.leaving = true; interactables = [];
+    say(['Le porte blindate sono aperte. Dentro non c\'è nessun pulsante per scegliere il piano. Solo una leva rossa e una targhetta:', Q('«ЛАБОРАТОРНЫЙ БЛОК — УРОВЕНЬ 4»') + ' — Blocco laboratori, livello 4.']);
+    say('Prima di entrare mi volto verso la sala. Le figure della Brigata 3 sono ancora immobili. Ma adesso una cosa è cambiata.');
+    act(() => { const N = this.brigCR[1]; if (N.ready) { N.B.Head.rotation.z += 0.45; N.B.Head.rotation.y += 0.3; } N.heading = Math.atan2(hero.x - N.x, hero.z - N.z); N.group.rotation.y = N.heading; Sound.creak(); });
+    say('La figura più vicina alla console ha la testa leggermente inclinata verso di me. Non mi avvicino.'); say('«Semënov…?»', 'DMITRI'); say('Nessuna risposta.');
+    act(() => Sound.radio(1.2)); say('KRRR… Una voce, quasi impercettibile:'); say('«Non dovevi ascoltarlo.»', 'WALKIE-TALKIE'); say('«Chi sei?»', 'DMITRI');
+    act(() => { Sound.radio(0.4); this.liftT = -1; Sound.clunk(); }); say('La comunicazione cade. Le porte cominciano a chiudersi. Tiro la leva.');
+    act(() => this.goDown());
+  },
+  goDown() {
+    const S = state; $('fade').classList.add('on'); this.rumble = 1;
+    setTimeout(() => { const X = L8.X;
+      hero.x = X + L8.COR.x0 + 0.9; hero.z = 0; hero.heading = Math.PI / 2; hero.y = groundH(hero.x, hero.z); hero.trail.length = 0; hero.group.position.set(hero.x, hero.y, hero.z); camTarget.set(hero.x, hero.y + 0.8, hero.z);
+      this.brigCR.forEach(N => N.group.visible = false); this.setZone('c'); $('fade').classList.remove('on');
+      say(['La cabina scende. Il montacarichi vibra mentre attraversa i livelli sotterranei. Le luci si accendono una dopo l\'altra.', 'Dietro una grata laterale intravedo tubazioni, cavi e grandi serbatoi cilindrici.',
+        'Su una parete passa una scritta: ' + Q('«ЗАПРЕТНАЯ ЗОНА»') + ' — Zona proibita.', 'Poi un\'altra: ' + Q('«ТЕРМИЧЕСКИЙ ЦИКЛ И ЭНЕРГЕТИЧЕСКАЯ ПАМЯТЬ»') + ' — Ciclo Termico e Memoria Energetica.',
+        'Appoggio una mano alla parete. Una vibrazione regolare. Non sembra una macchina.', 'Sembra un battito.']);
+      act(() => { this.rumble = 0; this.beat = true; Sound.clunk(); });
+      say(['Il montacarichi rallenta. Le porte si aprono su un corridoio completamente bianco. In fondo, una luce azzurra illumina una porta corazzata.', 'Scendo. Le porte si richiudono alle mie spalle.']);
+      say('«Che cosa abbiamo costruito qui sotto?»', 'DMITRI');
+      act(() => { zoomTarget = Math.max(zoomTarget, 3.2); }); say('Nessuno risponde.');
+      this.endPending = true;
+    }, 1400);
+  },
+  phase() { const f = state.flags, c = state.clues;
+    if (!this.barrel.lit) return 1; if (!f.inside) return 2; if (hero.x < L8.X - 6 && !c.has('registro')) return 3; if (!c.has('registro')) return 4; if (!f.l0418) return 5; if (!f.ctrl) return 6;
+    if (!f.keyIn) return 7; if (!f.levers) return 8; if (!c.has('scatola')) return 9; if (!c.has('telegramma')) return 10; return 11; },
+  objective() { return ['', 'Accendi il bidone accanto al КамАЗ', 'Entra nella centrale ТЭЦ', 'Supera i cavi elettrici passando dai nastri del carbone', 'Apri l\'armadietto 0417', 'Apri l\'armadietto 0418',
+    'Attraversa la sala turbine e sali alla sala controllo', 'Inserisci la chiave nella console', 'Aziona le quattro leve', 'Ascolta la scatola nera', 'Esamina la bacheca della sala controllo', 'Raggiungi il montacarichi'][this.phase()]; },
+  target() { const by = id => interactables.find(i => i.id === id), p = this.phase(), f = state.flags;
+    return [null, f.wood ? by('fuoco') : by('kamaz'), by('reparto'), f.glove ? by('registro') : by('guanto'), by('registro'), by('a0418'), by('scala'), by('console'), by('leve'), by('scatola'), by('telegramma'), by('lift')][p]; },
+  thought() { return ['', 'Il bidone accanto al camion. Prima la luce.', 'L\'ingresso principale è chiuso. Il reparto combustibile, a destra.', 'Non posso passare a terra. Il nastro inclinato…', 'Uno spogliatoio. Sei armadietti.', 'L\'armadietto accanto al mio.',
+    'Le figure si muovono solo quando la luce si sposta. Niente fretta.', 'La console. La chiave dello spogliatoio.', 'Quattro leve. Numeri consumati.', 'Il registratore sul banco centrale.', 'Un foglio con il timbro rosso, sulla bacheca.', 'Il montacarichi. La luce azzurra.'][this.phase()]; },
+  hint() { return ['', 'Prendi la legna dal cassone del КамАЗ, poi accendi il bidone.', 'La porta del reparto combustibile è sull\'ala a destra della facciata.', 'I cavi a terra danno la scossa. Sali sul nastro dal suo inizio, a ovest, lungo la parete: porta oltre i cavi, nello spogliatoio.',
+    'L\'armadietto 0417 è il terzo da sinistra, contro la parete.', 'Il 0418 è accanto al tuo.', 'Tieni la torcia sulle figure della Brigata: quando non sono illuminate si avvicinano. Gira attorno alle turbine; la scala è in fondo a destra.',
+    'La fessura è sul banco a sinistra delle leve.', 'Le leve sono al centro del banco.', 'Il registratore è a destra delle leve.', 'La bacheca è sulla parete, a sinistra dei banchi.', 'Il montacarichi è sulla parete est della sala.'][this.phase()]; },
+  coldTip() { return 'Il fuoco del bidone, accanto al camion.'; },
+  intro() {
+    setTimeout(() => { act(() => this.siren()); say('Da qualche parte all\'interno, una sirena emette un unico suono. Poi silenzio.');
+      act(() => Sound.radio(1.0)); say('Il walkie-talkie P-105 produce due scariche. KRRR… KRRR… Lo estraggo.');
+      say('«Non credere a quello che ti sei lasciato registrato.»', 'WALKIE-TALKIE'); say('La comunicazione si interrompe.'); }, 0);
+    return ['La porta stagna del collettore si richiude alle mie spalle. Il rumore delle tubature calde scompare, sostituito da un ronzio profondo.',
+      'La neve cade ancora, ma qui è diversa: si mescola alla polvere nera del carbone, una fanghiglia scura sul cemento.',
+      'A sinistra, la ciminiera bianca e rossa. Non esce fumo dalla sommità, eppure il terreno vibra. Sulla facciata: ' + Q('«ТЭЦ ЗАТО-42 ИМ. В. И. ЛЕНИНА»') + '.',
+      '«Sono entrato qui centinaia di volte.»', '«Allora perché non ricordo niente?»'];
+  },
+  siren() { if (!Sound.ctx) return; Sound.glide(Sound.master, 'sawtooth', 280, 560, 2.6, 0.06, 1200, 0, 0); Sound.glide(Sound.master, 'sawtooth', 560, 300, 1.6, 0.05, 1200, 2.5, 0); },
+  heroHook() { return false; },
+  update(dt, t) {
+    const S = state, f = S.flags, live = S.started && !S.ended && !S.gap, X = L8.X, lx = hero.x - X, inside = hero.x > 40;
+    snowLayers.forEach(L => L.pts.material.opacity = inside ? 0 : L.pts.material.opacity);
+    this.aviation.color.setHex(Math.sin(t * 2.2) > 0.3 ? 0xff2a18 : 0x2a0805);
+    if (inside) {
+      if (!this.zoomed) { this.zoomed = true; zoomTarget = Math.max(zoomTarget, 2.0); }
+      const cxa = Math.sin(camAz), cza = Math.cos(camAz);
+      for (const w of this.walls) { const dx = w.bx - w.ax, dz = w.bz - w.az, k = clamp(((hero.x - w.ax) * dx + (hero.z - w.az) * dz) / (dx * dx + dz * dz), 0, 1), vx = w.ax + dx * k - hero.x, vz = w.az + dz * k - hero.z;
+        const want = vx * cxa + vz * cza > 0.2 && Math.hypot(vx, vz) < 8 ? 0.1 : 1; w.m.opacity = lerp(w.m.opacity, want, damp(6, dt)); w.m.depthWrite = w.m.opacity > 0.9; }
+      S.heat = Math.min(100, S.heat + dt * 0.6);
+    }
+    // la sagoma alla finestra
+    if (this.silT > 0) { this.silT += dt; const k = this.silGone ? Math.max(0, (this.silOp || 0) - dt * 3) : Math.min(0.9, this.silT * 0.6); this.silOp = k; this.silM.opacity = k; this.winGlow.material.opacity = Math.min(0.5, this.silT * 0.3) * (this.silGone ? 0.4 : 1);
+      if (!this.silGone && (torchHits(L8.WIN.x, -14.9) || this.silT > 14)) { this.silGone = true; Sound.glitch(); tell('sil', 'Alzo la torcia. La finestra è vuota.'); } }
+    // i cavi del reparto combustibile
+    if (inside && lx < -5) {
+      let near = 1e9; for (const p of this.sparkPts) near = Math.min(near, Math.hypot(p.x - hero.x, p.z - hero.z));
+      Sound.setBuzz(live ? clamp(1 - near / 12, 0, 1) * 0.06 : 0);
+      if (near < 5) { if (!S.told.cab) { Sound.radio(0.8); } tell('cab', ['Il walkie-talkie emette un disturbo. KRRR… KRRR… La corrente attraversa l\'intero passaggio.', '«Non posso procedere a terra. Devo trovare un altro accesso.»', 'Alzo lo sguardo verso il nastro inclinato. Il percorso passa da lì.']); }
+      this.sparkT -= dt;
+      if (live && this.sparkT <= 0) { this.sparkT = 0.15 + Math.random() * 0.8; const p = this.sparkPts[Math.floor(Math.random() * this.sparkPts.length)];
+        this.sparkLight.position.set(p.x, p.y + 0.4, p.z); this.sparkLight.intensity = 20;
+        let n = 0; for (const s of this.sparks) if (s.life <= 0 && n < 7) { n++; s.life = 0.35 + Math.random() * 0.4; s.s.position.copy(p); s.v.set((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3); }
+        if (near < 14) Sound.zap(0.12 * clamp(1 - near / 14, 0, 1)); }
+      this.shockT = Math.max(0, this.shockT - dt);
+      if (live && !downed() && this.shockT <= 0 && lx > L8.CABLE.x0 && lx < L8.CABLE.x1 && hero.z < L8.BELT.z0 - 0.05 && hero.y < 0.7) {
+        this.shockT = 3; S.heat = Math.max(1, S.heat - 10); electrocute(-1, 0); setTimeout(() => { if (msgTimer <= 0) showMsg('Una scossa!<br>I cavi sono sotto tensione.'); }, 500);
+        setTimeout(() => { if (hero.x - L8.X > L8.CABLE.x0 - 0.2 && hero.x - L8.X < L8.CABLE.x1 && hero.z < L8.BELT.z0) { hero.x = L8.X + L8.CABLE.x0 - 1.4; hero.z = -1; hero.trail.length = 0; } }, 1700);
+      }
+      if (hero.y > 1.6) tell('belt', 'Il carbone scricchiola sotto gli stivali. Da quassù i cavi sembrano serpenti azzurri.');
+    } else if (inside) Sound.setBuzz(0);
+    this.sparkLight.intensity *= Math.exp(-dt * 14);
+    for (const s of this.sparks) { if (s.life <= 0) { s.s.material.opacity = 0; continue; } s.life -= dt; s.v.y -= 9 * dt; s.s.position.addScaledVector(s.v, dt); s.s.material.opacity = clamp(s.life * 3, 0, 1); }
+    if (inside && lx > -6 && lx < 4) tell('lockroom', ['Prima della sala turbine c\'è uno spogliatoio. Sei armadietti metallici contro la parete. Alcuni aperti, altri chiusi con piccoli lucchetti.', 'Sulle ante, i numeri. ' + Q('0417') + '. ' + Q('0418') + '.']);
+    // armadietti che si aprono
+    for (const L of this.lockers) if (L.openT > 0 && L.openT < 1) { L.openT = Math.min(1, L.openT + dt * 1.6); L.door.rotation.y = -smooth01(L.openT) * 1.6; }
+    // la sala turbine: la Brigata 3 si avvicina quando la luce si sposta
+    const inHall = inside && lx > 4 && lx < 30;
+    if (inHall) tell('hall', ['La sala turbine. Grandi finestroni sporchi di ghiaccio. Sei figure ferme accanto alle macchine: tute imbottite, elmetti arancioni.', 'La Brigata 3. Nessuno respira.',
+      'I manometri segnano valori impossibili: pressione massima, temperatura prossima allo zero.', 'Avanzo piano. Non reagiscono finché restano nella luce della torcia.']);
+    if (this.wasGap && !S.gap) this.brig.forEach(N => { N.x = N.home[0]; N.z = N.home[1]; N.heading = N.home[2]; N.group.position.set(N.x, F8(N), N.z); N.group.rotation.y = N.heading; });
+    this.wasGap = S.gap;
+    for (const N of this.brig) {
+      const d = Math.hypot(hero.x - N.x, hero.z - N.z), lit = torchHits(N.x, N.z);
+      let mv = 0;
+      if (inHall && live && !reading() && !lit && d < 14 && d > 0.9) {
+        const sp = 0.55 * (S.torch ? 1 : 1.5), dx = (hero.x - N.x) / d, dz = (hero.z - N.z) / d; let nx = N.x + dx * sp * dt, nz = N.z + dz * sp * dt;
+        const blk = (x, z) => L8.TURB.some(([a, b]) => x > X + a - 0.5 && x < X + b + 0.5 && Math.abs(z) < 1.75);
+        if (blk(nx, nz)) { if (!blk(nx, N.z)) nz = N.z; else if (!blk(N.x, nz)) nx = N.x; else { nx = N.x + dx * sp * dt * 0.2; nz = N.z + Math.sign(N.z || 1) * sp * dt; } }
+        N.x = nx; N.z = nz; mv = 1;
+        let dh = Math.atan2(dx, dz) - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(4, dt);
+        if (!this.moveTold && d < 9 && onScreen({ x: N.x, y: 0, z: N.z })) { this.moveTold = true; tell('brigMove', 'La luce si sposta… e una di loro sembra aver cambiato posizione.'); }
+      }
+      if (N.ready && mv) N.mixer.update(dt * 0.55);
+      N.group.position.set(N.x, F8(N), N.z); N.group.rotation.y = N.heading;
+      if (inHall && live && !downed() && d < 0.95) { memoryGap('figura'); break; }
+    }
+    // l'Inseguitore sulla passerella, dopo la chiave
+    const St = this.stalker;
+    if (inHall && this.stalkerArm && !this.stalkerOut && lx > 6.5 && live) {
+      if (spawnStalker(St, 9)) { this.stalkerOut = true; St.yOff = undefined; tell('stalkHall', ['Dietro di me, sulla passerella. L\'Inseguitore. Non attacca subito: resta fermo, piegato in avanti.', 'Poi comincia a camminare. Il suo passo metallico si confonde con il battito delle turbine.', 'CLANG… CLANG… CLANG…']); } }
+    if (St.state === 'hunt') { this.clangT = (this.clangT || 0) - dt; if (this.clangT <= 0) { this.clangT = 0.9; Sound.tone(140, 0.18, 0.12, 'square'); Sound.burst(2400, 4, 0.1, 0.08, 'bandpass'); } }
+    if (inHall && this.stalkerOut && St.state === 'hidden' && St.cool > 0 && St.cool < 1e8 && St.cool < 12) { St.cool = 1e9; this.stalkRe = 6; }
+    if (this.stalkRe > 0 && inHall && live) { this.stalkRe -= dt; if (this.stalkRe <= 0) spawnStalker(St, 10); }
+    // la sala controllo
+    this.alarmM.color.setScalar(f.liftOpen ? 0.25 : (Math.sin(t * 5) > 0 ? 1 : 0.35));
+    this.levers.forEach((g, i) => { const k = this.leverK[i]; if (k > 0 && k < 1) this.leverK[i] = Math.min(1, k + dt * 3); g.rotation.x = -0.6 + smooth01(this.leverK[i]) * 1.2; });
+    if (this.reelSpin > 0) this.reels.forEach((r, i) => r.rotation.y += dt * (i ? 5 : 4));
+    if (this.liftT > 0) { this.liftT = Math.min(1, this.liftT + dt * 0.5); const k = smooth01(this.liftT); this.liftL.position.z = -0.55 - k * 1.0; this.liftR.position.z = 0.55 + k * 1.0; this.okM.opacity = k; this.liftDoor.off = k > 0.6; this.blueL.intensity = k * 18; this.grate.material.opacity = k * 0.6; }
+    if (this.liftT === -1) { this.liftL.position.z = lerp(this.liftL.position.z, -0.55, damp(3, dt)); this.liftR.position.z = lerp(this.liftR.position.z, 0.55, damp(3, dt)); }
+    for (const N of this.brigCR) if (N.ready && !f.leaving && !this.watchT) { const want = Math.atan2(hero.x - N.x, hero.z - N.z); if (!torchHits(N.x, N.z) && Math.random() < dt * 0.3) { N.heading = want; N.group.rotation.y = want; } }
+    if (this.rumble) shake = Math.max(shake, 0.15);
+    if (this.beat) { this.beatT = (this.beatT || 0) - dt; if (this.beatT <= 0) { this.beatT = 1.1; Sound.tone(48, 0.25, 0.25, 'sine'); Sound.tone(44, 0.25, 0.2, 'sine', 0.28); } }
+    if (this.endPending && !reading()) { this.endPending = false; this.endT = 2.0; }
+    if (this.endT > 0) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; endChapter(); } }
+  },
+  ending() {
+    return { text: 'Il montacarichi mi ha lasciato in un corridoio bianco, sotto la centrale.<br><br>Ho sentito la mia voce sul nastro. Mi avevano ordinato di chiudere la valvola. Io ho detto: «Ancora un giro».<br><br>Non sono soltanto una vittima del Ciclo. L\'ho voluto io. Ma per riportare indietro chi?',
+      next: 0, nextLabel: 'CAPITOLO IX · I LABORATORI SOTTERRANEI — in arrivo' };
+  },
+};
+const F8 = N => groundH(N.x, N.z);
+
+const CHAPTERS = { 1: CH1, 2: CH2, 3: CH3, 4: CH4, 5: CH5, 6: CH6, 7: CH7, 8: CH8 };
 
 /* #####################################################################
    E. AVVIO, INPUT, LOOP
