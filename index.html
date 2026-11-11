@@ -670,10 +670,10 @@ composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new OutputPass());
 const gradePass = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(innerWidth * DPR, innerHeight * DPR) },
-    uSat: { value: 0.58 }, uCool: { value: 0.32 }, uVig: { value: 0.6 }, uGrain: { value: 0.07 }, uScan: { value: 0.025 }, uDread: { value: 0 }, uFrost: { value: 0 }, uFlash: { value: 0 } },
+    uSat: { value: 0.58 }, uCool: { value: 0.32 }, uVig: { value: 0.6 }, uGrain: { value: 0.07 }, uScan: { value: 0.025 }, uDread: { value: 0 }, uFrost: { value: 0 }, uFlash: { value: 0 }, uBloom: { value: 1 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime,uSat,uCool,uVig,uGrain,uScan,uDread,uFrost,uFlash; uniform vec2 uRes; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime,uSat,uCool,uVig,uGrain,uScan,uDread,uFrost,uFlash,uBloom; uniform vec2 uRes; varying vec2 vUv;
     float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
     float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
@@ -681,8 +681,20 @@ const gradePass = new ShaderPass({
       vec2 uv=vUv;
       float band = step(0.985, fract(uv.y*3.0 + uTime*0.7)) * uDread;           // righe VHS che slittano
       uv.x += band * 0.012 * sin(uTime*40.0);
+      // nastro: la fascia in basso dove la testina cambia, e una riga di tracking che sale lenta
+      float hs = step(uv.y, 0.02);
+      uv.x += hs * (hash(vec2(floor(uv.y*uRes.y*0.5), floor(uTime*24.0))) - 0.5) * 0.05;
+      float trk = smoothstep(0.014, 0.0, abs(fract(uv.y*0.5 - uTime*0.021) - 0.5));
+      uv.x += trk * 0.0022 * sin(uTime*31.0 + uv.y*400.0);
       vec2 dc=uv-0.5; float ab=0.0035 + uDread*0.004;
       vec3 col; col.r=texture2D(tDiffuse,uv+dc*ab).r; col.g=texture2D(tDiffuse,uv).g; col.b=texture2D(tDiffuse,uv-dc*ab).b;
+      // sbavatura orizzontale del colore, come su una videocassetta
+      col = mix(col, texture2D(tDiffuse, uv - vec2(3.0/uRes.x, 0.0)).rgb, 0.16);
+      // alone: le luci forti sbavano nel buio attorno a sé
+      vec3 bl = vec3(0.0); vec2 bp = vec2(uRes.y/uRes.x, 1.0) * 0.034;
+      for (int i = 0; i < 12; i++) { float a = float(i) * 2.39996 + 0.5, r = sqrt((float(i) + 0.5) / 12.0);
+        vec3 sc = texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * r * bp).rgb; bl += max(sc - 0.74, 0.0); }
+      col += bl / 12.0 * uBloom * vec3(2.6, 2.2, 1.7);
       // appannamento: più il corpo si raffredda, più l'immagine si sfoca
       if (uFrost > 0.02) {
         vec3 acc = col; float rr = uFrost * 0.0042;
@@ -694,6 +706,9 @@ const gradePass = new ShaderPass({
       col=mix(col, vec3(l)*vec3(0.86,0.96,1.12), uCool);                        // viraggio freddo
       col+=vec3(0.010,0.018,0.034)*(1.0-l);
       col=(col-0.5)*1.05+0.5;
+      col = mix(col, col*vec3(1.07,1.0,0.88), smoothstep(0.55,0.95,l)*0.55);       // le luci tirano al caldo, le ombre restano fredde
+      vec3 cc = clamp(col,0.0,1.0); col = mix(col, cc*cc*(3.0-2.0*cc), 0.22);     // curva morbida da pellicola
+      col += trk * 0.03; col = mix(col, vec3(hash(uv*uRes*0.5 + uTime)), hs * 0.35);
       vec2 v=dc*vec2(uRes.x/uRes.y,1.0);
       col*=mix(1.0, smoothstep(1.05,0.25,length(v)), uVig + uDread*0.25);       // vignetta
       // brina sui bordi quando il corpo si raffredda
@@ -738,7 +753,10 @@ const Sound = {
     const rf = c.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 90; const rg = c.createGain(); rg.gain.value = 0.9;
     rs.connect(rf).connect(rg).connect(this.droneG); rs.start();
     this.ambT = 6; this.lastT = 0;
-    this.buzzG = mk('square', 100, 'bandpass', 900);         // cavi sotto tensione
+    this.buzzG = mk('triangle', 100, 'lowpass', 420);        // cavi sotto tensione: un ronzio sordo, non una sega
+    // motore elettrico del filobus: due note basse dentro un filtro, che salgono piano con la velocità
+    this.busG = c.createGain(); this.busG.gain.value = 0; this.busF = c.createBiquadFilter(); this.busF.type = 'lowpass'; this.busF.frequency.value = 150; this.busF.connect(this.busG).connect(this.master);
+    this.busO = [48, 72.4].map((f, i) => { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f; const g = c.createGain(); g.gain.value = i ? 0.45 : 1; o.connect(g).connect(this.busF); o.start(); return o; });
   },
   update(t) {
     if (!this.ctx) return;
@@ -845,6 +863,9 @@ const Sound = {
   sting() { this.tone(55, 3.2, 0.16, 'triangle', 0, 1.2); this.tone(58.3, 3.2, 0.14, 'triangle', 0, 1.2); this.burst(140, 2, 2.5, 0.08, 'lowpass'); },
   setHum(v) { if (this.ctx) this.humG.gain.setTargetAtTime(v, this.ctx.currentTime, 1.2); },
   setBuzz(v) { if (this.ctx) this.buzzG.gain.setTargetAtTime(v, this.ctx.currentTime, 0.15); },
+  setBus(v, sp = 0) { if (!this.ctx || !this.busG) return; const now = this.ctx.currentTime; this.busG.gain.setTargetAtTime(v, now, v > 0 ? 0.5 : 0.8);
+    this.busO[0].frequency.setTargetAtTime(48 + sp * 5, now, 0.4); this.busO[1].frequency.setTargetAtTime(72.4 + sp * 7.5, now, 0.4); this.busF.frequency.setTargetAtTime(150 + sp * 28, now, 0.4); },
+  quiet() { this.setHum(0); this.setBuzz(0); this.setBus(0); },
   creak() { if (!this.ctx) return; const c = this.ctx, t0 = c.currentTime; const o = c.createOscillator(); o.type = 'sawtooth';
     o.frequency.setValueAtTime(320, t0); o.frequency.linearRampToValueAtTime(240, t0 + 0.5);
     const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 8;
@@ -2262,6 +2283,8 @@ function setupNina(g) {
 setTimeout(loadNina, 50);
 /* un po' curva, la mano destra regge la lanterna */
 const NINA_POSE = { py: HB, tx: 0.12, hx: 0.08, arms: [[-0.22, -0.1, -0.45], [0.05, 0.1, -0.2]] };
+const NINA_SIT = { py: HB - 0.36, tx: 0.1, hx: 0.1, legs: [[-1.45, 1.45, 0, 0.05], [-1.45, 1.45, 0, -0.05]], arms: [[-0.8, -0.08, -0.5], [-0.55, 0.1, -0.6]] };
+function ninaSeat(N, k) { const body = N.rArm.parent; body.position.y = 0.38 - 0.34 * k; N.sitK = k; if (N.model) N.rArm.rotation.x = lerp(-0.42, -0.75, k); }
 function attachNina(N) {
   whenNina(() => {
     const root = skClone(NINA.root); let sk = null; const B = {};
@@ -2279,7 +2302,7 @@ function attachNina(N) {
 function ninaAnim(N, walking, dt) {
   const M = N.model; if (!M) return;
   if (walking > 0.05 && M.walk) { M.mixer.update(dt * 0.75); N.posed = false; }
-  else if (!N.posed) { N.posed = true; applyPose(M.B, NINA_POSE, N.K); }
+  else if (!N.posed) { N.posed = true; applyPose(M.B, N.pose || NINA_POSE, N.K); }
 }
 
 /* ---------- B13. Comparse: cloni del modello di Dmitri con altri vestiti, corporatura e accessori ---------- */
@@ -2602,6 +2625,63 @@ const breath = [];
   for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(m.clone()); s.visible = false; breath.push({ s, life: 0 }); }
 }
 let breathT = 1.5;
+/* neve sollevata dalle ruote: sbuffi che partono dietro e di lato, ricadono e si posano; sotto restano i due solchi */
+const spray = [];
+{ const m = new THREE.SpriteMaterial({ map: flakeTex, color: 0xe6edf5, transparent: true, opacity: 0, depthWrite: false });
+  for (let i = 0; i < 40; i++) { const sp = new THREE.Sprite(m.clone()); sp.visible = false; spray.push({ s: sp, life: 0, max: 1, v: new THREE.Vector3(), g: 0 }); } }
+const _bw = new THREE.Vector3(), _bf = new THREE.Vector3();
+function busFX(bus, sp, dt, age) {
+  if (sp < 0.05) return;
+  bus.updateMatrixWorld(true); _bf.set(1, 0, 0).transformDirection(bus.matrixWorld);
+  const T = bus.userData.trk || (bus.userData.trk = { p: [null, null], d: 0, acc: 0 });
+  const kick = clamp(1.6 - age * 0.35, 0.35, 1.6);                  // alla partenza le ruote slittano e ne alzano di più
+  T.acc += dt * (10 + sp * 5) * kick;
+  [-1.1, 1.1].forEach((wz, i) => {
+    _bw.set(-3.6, 0, wz).applyMatrix4(bus.matrixWorld);
+    const cur = { x: _bw.x, z: _bw.z }, prev = T.p[i];
+    if (!prev) T.p[i] = cur;
+    else if (Math.hypot(cur.x - prev.x, cur.z - prev.z) > 0.12) {
+      rutSegment(prev, cur, 0.26, 1, T.d); T.p[i] = cur; if (i) T.d += Math.hypot(cur.x - prev.x, cur.z - prev.z);
+      const [hx, hy] = toH(cur.x, cur.z), [cx, cy] = toC(cur.x, cur.z); markDirty('h', hx, hy, 0.8 * PPU); markDirty('c', cx, cy, 0.8 * CPPU);
+    }
+  });
+  while (T.acc >= 1) {
+    T.acc -= 1; const b = spray.find(q => q.life <= 0); if (!b) break;
+    const side = Math.random() < 0.5 ? -1 : 1, front = Math.random() < 0.25;
+    _bw.set(front ? 3.2 : -4.0, 0.12, side * (1.1 + Math.random() * 0.25)).applyMatrix4(bus.matrixWorld);
+    if (b.s.parent !== world) world.add(b.s);
+    b.s.position.copy(_bw); b.s.visible = true; b.max = b.life = 0.7 + Math.random() * 0.7; b.g = 0.1 + Math.random() * 0.14;
+    const out = side * (0.4 + Math.random() * 0.9) * kick, back = -(0.3 + Math.random() * 0.5) * sp * 0.5 - 0.3 * kick;
+    b.v.set(_bf.x * back - _bf.z * out, (0.7 + Math.random() * 1.3) * kick, _bf.z * back + _bf.x * out);
+  }
+}
+/* foschia bassa che striscia sulla neve: due veli a quote diverse, solo all'aperto */
+const mistLayers = [0.4, 1.25].map((h, i) => {
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 }, uOp: { value: 0 }, uC: { value: new THREE.Vector3() }, uK: { value: i ? 0.07 : 0.12 } },
+    vertexShader: 'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader: `uniform float uTime,uOp,uK; uniform vec3 uC; varying vec3 vW;
+      float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+      float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+      void main(){ vec2 p=vW.xz*uK+vec2(uTime*0.03,uTime*0.011)*(uK*10.0); float n=vn(p)*0.58+vn(p*2.3+7.0)*0.3+vn(p*5.1+3.0)*0.12;
+        n=smoothstep(0.4,0.82,n); float e=1.0-smoothstep(16.0,31.0,length(vW.xz-uC.xz)); gl_FragColor=vec4(vec3(0.74,0.81,0.92), n*e*uOp); }` });
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(66, 66), m); pl.rotation.x = -Math.PI / 2; pl.renderOrder = 4 + i; pl.frustumCulled = false; pl.userData.h = h; pl.userData.k = i ? 0.55 : 1; scene.add(pl); return pl;
+});
+function updateMist(dt, t) {
+  const on = state.started && !state.ended && ambProf() === 'city' ? 1 : 0;
+  for (const pl of mistLayers) { const u = pl.material.uniforms;
+    u.uOp.value = lerp(u.uOp.value, on * (0.2 + dread * 0.18) * pl.userData.k, damp(1.5, dt)); pl.visible = u.uOp.value > 0.004;
+    pl.position.set(camTarget.x, hero.y + pl.userData.h, camTarget.z); u.uC.value.copy(pl.position); u.uTime.value = t; }
+}
+function updateSpray(dt) {
+  for (const b of spray) {
+    if (b.life <= 0) continue;
+    b.life -= dt; const k = 1 - b.life / b.max;
+    b.v.y -= 3.2 * dt; b.v.x *= Math.exp(-dt * 1.2); b.v.z *= Math.exp(-dt * 1.2);
+    b.s.position.addScaledVector(b.v, dt); const gy = groundH(b.s.position.x, b.s.position.z) + 0.04; if (b.s.position.y < gy) { b.s.position.y = gy; b.v.y = 0; }
+    b.s.scale.setScalar(b.g + k * 0.55); b.s.material.opacity = Math.sin(Math.min(1, k * 1.15) * Math.PI) * 0.55;
+    if (b.life <= 0) b.s.visible = false;
+  }
+}
 
 /* ---------- B10. Freccia-guida e marcatori ---------- */
 const guide = new THREE.Group();
@@ -2691,7 +2771,40 @@ function makeFigure(mode, opts = {}) {
   const h = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), m); h.position.y = 1.95;
   g.add(b, h); g.visible = false; world.add(g);
   const F = Object.assign({ group: g, mat: m, mode, x: 0, z: 0, y: 0, op: 0, state: 'hidden', timer: 0, burn: 0, idx: 0, cool: 0 }, opts);
-  figures.push(F); return F;
+  figures.push(F); whenDM(() => attachSpectre(F)); return F;
+}
+/* lo spettro: la sagoma di Dmitri, color ghiaccio, semitrasparente, con un alone e il tremolio di un nastro rovinato */
+function attachSpectre(F) {
+  const root = skClone(DM.root), kill = [], B = {}; let sk = null, out = null;
+  root.traverse(ob => { if (ob.userData.isTorch) kill.push(ob); if (ob.isBone) B[ob.name] = ob;
+    if (ob.isSkinnedMesh) { ob.frustumCulled = false; ob.castShadow = false; ob.receiveShadow = false; if (ob.material === DM.outMat) out = ob; else sk = ob; } });
+  kill.forEach(k => k.parent.remove(k)); if (!sk) return;
+  const map = tintedMap('spectre', (r, g, b) => { const l = r * 0.3 + g * 0.59 + b * 0.11; return [l * 0.5 + 40, l * 0.72 + 62, l * 0.9 + 88]; });
+  const body = new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0, depthWrite: false });
+  sk.material = body; sk.renderOrder = 3;
+  let rim = null;
+  if (out) {
+    const Wd = (0.035 / DM.S).toFixed(5);
+    rim = new THREE.MeshBasicMaterial({ color: 0x8fd0ff, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    rim.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <skinning_vertex>', '#include <skinning_vertex>\n transformed += normalize(objectNormal) * ' + Wd + ';'); };
+    rim.customProgramCacheKey = () => 'spectreRim'; out.material = rim; out.renderOrder = 2;
+  }
+  const wrap = new THREE.Group(); wrap.scale.setScalar(DM.S); wrap.position.y = DM.wrap.position.y; wrap.add(root);
+  F.group.children.forEach(ch => ch.visible = false); F.group.add(wrap);
+  const walk = F.mode === 'stalker' && DM.clip;
+  const mixer = walk ? new THREE.AnimationMixer(root) : null;
+  if (mixer) { mixer.clipAction(DM.clip).play(); mixer.update(0.01); }
+  else applyPose(B, { py: HB, tx: 0.05, hx: 0.2, arms: [[0.03, -0.05, -0.08], [0.03, 0.05, -0.08]] });
+  F.spec = { wrap, body, rim, mixer, y0: wrap.position.y, px: F.x, pz: F.z };
+}
+function animSpectre(F, dt, t) {
+  const K = F.spec, moved = Math.hypot(F.x - K.px, F.z - K.pz); K.px = F.x; K.pz = F.z;
+  if (K.mixer && moved > 1e-4 && moved < 1) K.mixer.update(moved / (STRIDE * 2) * DM.clip.duration);
+  const glitch = Math.random() < 0.05, fl = 0.82 + 0.18 * Math.sin(t * 23 + F.x * 3);
+  K.body.opacity = F.op * 0.66 * fl * (glitch ? 0.35 : 1);
+  if (K.rim) K.rim.opacity = F.op * (0.5 + 0.2 * Math.sin(t * 3.1 + F.z));
+  K.wrap.position.x = glitch ? (Math.random() - 0.5) * 0.14 : 0;
+  K.wrap.position.y = K.y0 + 0.03 + Math.sin(t * 1.7 + F.x) * 0.025;
 }
 
 /* #####################################################################
@@ -3238,6 +3351,7 @@ function updateFigures(dt, t) {
     F.y = F.yOff !== undefined ? F.yOff : groundH(F.x, F.z);
     F.group.position.set(F.x, F.y, F.z);
     F.group.rotation.y = Math.atan2(hero.x - F.x, hero.z - F.z);
+    if (F.spec) animSpectre(F, dt, t);
     if (F.op > 0.05) dr = Math.max(dr, clamp((24 - d) / 16, 0, 1) * F.op * (F.mode === 'stalker' ? 1.2 : 1));
   }
   state.attention = Math.max(0, state.attention - dt * 1.0);
@@ -3251,7 +3365,7 @@ function updateFigures(dt, t) {
 /* ---------- C9. Fine capitolo ---------- */
 function endChapter() {
   if (state.ended) return;
-  state.ended = true; toggleTorch(false); refreshObjective();
+  state.ended = true; toggleTorch(false); refreshObjective(); Sound.quiet();
   promptEl.classList.remove('show'); actBtn.classList.remove('show');
   $('fade').classList.add('on'); Sound.sting();
   const E = C.ending();
@@ -4599,17 +4713,29 @@ const CH2 = {
     const N = this.nina; if (!N.group.visible) return;
     N.light.intensity = 5 + Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.3; N.glow.material.opacity = 0.5 + Math.sin(t * 11) * 0.05;
     let walking = 0;
-    if (this.ninaState === 'wait' || this.ninaState === 'talk') {
-      const want = Math.atan2(hero.x - N.x, hero.z - N.z); let dh = want - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(3, dt);
-      if (this.ninaState === 'talk' && !reading()) { this.ninaState = 'leave'; state.flags.metNina = true; this.ninaCircle[2] = 0; refreshObjective(); }
+    if (this.ninaState === 'wait' || this.ninaState === 'talk') {       // seduta sulla panchina: gira solo la testa
+      N.x = L2.NINA.x; N.z = -10.5; N.heading = 0; ninaSeat(N, 1);
+      N.pose = Object.assign({}, NINA_SIT, { hy: clamp(Math.atan2(hero.x - N.x, hero.z - N.z), -0.9, 0.9) }); N.posed = false;
+      if (this.ninaState === 'talk' && !reading()) { this.ninaState = 'leave'; this.ninaT = 0; this.ninaWp = 0; state.flags.metNina = true; this.ninaCircle[2] = 0; refreshObjective(); }
     } else if (this.ninaState === 'leave') {
-      walking = 1; let dh = Math.PI - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(3, dt);
-      N.x -= 0.6 * dt; N.z -= 0.15 * dt;
-      if (N.x < L2.SHELTER.x0 - 0.6 || Math.hypot(hero.x - N.x, hero.z - N.z) > 9) { this.ninaState = 'gone'; N.group.visible = false; this.ninaFire.lit = false; setTimeout(() => tell('ninaGone', ['Se ne va dietro la pensilina. La seguo.', 'Non c\'è nessuno. E nella neve, nessuna impronta.']), 600); }
+      this.ninaT += dt;
+      if (this.ninaT < 1.0) {                                             // si alza
+        const k = smooth01(this.ninaT / 1.0); N.pose = lerpPose(NINA_SIT, NINA_POSE, k); N.posed = false; ninaSeat(N, 1 - k); N.z = lerp(-10.5, -10.15, k);
+      } else {                                                            // esce davanti, gira attorno al muro della pensilina e sparisce dietro
+        N.pose = null; ninaSeat(N, 0); walking = 1;
+        const S2 = L2.SHELTER, W = [[N.x, -8.95], [S2.x0 - 0.95, -8.95], [S2.x0 - 1.0, S2.z0 - 0.75], [S2.x0 + 1.4, S2.z0 - 0.95]], w = W[this.ninaWp];
+        const dx = w[0] - N.x, dz = w[1] - N.z, dd = Math.hypot(dx, dz);
+        let dh = Math.atan2(dx, dz) - N.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); N.heading += dh * damp(6, dt);
+        if (dd < 0.12) this.ninaWp++; else { const st = Math.min(dd, 0.95 * dt); N.x += dx / dd * st; N.z += dz / dd * st; }
+        if (this.ninaWp >= W.length) { this.ninaState = 'gone'; N.group.visible = false; this.ninaFire.lit = false; setTimeout(() => tell('ninaGone', ['Gira dietro la pensilina. Quando arrivo all\'angolo non c\'è nessuno.', 'E nella neve, nessuna impronta.']), 600); }
+      }
+      const hd = Math.hypot(hero.x - N.x, hero.z - N.z);                  // non si lascia seguire
+      if (hd < 2.7 && hd > 1e-3 && this.ninaState === 'leave') { hero.x = N.x + (hero.x - N.x) / hd * 2.7; hero.z = N.z + (hero.z - N.z) / hd * 2.7; hero.speed *= 0.5;
+        if (this.ninaT > 2) tell('ninaFollow', 'Provo a seguirla. A ogni passo il freddo mi stringe le gambe: non riesco ad avvicinarmi.'); }
     }
     const ph = t * 4.2;
     N.feet[0].position.z = 0.03 + Math.sin(ph) * 0.1 * walking; N.feet[1].position.z = 0.03 - Math.sin(ph) * 0.1 * walking;
-    N.lantern.rotation.z = Math.sin(t * 1.3) * 0.06 + Math.sin(ph) * 0.12 * walking; N.lantern.rotation.x = Math.sin(t * 0.9) * 0.05; N.head.rotation.x = 0.1 + Math.sin(t * 0.7) * 0.03;
+    N.lantern.rotation.z = Math.sin(t * 1.3) * 0.06 + Math.sin(ph) * 0.12 * walking; N.lantern.rotation.x = Math.sin(t * 0.9) * 0.05 + (N.sitK || 0) * 0.75; N.head.rotation.x = 0.1 + Math.sin(t * 0.7) * 0.03;
     N.group.position.set(N.x, groundH(N.x, N.z) + (N.model ? 0 : Math.abs(Math.sin(ph)) * 0.02 * walking), N.z); N.group.rotation.y = N.heading; ninaAnim(N, walking, dt);
     this.ninaFire.x = N.x; this.ninaFire.z = N.z; this.ninaCircle[0] = N.x; this.ninaCircle[1] = N.z;
   },
@@ -4635,13 +4761,13 @@ const CH2 = {
     if (this.phase() === 9 && !f.finale && !inRoom && !reading()) { f.finale = true; this.drawBoard(true); Sound.tone(880, 0.2, 0.05, 'triangle'); this.bus.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x10151c) { o.material = o.material.clone(); o.material.emissive.setHex(0x6a5a30); o.material.emissiveIntensity = 1.2; } });
       say(['Quando esco dal locale, la fermata è cambiata.', 'Il tabellone ora dice: ' + Q('«МАРШРУТ 6 — ДОМ КУЛЬТУРЫ»') + '. E dentro il filobus si è accesa la luce.']); }
     // il filobus riparte
-    if (this.busGo > 0) { this.busGo += dt; this.busBox.off = true; const sp = Math.min(6, this.busGo * 1.2); this.bus.position.x += Math.cos(L2.TROLL.r) * sp * dt; this.bus.position.z -= Math.sin(L2.TROLL.r) * sp * dt; hero.x = this.bus.position.x; hero.z = this.bus.position.z + 1.6; }
+    if (this.busGo > 0) { this.busGo += dt; this.busBox.off = true; const sp = Math.min(6, this.busGo * 1.2); busFX(this.bus, sp, dt, this.busGo); Sound.setBus(Math.min(0.05, this.busGo * 0.03), sp); this.bus.position.x += Math.cos(L2.TROLL.r) * sp * dt; this.bus.position.z -= Math.sin(L2.TROLL.r) * sp * dt; hero.x = this.bus.position.x; hero.z = this.bus.position.z + 1.6; }
     if (this.endPending && !reading() && this.busGo > 2.5) { this.endPending = false; this.endT = 1.5; }
     if (this.endT > 0 && !reading()) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; S.paused = false; endChapter(); } }
     const live = !f.powerOff;
     // scintille
     let near = 1e9; for (const p of this.sparkPts) near = Math.min(near, Math.hypot(p.x - hero.x, p.z - hero.z));
-    Sound.setBuzz(live && state.started ? clamp(1 - near / 15, 0, 1) * 0.06 : 0);
+    Sound.setBuzz(live && state.started && !(this.busGo > 0) ? clamp(1 - near / 15, 0, 1) * 0.045 : 0);
     this.sparkT -= dt;
     if (live && this.sparkT <= 0) {
       this.sparkT = 0.15 + Math.random() * 0.9;
@@ -5308,7 +5434,7 @@ const CH3 = {
       this.busLight.intensity = 6 + (Math.random() < 0.02 ? -4 : 0); shake = Math.max(shake, 0.02);
       const k = clamp((B.x + 2.5 - hero.x) / 4, 0, 1); if (Math.abs(k - (this.fogK || 0)) > 0.05) { this.fogK = k; this.drawFog(k); }
     }
-    if (this.busLeave > 0) { this.busLeave += dt; const sp = Math.min(5, this.busLeave * 1.4); this.outBus.position.x -= sp * dt; if (this.busLeave > 1.0) this.outBusBox.off = true; if (this.outBus.position.x < -40) { this.outBus.visible = false; this.busLeave = 0; } }
+    if (this.busLeave > 0) { this.busLeave += dt; const sp = Math.min(5, this.busLeave * 1.4); this.outBus.position.x -= sp * dt; busFX(this.outBus, sp, dt, this.busLeave); Sound.setBus(0.045 * clamp(1 - Math.hypot(this.outBus.position.x - hero.x, this.outBus.position.z - hero.z) / 26, 0, 1), sp); if (this.busLeave > 1.0) this.outBusBox.off = true; if (this.outBus.position.x < -40) { this.outBus.visible = false; this.busLeave = 0; Sound.setBus(0); } }
     // Semënov: se ti allontani e torni, non c'è più
     if (state.items.has('botola') && !this.wGone && Math.hypot(hero.x - L3.WORKER.x, hero.z - L3.WORKER.z) > 10) { this.wGone = true; if (this.worker.group) this.worker.group.visible = false; }
     // il blackout: il soldato passa davanti a Dmitri
@@ -7960,8 +8086,8 @@ function loadChapter(n, fromPrev = false) {
   interactables = C.items();
   addSparkles();
   world.add(hero.group, hero.R.fill, guide, torch.spot, torch.spot.target, torch.cone);
-  breath.forEach(b => { b.life = 0; b.s.visible = false; world.add(b.s); });
-  Sound.setHum(0); Sound.setBuzz(0);
+  breath.forEach(b => { b.life = 0; b.s.visible = false; world.add(b.s); }); spray.forEach(b => { b.life = 0; b.s.visible = false; });
+  Sound.quiet();
   // stato del capitolo
   Object.assign(state, { ended: false, gap: false, clues: new Set(), flags: {}, attention: 0, told: {}, foodWarm: 0, heat: 100 });
   state.items = new Set(n === 1 ? [] : ['fiammiferi', 'mappa']);      // fiammiferi e mappa si trovano nel cortile
@@ -8101,7 +8227,7 @@ $('bagBtn').addEventListener('click', e => { e.preventDefault(); toggleBag(); })
     if (!mb.classList.contains('ask')) { mb.classList.add('ask'); mb.textContent = 'ESCI? TOCCA ANCORA'; clearTimeout(askT); askT = setTimeout(() => { mb.classList.remove('ask'); mb.textContent = '☰ CAPITOLI'; }, 3000); return; }
     clearTimeout(askT); mb.classList.remove('ask'); mb.textContent = '☰ CAPITOLI';
     queue.length = 0; boxEl.classList.remove('show'); $('hud').classList.remove('reading'); typing = null; closeBag(); $('tp').classList.add('hide'); state.paused = false;
-    Sound.setHum(0); Sound.setBuzz(0); phase = 'menu'; $('card').classList.add('hide');
+    Sound.quiet(); phase = 'menu'; $('card').classList.add('hide');
     $('fade').classList.add('on'); setTimeout(() => { showTitle(); }, 700);
   }); }
 $('bagClose').addEventListener('click', closeBag);
@@ -8182,7 +8308,7 @@ function updateHero(dt, t) {
   if (visFig) lookT = visFig;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateDmitri(dt); warmHandsIK(t, dt);
+  updateDmitri(dt); warmHandsIK(t, dt); updateSpray(dt); updateMist(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
