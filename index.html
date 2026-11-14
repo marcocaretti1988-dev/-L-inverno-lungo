@@ -711,9 +711,9 @@ const gradePass = new ShaderPass({
       col = mix(col, texture2D(tDiffuse, uv - vec2(3.0/uRes.x, 0.0)).rgb, 0.16);
       // alone: le luci forti sbavano nel buio attorno a sé
       vec3 bl = vec3(0.0); vec2 bp = vec2(uRes.y/uRes.x, 1.0) * 0.034;
-      for (int i = 0; i < 12; i++) { float a = float(i) * 2.39996 + 0.5, r = sqrt((float(i) + 0.5) / 12.0);
+      for (int i = 0; i < 6; i++) { float a = float(i) * 2.39996 + 0.5, r = sqrt((float(i) + 0.5) / 6.0);
         vec3 sc = texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * r * bp).rgb; bl += max(sc - 0.74, 0.0); }
-      col += bl / 12.0 * uBloom * vec3(2.6, 2.2, 1.7);
+      col += bl / 6.0 * uBloom * vec3(2.6, 2.2, 1.7);
       // appannamento: più il corpo si raffredda, più l'immagine si sfoca
       if (uFrost > 0.02) {
         vec3 acc = col; float rr = uFrost * 0.0042;
@@ -1279,16 +1279,14 @@ function snowify(m) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SNOW_GLSL)
       .replace('#include <map_fragment>', `#include <map_fragment>
         gSK = uSnowCap * smoothstep(0.3, 0.7, normalize(vSN).y);
-        float sn = sNz(vSW.xz * 2.7) * 0.55 + sNz(vSW.xz * 9.0) * 0.3 + sNz(vSW.xz * 31.0) * 0.15;
-        gSK *= smoothstep(0.2, 0.42, sn + gSK * 0.25);
+        if (gSK > 0.001) { float sn = sNz(vSW.xz * 2.7) * 0.65 + sNz(vSW.xz * 11.0) * 0.35; gSK *= smoothstep(0.2, 0.42, sn + gSK * 0.25); }
         for (int i = 0; i < 4; i++) { vec4 e = uSnowEx[i]; if (vSW.x > e.x && vSW.x < e.z && vSW.z > e.y && vSW.z < e.w) gSK = 0.0; }
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.98), gSK);
         { vec3 gN = normalize(vSN); float vert = 1.0 - abs(gN.y), al = vSW.x * abs(gN.z) + vSW.z * abs(gN.x);    // usura: macchie, colature, sporco alla base, pavimenti consumati
-          float st = sNz(vec2(al * 1.3, vSW.y * 1.1)) * 0.6 + sNz(vec2(al * 4.0, vSW.y * 3.0)) * 0.4;
-          float sk = sNz(vec2(al * 9.0, vSW.y * 0.3)) * sNz(vec2(al * 2.0 + 3.0, vSW.y * 0.8));
-          float base = 1.0 - smoothstep(0.0, 0.8, vSW.y);
-          float dirt = vert * (smoothstep(0.55, 0.85, st) * 0.32 + smoothstep(0.35, 0.6, sk) * 0.2 + base * 0.3);
-          float wear = smoothstep(0.75, 0.95, gN.y) * (1.0 - gSK) * smoothstep(0.45, 0.8, sNz(vSW.xz * 1.6) * 0.7 + sNz(vSW.xz * 7.0) * 0.3) * 0.28;
+          float dirt = 0.0, wear = 0.0;
+          if (vert > 0.5) { float st = sNz(vec2(al * 1.3, vSW.y * 1.1)), sk = sNz(vec2(al * 9.0, vSW.y * 0.3));
+            dirt = vert * (smoothstep(0.55, 0.85, st) * 0.32 + smoothstep(0.55, 0.8, sk) * 0.2 + (1.0 - smoothstep(0.0, 0.8, vSW.y)) * 0.3); }
+          else if (gN.y > 0.75 && gSK < 0.5) wear = (1.0 - gSK) * smoothstep(0.45, 0.8, sNz(vSW.xz * 1.6)) * 0.28;
           diffuseColor.rgb *= 1.0 - uGrime * clamp(dirt + wear, 0.0, 0.6); }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.86, gSK);')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= 1.0 - gSK;');
@@ -1383,7 +1381,7 @@ function winterDress(C) {
       pools.push({ m, B, i, k: 1.3 / (1 + ly * 0.2) });
     });
   }
-  if (W.lampShadow) { const Lp = lamps.find(l => l.wantShadow && !inEx(l.x, l.z)); if (Lp) { Lp.spot.castShadow = true; Lp.spot.shadow.mapSize.set(512, 512); } }
+  
   winterFX = { lampSnow, pools };
 }
 const motes = (() => { const N = 90, pos = new Float32Array(N * 3), d = [];
@@ -8813,6 +8811,13 @@ try { refreshMenu(); } catch (e) {}
 
 loadChapter(1);
 
+const RES = { pr: DPR, acc: 0, n: 0, cool: 3 };
+function adaptRes(dt) {
+  if (!state.started || state.paused) return; RES.acc += dt; RES.n++; RES.cool -= dt;
+  if (RES.acc < 1.5) return; const fps = RES.n / RES.acc; RES.acc = 0; RES.n = 0; if (RES.cool > 0) return;
+  let pr = RES.pr; if (fps < 46) pr = Math.max(0.9, pr - 0.15); else if (fps > 57) pr = Math.min(DPR, pr + 0.1);
+  if (Math.abs(pr - RES.pr) > 0.01) { RES.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); gradePass.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr); RES.cool = 2; }
+}
 const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
@@ -8837,6 +8842,7 @@ function loop() {
   gradePass.uniforms.uFrost.value = lerp(gradePass.uniforms.uFrost.value, frostT, damp(state.gapReason === 'freddo' ? 1.2 : 2, dt));
   flash = Math.max(0, flash - dt * 3.5); gradePass.uniforms.uFlash.value = flash * flash * 0.9;
   gradePass.uniforms.uTime.value = t;
+  adaptRes(dt);
   nightRender();
   requestAnimationFrame(loop);
 }
