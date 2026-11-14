@@ -2999,7 +2999,7 @@ const mistLayers = [0.4, 1.25].map((h, i) => {
   const pl = new THREE.Mesh(new THREE.PlaneGeometry(66, 66), m); pl.rotation.x = -Math.PI / 2; pl.renderOrder = 4 + i; pl.frustumCulled = false; pl.userData.h = h; pl.userData.k = i ? 0.55 : 1; scene.add(pl); return pl;
 });
 function updateMist(dt, t) {
-  const on = state.started && !state.ended && ambProf() === 'city' ? 1 : 0;
+  const on = 0;                // tolta: i due veli tagliavano a metà le cose (ambulanza, filobus, auto)
   for (const pl of mistLayers) { const u = pl.material.uniforms;
     u.uOp.value = lerp(u.uOp.value, on * (0.2 + dread * 0.18) * pl.userData.k, damp(1.5, dt)); pl.visible = u.uOp.value > 0.004;
     pl.position.set(camTarget.x, hero.y + pl.userData.h, camTarget.z); u.uC.value.copy(pl.position); u.uTime.value = t; }
