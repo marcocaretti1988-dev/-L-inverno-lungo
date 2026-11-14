@@ -163,6 +163,19 @@
   #bag{background:rgba(5,7,10,.72);z-index:12;transition:opacity .25s;padding:16px}
   #bag.hide{opacity:0}
   #tp{background:rgba(5,7,10,.72);z-index:12;transition:opacity .25s;padding:16px}
+  #kp{background:rgba(5,7,10,.72);z-index:12;padding:16px;transition:opacity .2s}
+  #kp.hide{opacity:0}
+  button.ch.locked{opacity:.42;filter:grayscale(1)}
+  button.ch.nope{animation:kpShake .35s}
+  .recap{margin-top:14px;font:14px/1.6 monospace;opacity:.85;text-align:left;display:inline-block}
+  .recap b{color:#ffcf8a;font-weight:700}
+  .kp-panel{width:min(340px,92vw)}
+  #kpDisp{font:700 40px/1 monospace;letter-spacing:.35em;text-align:center;padding:14px 0 10px;color:#ffcf8a;text-shadow:0 0 10px rgba(255,170,80,.5)}
+  #kpDisp.bad{color:#ff5a4a;animation:kpShake .35s}
+  #kpDisp.ok{color:#9ef0a8}
+  @keyframes kpShake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  #kpKeys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  #kpKeys button{font:700 22px/1 monospace;padding:14px 0}
 #card{position:fixed;inset:0;z-index:10;background:#000;overflow:hidden;transition:opacity 1.8s ease-in-out;font-family:'VT323',monospace;color:#f2f4f0}
 #card.hide{opacity:0;pointer-events:none}
 #card.out{background:transparent}
@@ -288,6 +301,11 @@
   <div class="tp-sw" id="tpSw"></div>
   <div class="bag-desc" id="tpMsg"></div>
   <button class="vhs" id="tpDrawer">CASSETTO INFERIORE · FUSIBILI</button>
+</div></div>
+<div id="kp" class="screen hide"><div class="bag-panel kp-panel">
+  <div class="bag-head"><span>ЗАМОК · 4 ЦИФРЫ</span><button class="vhs" id="kpClose" aria-label="Chiudi">✕</button></div>
+  <div id="kpDisp">_ _ _ _</div><div class="bag-desc" id="kpHint"></div>
+  <div id="kpKeys"></div>
 </div></div>
 <div id="card" class="hide"><img id="cardImg" alt=""><div class="cardVhs"></div><div class="cardStamp tl">PLAY ▶<br><span id="cardClock">11:40 PM</span></div><div class="cardStamp bl">FEB 12 1991</div><div class="cardStamp tr">● REC</div>
   <div class="cardTitle"><small id="cardNum"></small><b id="cardName"></b><em id="cardSub"></em></div><div class="cardSkip">tocca per continuare</div></div>
@@ -671,10 +689,10 @@ composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new OutputPass());
 const gradePass = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(innerWidth * DPR, innerHeight * DPR) },
-    uSat: { value: 0.58 }, uCool: { value: 0.32 }, uVig: { value: 0.6 }, uGrain: { value: 0.07 }, uScan: { value: 0.025 }, uDread: { value: 0 }, uFrost: { value: 0 }, uFlash: { value: 0 }, uBloom: { value: 1 } },
+    uSat: { value: 0.58 }, uCool: { value: 0.32 }, uVig: { value: 0.6 }, uGrain: { value: 0.07 }, uScan: { value: 0.025 }, uDread: { value: 0 }, uFrost: { value: 0 }, uFlash: { value: 0 }, uBloom: { value: 1 }, uNight: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime,uSat,uCool,uVig,uGrain,uScan,uDread,uFrost,uFlash,uBloom; uniform vec2 uRes; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime,uSat,uCool,uVig,uGrain,uScan,uDread,uFrost,uFlash,uBloom,uNight; uniform vec2 uRes; varying vec2 vUv;
     float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
     float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
@@ -708,7 +726,8 @@ const gradePass = new ShaderPass({
       col+=vec3(0.010,0.018,0.034)*(1.0-l);
       col=(col-0.5)*1.05+0.5;
       col = mix(col, col*vec3(1.07,1.0,0.88), smoothstep(0.55,0.95,l)*0.55);       // le luci tirano al caldo, le ombre restano fredde
-      vec3 cc = clamp(col,0.0,1.0); col = mix(col, cc*cc*(3.0-2.0*cc), 0.22);     // curva morbida da pellicola
+      vec3 cc = clamp(col,0.0,1.0); col = mix(col, cc*cc*(3.0-2.0*cc), 0.22);
+      col = mix(col, pow(max(col, 0.0), vec3(1.12)) * 1.06, uNight);                // neri più profondi, luci che restano     // curva morbida da pellicola
       col += trk * 0.03; col = mix(col, vec3(hash(uv*uRes*0.5 + uTime)), hs * 0.35);
       vec2 v=dc*vec2(uRes.x/uRes.y,1.0);
       col*=mix(1.0, smoothstep(1.05,0.25,length(v)), uVig + uDread*0.25);       // vignetta
@@ -1246,15 +1265,15 @@ function makeBlock(o) {
 }
 
 /* ---------- B1b. Inverno vero: neve sopra le cose, cumuli contro i muri, ghiaccio, luce dei lampioni nella nevicata, luce delle finestre sulla neve ---------- */
-const SNOWU = { uSnowCap: { value: 0 }, uSnowEx: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1e9, 1e9, -1e9, -1e9)) } };
-const SNOW_GLSL = `uniform float uSnowCap; uniform vec4 uSnowEx[4]; varying vec3 vSW; varying vec3 vSN; float gSK;
+const SNOWU = { uGrime: { value: 1 }, uSnowCap: { value: 0 }, uSnowEx: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1e9, 1e9, -1e9, -1e9)) } };
+const SNOW_GLSL = `uniform float uGrime; uniform float uSnowCap; uniform vec4 uSnowEx[4]; varying vec3 vSW; varying vec3 vSN; float gSK;
   float sHash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
   float sNz(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(sHash(i),sHash(i+vec2(1,0)),f.x), mix(sHash(i+vec2(0,1)),sHash(i+vec2(1,1)),f.x), f.y); }`;
 function snowify(m) {
   if (!m || !m.isMeshStandardMaterial || m.userData.snowy || m.userData.noSnow || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) return;
   m.userData.snowy = true;
   m.onBeforeCompile = sh => {
-    sh.uniforms.uSnowCap = SNOWU.uSnowCap; sh.uniforms.uSnowEx = SNOWU.uSnowEx;
+    sh.uniforms.uSnowCap = SNOWU.uSnowCap; sh.uniforms.uGrime = SNOWU.uGrime; sh.uniforms.uSnowEx = SNOWU.uSnowEx;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSW; varying vec3 vSN;')
       .replace('#include <project_vertex>', '#include <project_vertex>\n vSW = (modelMatrix * vec4(transformed, 1.0)).xyz; vSN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SNOW_GLSL)
@@ -1263,7 +1282,14 @@ function snowify(m) {
         float sn = sNz(vSW.xz * 2.7) * 0.55 + sNz(vSW.xz * 9.0) * 0.3 + sNz(vSW.xz * 31.0) * 0.15;
         gSK *= smoothstep(0.2, 0.42, sn + gSK * 0.25);
         for (int i = 0; i < 4; i++) { vec4 e = uSnowEx[i]; if (vSW.x > e.x && vSW.x < e.z && vSW.z > e.y && vSW.z < e.w) gSK = 0.0; }
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.98), gSK);`)
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.98), gSK);
+        { vec3 gN = normalize(vSN); float vert = 1.0 - abs(gN.y), al = vSW.x * abs(gN.z) + vSW.z * abs(gN.x);    // usura: macchie, colature, sporco alla base, pavimenti consumati
+          float st = sNz(vec2(al * 1.3, vSW.y * 1.1)) * 0.6 + sNz(vec2(al * 4.0, vSW.y * 3.0)) * 0.4;
+          float sk = sNz(vec2(al * 9.0, vSW.y * 0.3)) * sNz(vec2(al * 2.0 + 3.0, vSW.y * 0.8));
+          float base = 1.0 - smoothstep(0.0, 0.8, vSW.y);
+          float dirt = vert * (smoothstep(0.55, 0.85, st) * 0.32 + smoothstep(0.35, 0.6, sk) * 0.2 + base * 0.3);
+          float wear = smoothstep(0.75, 0.95, gN.y) * (1.0 - gSK) * smoothstep(0.45, 0.8, sNz(vSW.xz * 1.6) * 0.7 + sNz(vSW.xz * 7.0) * 0.3) * 0.28;
+          diffuseColor.rgb *= 1.0 - uGrime * clamp(dirt + wear, 0.0, 0.6); }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.86, gSK);')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= 1.0 - gSK;');
   };
@@ -1284,23 +1310,24 @@ const poolTex = (() => { const c = document.createElement('canvas'); c.width = 6
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 let winterFX = null;
 function winterDress(C) {
-  const W = C.winter; winterFX = null; SNOWU.uSnowCap.value = 0;
+  const W = C.winter; winterFX = null; SNOWU.uSnowCap.value = 0; nightKey = null;
+  { const skip = new Set(); hero.group.traverse(o => { if (o.material) [].concat(o.material).forEach(m => skip.add(m)); });
+    world.traverse(o => { if (o.material && (o.isInstancedMesh || o.isSkinnedMesh)) [].concat(o.material).forEach(m => skip.add(m)); });
+    world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.material) [].concat(o.material).forEach(m => { if (!skip.has(m)) snowify(m); }); }); }
+  SNOWU.uSnowEx.value.forEach(v => v.set(1e9, 1e9, -1e9, -1e9));
   if (!W) return;
   const ex = W.ex || [];
   SNOWU.uSnowEx.value.forEach((v, i) => { const r = ex[i]; if (r) v.set(r[0], r[2], r[1], r[3]); else v.set(1e9, 1e9, -1e9, -1e9); });
   SNOWU.uSnowCap.value = W.cap ?? 1;
-  const skip = new Set(); hero.group.traverse(o => { if (o.material) [].concat(o.material).forEach(m => skip.add(m)); });
-  world.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh) { if (o.material && (o.isInstancedMesh || o.isSkinnedMesh)) [].concat(o.material).forEach(m => skip.add(m)); return; } });
-  world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.material) [].concat(o.material).forEach(m => { if (!skip.has(m)) snowify(m); }); });
   const inEx = (x, z) => ex.some(r => x > r[0] && x < r[1] && z > r[2] && z < r[3]), AR = W.area || BOUNDS;
   // cumuli contro ogni ostacolo: quattro lati di ogni scatola di collisione
   if (W.drift !== false) {
     const pos = [], idx = [], rr = mulberry32(911); let base = 0;
-    const strip = (ax, az, bx, bz, nx, nz) => {
+    const strip = (ax, az, bx, bz, nx, nz, big) => {
       const len = Math.hypot(bx - ax, bz - az); if (len < 0.4) return;
       const mx = (ax + bx) / 2 + nx * 0.6, mz = (az + bz) / 2 + nz * 0.6;
       if (inEx(mx, mz) || mx < AR[0] - 2 || mx > AR[1] + 2 || mz < AR[2] - 2 || mz > AR[3] + 2) return;
-      const H = 0.3 + rr() * 0.45, Wd = 0.8 + rr() * 0.9, NS = Math.max(2, Math.round(len / 0.35)), NV = 5, ph = rr() * 9;
+      const H = big ? 1.0 + rr() * 0.5 : 0.3 + rr() * 0.45, Wd = big ? 2.2 + rr() * 0.8 : 0.8 + rr() * 0.9, NS = Math.max(2, Math.round(len / 0.35)), NV = 5, ph = rr() * 9;
       for (let i = 0; i <= NS; i++) { const u = i / NS, x0 = lerp(ax, bx, u), z0 = lerp(az, bz, u);
         const taper = Math.min(1, Math.min(u, 1 - u) * len / 0.7 + 0.15), wob = 0.75 + 0.25 * Math.sin(u * len * 2.1 + ph) + 0.15 * Math.sin(u * len * 5.3 + ph * 2);
         for (let j = 0; j <= NV; j++) { const v = j / NV, w = Wd * wob * (0.6 + 0.4 * taper), x = x0 + nx * (v * w - 0.04), z = z0 + nz * (v * w - 0.04);
@@ -1314,6 +1341,9 @@ function winterDress(C) {
       const sides = [[[-b.hx, b.hz], [b.hx, b.hz], [0, 1]], [[b.hx, -b.hz], [-b.hx, -b.hz], [0, -1]], [[b.hx, b.hz], [b.hx, -b.hz], [1, 0]], [[-b.hx, -b.hz], [-b.hx, b.hz], [-1, 0]]];
       for (const [p0, p1, n] of sides) { if (rr() < 0.15) continue; const [ax, az] = P(...p0), [bx, bz] = P(...p1), [nx, nz] = N(...n); strip(ax, az, bx, bz, nx, nz); }
     }
+    { const [x0, x1, z0, z1] = AR, seg = 6;                 // ai bordi della mappa, banchi di neve alti: il limite si vede
+      const edge = (ax, az, bx, bz, nx, nz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / seg); for (let i = 0; i < n; i++) { const u0 = i / n, u1 = (i + 1) / n; strip(lerp(ax, bx, u0), lerp(az, bz, u0), lerp(ax, bx, u1), lerp(az, bz, u1), nx, nz, true); } };
+      edge(x0 - 1.4, z0 - 1.6, x1 + 1.4, z0 - 1.6, 0, 1); edge(x1 + 1.4, z1 + 1.6, x0 - 1.4, z1 + 1.6, 0, -1); edge(x0 - 1.6, z1 + 1.4, x0 - 1.6, z0 - 1.4, 1, 0); edge(x1 + 1.6, z0 - 1.4, x1 + 1.6, z1 + 1.4, -1, 0); }
     if (pos.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
       const m = new THREE.Mesh(g, plainSnowMat); m.receiveShadow = true; m.userData.noInk = true; world.add(m); }
   }
@@ -1402,6 +1432,100 @@ function roomFloorTex() {
   for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(30,24,18,${r() * 0.15})`; x.fillRect(r() * 256, r() * 256, 3, 3); }
   const g = x.createRadialGradient(128, 128, 20, 128, 128, 180); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(20,16,12,0.45)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/* notte più nera: la luna e il cielo si abbassano, le luci calde salgono; si applica solo durante il disegno, così i capitoli restano com'erano scritti */
+const NIGHT = { hemi: 0.4, sun: 0.95, warm: 1.5, torch: 1.15 };
+let nightLights = [], nightKey = null;
+function nightRender() {
+  if (nightKey !== C) { nightKey = C; nightLights = []; scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== torch.spot) { const c = o.color; if (c.r > c.b * 1.15) nightLights.push(o); } }); }
+  const on = state.started && !state.ended, h0 = hemi.intensity, s0 = sun.intensity, t0 = torch.spot.intensity, w0 = nightLights.map(l => l.intensity);
+  if (on) { const out = ambProf() === 'city'; hemi.intensity *= out ? NIGHT.hemi : 0.85; sun.intensity *= NIGHT.sun; torch.spot.intensity *= NIGHT.torch; nightLights.forEach(l => l.intensity *= NIGHT.warm * TENSION.dim); hemi.intensity *= 0.6 + 0.4 * TENSION.dim; }
+  gradePass.uniforms.uNight.value = on ? 1 : 0;
+  composer.render();
+  hemi.intensity = h0; sun.intensity = s0; torch.spot.intensity = t0; nightLights.forEach((l, i) => l.intensity = w0[i]);
+}
+
+/* ---------- Enigma: la cassetta col lucchetto a combinazione, una per capitolo; il codice è scritto in uno dei documenti ---------- */
+const SAFES = {
+  1: { code: '1302', hint: 'Sul coperchio, graffiato: «LA DATA IN CUI NON HO FATTO IN TEMPO».', lore: 'Dentro, una foto di un uomo col cappotto blu davanti alla ТЭЦ. Dietro, la mia calligrafia: «Non sei il primo».' },
+  2: { code: '2340', hint: 'Sul coperchio, a pennarello: «L\'ORA DELL\'ULTIMA CORSA».', lore: 'Un biglietto del filobus timbrato. Data: domani. Ora: 23:40.' },
+  3: { at: () => L3.START, code: '0418', hint: 'Una targhetta: «PROPRIETÀ DEL TESSERINO SUCCESSIVO AL TUO».', lore: 'Un paio di guanti da tecnico, uguali ai miei. Sul polsino, cucito: 0418.' },
+  4: { code: '0417', hint: 'Inciso sul fianco: «FILA E POSTO. NIENTE ALTRO».', lore: 'Un pezzo di pellicola. Nei fotogrammi, sempre lo stesso uomo che entra in sala. Sono io.' },
+  5: { code: '1202', hint: 'Sull\'etichetta: «APRIRE NEL GIORNO DEI RICOVERI».', lore: 'Un braccialetto da paziente: «ВОРОНИН Д. А.». Il nodo è stato fatto da qualcuno con le mie mani.' },
+  6: { code: '1428', hint: 'Sopra il lucchetto, a matita: «LA FREQUENZA. SENZA LA VIRGOLA».', lore: 'Una cuffia con il cavo tagliato. Nell\'auricolare, appena, la mia voce che conta fino a tre.' },
+  7: { code: '0312', hint: 'Sul fondo: «QUANTE VOLTE SONO PASSATO DI QUI».', lore: 'Un gessetto consumato fino all\'unghia. Accanto, trecentododici tacche, e una tredicesima appena iniziata.' },
+  8: { code: '2315', hint: 'Sul coperchio, a vernice: «L\'ORA IN CUI LA BRIGATA HA DATO TUTTA LA POTENZA».', lore: 'Un fusibile bruciato con un nome scritto sopra: Semënov. E sotto, più piccolo: Voronin.' },
+  9: { code: '0417', hint: 'Una scritta rossa: «IL MIO NUMERO. QUELLO DEL DIARIO».', lore: 'Un dosimetro fermo a zero. La lancetta è stata bloccata con il nastro isolante, molto tempo fa.' },
+  10: { code: '0042', hint: 'Sul coperchio: «IL NUMERO DELLA CITTÀ CHIUSA».', lore: 'Un mazzo di chiavi con un cartellino: ЗАТО-43. La prossima città.' },
+};
+let kpSafe = null, kpBuf = '';
+function kpShow() { $('kpDisp').textContent = (kpBuf + '____').slice(0, 4).split('').join(' '); }
+function openKeypad(sf) { kpSafe = sf; kpBuf = ''; kpShow(); $('kpDisp').className = ''; $('kpHint').textContent = sf.def.hint; state.paused = true; keys.clear(); $('kp').classList.remove('hide'); }
+function closeKeypad() { $('kp').classList.add('hide'); state.paused = false; kpSafe = null; }
+{ const K = $('kpKeys'); ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK'].forEach(k => { const b = document.createElement('button'); b.className = 'vhs'; b.textContent = k; K.appendChild(b);
+    b.addEventListener('pointerdown', e => { e.preventDefault(); if (!kpSafe) return; Sound.click && Sound.click();
+      if (k === '⌫') kpBuf = kpBuf.slice(0, -1); else if (k === 'OK') kpTry(); else if (kpBuf.length < 4) { kpBuf += k; if (kpBuf.length === 4) setTimeout(kpTry, 180); }
+      kpShow(); }); });
+  $('kpClose').addEventListener('pointerdown', e => { e.preventDefault(); closeKeypad(); }); }
+function kpTry() {
+  const sf = kpSafe; if (!sf) return; const D = $('kpDisp');
+  if (kpBuf === sf.def.code) { D.className = 'ok'; Sound.clunk && Sound.clunk(); sf.open = true; sf.lid.rotation.x = -1.9;
+    setTimeout(() => { closeKeypad(); state.cans += 1; state.battery = Math.min(100, state.battery + 30); say([sf.def.lore, 'Prendo anche una scatoletta e una pila di ricambio.']); refreshObjective(); }, 600); }
+  else { D.className = ''; void D.offsetWidth; D.className = 'bad'; Sound.tone(110, 0.25, 0.2, 'square'); kpBuf = ''; setTimeout(kpShow, 350); }
+}
+function addSafe() {
+  const def = SAFES[C.id]; if (!def) return;
+  const st = def.at ? def.at() : C.start, rr = mulberry32(C.id * 131), AB = def.at && C.winter && C.winter.area ? C.winter.area : BOUNDS;
+  const free = (x, z) => x > AB[0] + 0.8 && x < AB[1] - 0.8 && z > AB[2] + 0.8 && z < AB[3] - 0.8 &&
+    !BOXES.some(b => { const dx = x - b.cx, dz = z - b.cz, lx = dx * b.c + dz * b.s, lz = -dx * b.s + dz * b.c; return Math.abs(lx) < b.hx + 0.6 && Math.abs(lz) < b.hz + 0.6; }) &&
+    !CIRCLES.some(c => Math.hypot(x - c[0], z - c[1]) < c[2] + 0.6) && !interactables.some(it => Math.hypot(x - it.x, z - it.z) < 1.6);
+  let P = null;
+  for (let R = 2.6; R < 9 && !P; R += 0.5) for (let k = 0; k < 16 && !P; k++) { const a = rr() * 6.283, x = st.x + Math.cos(a) * R, z = st.z + Math.sin(a) * R; if (free(x, z)) P = [x, z]; }
+  if (!P) return;
+  const [x, z] = P, gy = groundH(x, z), g = new THREE.Group(), met = new THREE.MeshStandardMaterial({ color: 0x4c5a52, roughness: 0.55, metalness: 0.55 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.32, 0.38), met); body.position.y = 0.16; g.add(body);
+  const lid = new THREE.Group(); lid.position.set(0, 0.32, -0.19); const lm = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.05, 0.4), met); lm.position.z = 0.2; lid.add(lm); g.add(lid);
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.05), new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.4, metalness: 0.8 })); lock.position.set(0, 0.2, 0.21); g.add(lock);
+  g.position.set(x, gy, z); g.rotation.y = Math.atan2(st.x - x, st.z - z); shadowAll(g); world.add(g);
+  const sf = { def, lid, open: false };
+  interactables.push({ id: 'safe', x, z, r: 1.3, my: 0.5, label: () => sf.open ? 'Cassetta aperta' : 'Cassetta con lucchetto a combinazione', done: () => sf.open, gone: () => sf.open,
+    use() { if (sf.open) return; if (!sf.seen) { sf.seen = true; say(['Una cassetta metallica, chiusa con un lucchetto a quattro cifre.', def.hint]); return; } openKeypad(sf); } });
+}
+
+/* ---------- Tensione senza parole: ogni tanto succede qualcosa, e nessuno lo spiega ---------- */
+const silTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 160; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 160); g.addColorStop(0, 'rgba(8,10,14,0.95)'); g.addColorStop(0.85, 'rgba(8,10,14,0.85)'); g.addColorStop(1, 'rgba(8,10,14,0)'); x.fillStyle = g;
+  x.beginPath(); x.ellipse(32, 18, 11, 14, 0, 0, 7); x.fill(); x.beginPath(); x.moveTo(14, 34); x.quadraticCurveTo(32, 26, 50, 34); x.lineTo(54, 100); x.lineTo(46, 158); x.lineTo(18, 158); x.lineTo(10, 100); x.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const TENSION = { t: 50 + Math.random() * 40, dim: 1, dimT: 0, alert: null, alertT: 0, sil: null, silT: 0, last: -1 };
+function tensionEvent() {
+  const out = ambProf() === 'city', back = hero.heading + Math.PI + (Math.random() - 0.5) * 1.2;
+  let k; do { k = Math.floor(Math.random() * 4); } while (k === TENSION.last); TENSION.last = k;
+  const far = (d) => ({ x: hero.x + Math.sin(back) * d, z: hero.z + Math.cos(back) * d });
+  if (k === 0) { TENSION.dimT = 1.6; Sound.glitch(); }                                                           // le luci calano tutte insieme
+  else if (k === 1) { const p = far(5 + Math.random() * 3); TENSION.alert = p; TENSION.alertT = 2.8; Sound.knock(0.1); shake = Math.max(shake, 0.15); }   // tre colpi alle spalle: Dmitri si gira
+  else if (k === 2) { const p = far(5); TENSION.alert = p; TENSION.alertT = 2.4; for (let i = 0; i < 4; i++) setTimeout(() => Sound.step(), 200 + i * 430); }   // passi che non sono i miei
+  else {                                                                                                         // qualcuno in fondo, per un attimo
+    const p = far(out ? 13 : 7); if (!TENSION.sil) { TENSION.sil = new THREE.Sprite(new THREE.SpriteMaterial({ map: silTex, transparent: true, depthWrite: false, opacity: 0 })); TENSION.sil.scale.set(0.75, 1.9, 1); }
+    if (TENSION.sil.parent !== world) world.add(TENSION.sil);
+    TENSION.sil.position.set(p.x, groundH(p.x, p.z) + 0.95, p.z); TENSION.silT = 2.2; TENSION.alert = p; TENSION.alertT = 1.4; Sound.creak();
+  }
+}
+function updateEdge(dt) {           // spingere contro il bordo: una frase sola, la prima volta
+  if (edgePush.hit && hero.speed > 0.5 && state.started && !state.ended) edgePush.t += dt; else edgePush.t = Math.max(0, edgePush.t - dt * 2);
+  edgePush.hit = false;
+  if (edgePush.t > 0.9 && !reading()) { edgePush.t = 0; const out = ambProf() === 'city';
+    tell('edge' + C.id, out ? 'La neve è troppo alta di qua. Non si passa.' : 'Di qua non c\'è niente. Solo buio e muro.'); }
+}
+function updateTension(dt) {
+  updateEdge(dt);
+  const live = state.started && !state.ended && !state.gap && !state.paused && !reading();
+  if (live) { TENSION.t -= dt; if (TENSION.t <= 0) { TENSION.t = 70 + Math.random() * 70; tensionEvent(); } }
+  TENSION.dimT = Math.max(0, TENSION.dimT - dt); TENSION.dim = TENSION.dimT > 0 ? 0.15 + 0.85 * Math.abs(Math.sin(TENSION.dimT * 9)) * (1 - TENSION.dimT / 1.6) : 1;
+  TENSION.alertT = Math.max(0, TENSION.alertT - dt); if (!TENSION.alertT) TENSION.alert = null;
+  if (TENSION.sil) { TENSION.silT = Math.max(0, TENSION.silT - dt); const k = TENSION.silT; TENSION.sil.material.opacity = k > 1.6 ? (2.2 - k) / 0.6 * 0.85 : k > 0.5 ? 0.85 : k / 0.5 * 0.85; TENSION.sil.visible = k > 0;
+    if (k > 0 && Math.hypot(hero.x - TENSION.sil.position.x, hero.z - TENSION.sil.position.z) < 5) TENSION.silT = Math.min(TENSION.silT, 0.3); }
 }
 
 /* ---------- B2. Lampioni ---------- */
@@ -2173,8 +2297,9 @@ function collideOnce(p, rad) {
     const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz), R = cr + rad * 0.6;
     if (d < R && d > 1e-5) { p.x = cx + dx / d * R; p.z = cz + dz / d * R; }
   }
-  p.x = clamp(p.x, BOUNDS[0], BOUNDS[1]); p.z = clamp(p.z, BOUNDS[2], BOUNDS[3]);
+  const bx = clamp(p.x, BOUNDS[0], BOUNDS[1]), bz = clamp(p.z, BOUNDS[2], BOUNDS[3]); if (bx !== p.x || bz !== p.z) edgePush.hit = true; p.x = bx; p.z = bz;
 }
+const edgePush = { hit: false, t: 0 };
 function collide(p, r = 0.3) { for (let i = 0; i < 3; i++) collideOnce(p, r); }
 
 /* ---------- B8. Contorno a inchiostro (inverted hull): lo stile low-poly con linee nere ---------- */
@@ -2667,6 +2792,19 @@ function aimBone(bone, from, to, w) {               // ruota l'osso (in mondo) p
   const V = _ik; V.q.setFromUnitVectors(from, to); bone.getWorldQuaternion(V.qw); V.qw.premultiply(V.q);
   bone.parent.getWorldQuaternion(V.qp); V.qp.invert(); V.qp.multiply(V.qw); bone.quaternion.slerp(V.qp, w); bone.updateMatrixWorld(true);
 }
+/* gesto di raggiungere: per porte, interruttori, valvole il braccio sinistro si allunga verso l'oggetto */
+function reachIK(dt) {
+  if (!(hero.reachT > 0)) return; hero.reachT -= dt;
+  const k = Math.sin(clamp(1 - hero.reachT / 0.9, 0, 1) * Math.PI), it = hero.reachIt; if (!DM.ready || !it || hero.fall.phase !== 'none') return;
+  const w = k * 0.9, B = DM.B, V = _ik; DM.root.updateMatrixWorld(true);
+  const S = B.L_Shoulder, E = B.L_Elbow, Wr = B.L_Wrist; S.getWorldPosition(V.s); E.getWorldPosition(V.e); Wr.getWorldPosition(V.w);
+  const a = V.s.distanceTo(V.e), b = V.e.distanceTo(V.w);
+  V.t.set(it.x, hero.y + clamp((it.my || 1.0), 0.6, 1.5), it.z); V.d.copy(V.t).sub(V.s); const L = V.d.length(); V.d.normalize();
+  V.t.copy(V.s).addScaledVector(V.d, Math.min(L, (a + b) * 0.92));
+  const fromS = V.w.clone().sub(V.s).normalize(), toS = V.t.clone().sub(V.s).normalize();
+  if (fromS.dot(toS) < -0.6) return;
+  aimBone(S, fromS, toS, w); E.quaternion.slerp(new THREE.Quaternion(), w * 0.8); E.updateMatrixWorld(true);
+}
 function warmHandsIK(t, dt = 0.016) {
   const still = hero.speed < 0.08 && (DM.wClip || 0) < 0.03 && hero.fall.phase !== 'none' ? 0 : hero.speed < 0.08 && (DM.wClip || 0) < 0.03 ? 1 : 0;
   const busyPose = Math.max(hero.kb || 0, hero.pk || 0, hero.cb || 0, hero.fall.k || 0);
@@ -3101,7 +3239,7 @@ function addSparkles() {
 function updateInteract(t) {
   nearest = null; let best = 1e9;
   for (const it of interactables) {
-    if ((it.gone && it.gone()) || (it.clue && !it.repeat && state.clues.has(it.id))) { if (it.sprite) it.sprite.material.opacity = 0; continue; }
+    if ((it.gone && it.gone()) || (it.clue && !it.repeat && state.clues.has(it.id))) { if (it.sprite) it.sprite.material.opacity = 0; if (it.ring) it.ring.visible = false; continue; }
     const d = Math.hypot(hero.x - it.x, hero.z - it.z);
     if (it.sprite) {
       const done = it.done ? it.done() : (it.clue && state.clues.has(it.id));
@@ -3110,7 +3248,10 @@ function updateInteract(t) {
       // un luccichio come il sole su un vetro: quasi spento, poi un lampo breve; ogni tanto un doppio lampo
       const f = Math.pow(Math.max(0, Math.sin(t * 2.1 + it.ph)), 22) + 0.7 * Math.pow(Math.max(0, Math.sin(t * 3.7 + it.ph2)), 40);
       it.vis = lerp(it.vis || 0, vis, 0.08);
-      it.sprite.material.opacity = it.vis * clamp(0.18 + 0.95 * f, 0, 1);
+      it.sprite.material.opacity = it.vis * clamp(0.3 + 0.9 * f, 0, 1);
+      if (!it.ring) { it.ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 40), new THREE.MeshBasicMaterial({ color: 0xffe2b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); it.ring.rotation.x = -Math.PI / 2; it.ring.renderOrder = 3; world.add(it.ring); }
+      const near = done ? 0 : clamp((3.2 - d) / 1.5, 0, 1); it.ringV = lerp(it.ringV || 0, near, 0.1);
+      it.ring.visible = it.ringV > 0.01; if (it.ring.visible) { const pu = 0.5 + 0.5 * Math.sin(t * 3 + it.ph); it.ring.material.opacity = it.ringV * (0.18 + 0.22 * pu); it.ring.scale.setScalar(0.9 + 0.15 * pu); it.ring.position.set(it.x, groundH(it.x, it.z) + 0.05, it.z); }
       const sc = 0.32 + 0.75 * Math.min(1, f);
       it.sprite.scale.set(sc, sc, 1);
       it.sprite.material.rotation = t * 0.35 + it.ph + f * 0.3;
@@ -3137,7 +3278,7 @@ function interact() {
   if (anim) {
     hero.heading = Math.atan2(it.x - hero.x, it.z - hero.z); hero.speed = 0;
     if (anim === 'kneel') hero.kneelT = 2.6; else hero.pickT = 1.1;
-  }
+  } else if (Math.hypot(it.x - hero.x, it.z - hero.z) < 2.2) { hero.heading = Math.atan2(it.x - hero.x, it.z - hero.z); hero.reachT = 0.9; hero.reachIt = it; hero.ikW = 0; }
   const run = () => {
     const was = new Set(state.clues), had = new Set(state.items), cans = state.cans, bat = state.battery;
     if (it.clue && !state.clues.has(it.id) && !(it.needs && !it.needs())) state.clues.add(it.id);
@@ -3443,7 +3584,10 @@ function memoryGap(reason) {
   setTimeout(() => {
     const cp = state.checkpoint;
     hero.x = cp.x; hero.z = cp.z; hero.speed = 0; hero.trail.length = 0; hero.y = groundH(cp.x, cp.z);
-    state.heat = Math.max(state.heat, 60); state.attention = 0;
+    state.heat = Math.max(state.heat, 45); state.attention = 0; state.faints = (state.faints || 0) + 1;
+    let lost = null;                                     // il risveglio costa qualcosa
+    if (state.cans > 0) { state.cans--; lost = 'Lo zaino è aperto. Manca una scatoletta.'; }
+    else if (state.battery > 15) { state.battery = Math.max(10, state.battery - 25); lost = 'La torcia è rimasta accesa nella neve. La pila è quasi andata.'; }
     figures.forEach(f => { if (f.mode === 'stalker') { f.state = 'hidden'; f.cool = 30; } f.op = 0; });
     for (let k = 0; k < 30; k++) {                      // cerchio di impronte attorno al punto di risveglio
       const a = k / 30 * Math.PI * 2, R_ = 2.3 + (k % 2 ? 0.12 : -0.12);
@@ -3455,9 +3599,10 @@ function memoryGap(reason) {
     $('fade').classList.remove('on');
     state.gap = false; state.gapReason = null;
     const GL = C.gapLines && C.gapLines(reason);
-    if (GL) say(GL); else say(reason === 'freddo'
+    const LL = GL ? [].concat(GL) : (reason === 'freddo'
       ? ['…buio.', 'Mi ritrovo in piedi, qui. Non ricordo come ci sono arrivato. Intorno a me, impronte che girano in tondo.', 'Le mie.']
       : ['…qualcosa mi ha preso le spalle. Poi niente.', 'Mi risveglio qui. Ho perso del tempo: quanto, non lo so. Sulla neve, un cerchio di impronte.', 'Le mie.']);
+    if (lost) LL.push(lost); say(LL);
   }, reason === 'freddo' ? 4800 : 3600);
 }
 
@@ -3572,7 +3717,11 @@ function endChapter() {
     localStorage.setItem('zima_last', String(E.next || C.id)); } catch (e) {}
   $('endTitle').textContent = `FINE DEL CAPITOLO ${C.roman}`;
   $('endName').textContent = C.name.toUpperCase();
-  $('endLine').innerHTML = E.text + `<br><br>Indizi trovati: ${state.clues.size}/${C.clueCount}`;
+  { const secs = Math.floor(playTime - (state.chT0 || 0)), mm = Math.floor(secs / 60), ss = secs % 60;
+    const docs = [...state.clues].map(k => C.docs && C.docs[k]).filter(d => typeof d === 'string').map(d => d.split(' · ')[0]);
+    const safe = interactables.find(i => i.id === 'safe');
+    $('endLine').innerHTML = E.text + `<div class="recap">Indizi: <b>${state.clues.size}/${C.clueCount}</b>` + (docs.length ? ` · ${docs.join(' · ')}` : '') +
+      `<br>Tempo: <b>${mm}:${String(ss).padStart(2, '0')}</b> · Svenimenti: <b>${state.faints || 0}</b>` + (safe ? ` · Cassetta: <b>${safe.done() ? 'aperta' : 'chiusa'}</b>` : '') + `</div>`; }
   $('endNext').textContent = E.next ? `PROSSIMO · ${E.nextLabel}` : E.nextLabel;
   $('endGo').style.display = E.next ? '' : 'none';
   $('endGo').textContent = E.next ? 'CONTINUA' : '';
@@ -8325,10 +8474,11 @@ function loadChapter(n, fromPrev = false) {
   C.build();
   winterDress(C);
   interactables = C.items();
+  addSafe();
   addSparkles();
   world.add(hero.group, hero.R.fill, guide, torch.spot, torch.spot.target, torch.cone);
   breath.forEach(b => { b.life = 0; b.s.visible = false; world.add(b.s); }); spray.forEach(b => { b.life = 0; b.s.visible = false; });
-  Sound.quiet();
+  Sound.quiet(); state.faints = 0; state.chT0 = typeof playTime === 'number' ? playTime : 0;
   // stato del capitolo
   Object.assign(state, { ended: false, gap: false, clues: new Set(), flags: {}, attention: 0, told: {}, foodWarm: 0, heat: 100 });
   state.items = new Set(n === 1 ? [] : ['fiammiferi', 'mappa']);      // fiammiferi e mappa si trovano nel cortile
@@ -8428,7 +8578,7 @@ $('crawlText').addEventListener('animationend', endCrawl);
 $('storyBtn').addEventListener('click', runCrawl);
 $('musicBtn').addEventListener('click', () => { Sound.init(); Music.toggle(); });
 $('musicBtn').textContent = Music.muted ? '♪ MUSICA: OFF' : '♪ MUSICA: ON';
-document.querySelectorAll('button.ch').forEach(b => b.addEventListener('click', () => { if (!CHAPTERS[+b.dataset.ch]) return; phase = 'game'; startChapter(+b.dataset.ch); }));
+document.querySelectorAll('button.ch').forEach(b => b.addEventListener('click', () => { if (!CHAPTERS[+b.dataset.ch]) return; if (b.classList.contains('locked')) { b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; } phase = 'game'; startChapter(+b.dataset.ch); }));
 $('endMenu').addEventListener('click', () => { phase = 'menu'; showTitle(); });
 
 /* ---------- E2. Input ---------- */
@@ -8547,9 +8697,10 @@ function updateHero(dt, t) {
   let lookT = null;
   const visFig = figures.find(f => f.op > 0.3);
   if (visFig) lookT = visFig;
+  else if (TENSION.alert) lookT = TENSION.alert;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateDmitri(dt); warmHandsIK(t, dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
+  updateTension(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
@@ -8636,11 +8787,16 @@ addEventListener('resize', () => {
 
 // capitolo sbloccato più avanzato
 /* menu: capitoli completati ✓, quelli non ancora sbloccati, la scelta del Capitolo X, «Continua» */
+const allOpen = () => { try { return localStorage.getItem('zima_all') === '1'; } catch (e) { return false; } };
+{ let taps = 0, tt = 0; document.querySelectorAll('#title .big').forEach(el => el.addEventListener('pointerdown', () => {   // 5 tocchi sul titolo: tutti i capitoli aperti (per provare)
+  const now = performance.now(); taps = now - tt < 600 ? taps + 1 : 1; tt = now;
+  if (taps >= 5) { taps = 0; try { localStorage.setItem('zima_all', allOpen() ? '0' : '1'); } catch (e) {} refreshMenu(); el.style.color = allOpen() ? '#ffcf8a' : ''; } })); }
 function refreshMenu() {
   let u = 1, done = [], last = 0, ch = '';
   try { u = +localStorage.getItem('zima_unlocked') || 1; done = JSON.parse(localStorage.getItem('zima_done') || '[]'); last = +localStorage.getItem('zima_last') || 0; ch = localStorage.getItem('zima_scelta') || ''; } catch (e) {}
   document.querySelectorAll('button.ch').forEach(b => { const n = +b.dataset.ch, sm = b.querySelector('small'); if (!sm.dataset.base) sm.dataset.base = sm.textContent;
-    let t = sm.dataset.base; if (done.includes(n)) t = '✓ ' + t; if (n === 10 && ch && typeof CHOICES !== 'undefined') t += ' · strada ' + ch + ' — ' + CHOICES[ch].name; 
+    const unl = Math.max(u, done.length ? Math.max(...done) + 1 : 1), lk = n > unl && !allOpen(); b.classList.toggle('locked', lk);
+    let t = sm.dataset.base; if (done.includes(n)) t = '✓ ' + t; if (lk) t = '🔒 completa il capitolo precedente'; if (n === 10 && ch && typeof CHOICES !== 'undefined') t += ' · strada ' + ch + ' — ' + CHOICES[ch].name; 
     sm.textContent = t; b.classList.toggle('done', done.includes(n)); });
   const cb = $('contBtn'); if (cb) { const ok = last >= 1 && last <= 10 && CHAPTERS[last]; cb.style.display = ok ? '' : 'none'; if (ok) { cb.textContent = '▶ CONTINUA · CAP. ' + CHAPTERS[last].roman; cb.onclick = () => { phase = 'game'; startChapter(last); }; } }
 }
@@ -8672,13 +8828,13 @@ function loop() {
   gradePass.uniforms.uFrost.value = lerp(gradePass.uniforms.uFrost.value, frostT, damp(state.gapReason === 'freddo' ? 1.2 : 2, dt));
   flash = Math.max(0, flash - dt * 3.5); gradePass.uniforms.uFlash.value = flash * flash * 0.9;
   gradePass.uniforms.uTime.value = t;
-  composer.render();
+  nightRender();
   requestAnimationFrame(loop);
 }
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { iceMat, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { iceMat, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
