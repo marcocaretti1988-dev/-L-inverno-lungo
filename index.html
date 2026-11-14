@@ -8187,9 +8187,9 @@ const CH9 = {
       if (!N.active || !N.ready) { if (N.ready) { N.group.position.set(N.x, F9, N.z); } continue; }
       const d = Math.hypot(hero.x - N.x, hero.z - N.z);
       let a = Math.atan2(hero.x - N.x, hero.z - N.z) - N.heading; a = Math.atan2(Math.sin(a), Math.cos(a));
-      const inCone = d < 6.2 && Math.abs(a) < 0.45 && rayWall(N.x, N.z, (hero.x - N.x) / d, (hero.z - N.z) / d, d) >= d - 0.3;
-      const moving = hero.speed > 0.35;
-      if (live && !reading() && !downed() && (inCone && moving || (d < 1.0 && moving))) N.alert = Math.min(2, N.alert + dt * (d < 3 ? 1.6 : 1));
+      const inCone = d < 7 && Math.abs(a) < (d < 3 ? 1.1 : 0.7) && rayWall(N.x, N.z, (hero.x - N.x) / d, (hero.z - N.z) / d, d) >= d - 0.3;
+      const moving = hero.speed > 0.2, lit = state.torch && inCone;
+      if (live && !state.paused && !downed() && (inCone && (moving || lit) || (d < 2.0 && moving) || d < 1.1)) N.alert = Math.min(2, N.alert + dt * (d < 3 ? 2.2 : 1.2) * (lit ? 1.5 : 1));
       else N.alert = Math.max(0, N.alert - dt * (inCone ? 0.25 : 0.6));
       if (N.alert > 0.35 && !N.bolted) { N.bolted = true; Sound.bolt(); dreadSpike = 1; tell('seen', 'CLACK. L\'otturatore. Il fucile si alza verso di me. Fermo. Non muoverti.'); }
       if (N.alert < 0.1) N.bolted = false;
