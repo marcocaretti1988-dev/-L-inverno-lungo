@@ -2439,10 +2439,17 @@ const flatMat = o => new THREE.MeshStandardMaterial(Object.assign({ flatShading:
     return { sh, el, snowCap };
   });
   const tor = new THREE.Group(); tor.position.set(0, -0.35, 0.04); R.arms[0].el.add(tor);
-  mesh(cyl(0.028, 0.032, 0.17, 8), M.torch, tor, 0, -0.04, 0);
-  mesh(cyl(0.044, 0.034, 0.05, 8), M.torch, tor, 0, -0.14, 0);
-  R.lensMat = new THREE.MeshStandardMaterial({ color: 0x555544, emissive: 0xfff1d0, emissiveIntensity: 0 });
-  mesh(new THREE.CircleGeometry(0.037, 8), R.lensMat, tor, 0, -0.166, 0).rotation.x = Math.PI / 2;
+  { const body = new THREE.MeshStandardMaterial({ color: 0x3d4a42, roughness: 0.45, metalness: 0.6 }), chrome = new THREE.MeshStandardMaterial({ color: 0xb9bdb8, roughness: 0.25, metalness: 0.9 });
+    mesh(cyl(0.032, 0.032, 0.2, 12), body, tor, 0, -0.01, 0);                                        // fusto in alluminio verniciato, come le torce sovietiche
+    for (let k = 0; k < 4; k++) mesh(cyl(0.035, 0.035, 0.012, 12), M.torch, tor, 0, 0.06 - k * 0.03, 0);   // anelli di presa
+    mesh(cyl(0.05, 0.034, 0.05, 12), body, tor, 0, -0.135, 0);                                         // testa che si allarga
+    mesh(cyl(0.054, 0.054, 0.016, 14), chrome, tor, 0, -0.165, 0);                                       // ghiera cromata
+    mesh(box(0.016, 0.03, 0.02), chrome, tor, 0.034, -0.03, 0);                                          // interruttore
+    mesh(cyl(0.034, 0.034, 0.012, 10), chrome, tor, 0, 0.096, 0); }
+  R.lensMat = new THREE.MeshStandardMaterial({ color: 0x8a8a70, emissive: 0xfff1d0, emissiveIntensity: 0 });
+  R.lensMesh = mesh(new THREE.CircleGeometry(0.047, 14), R.lensMat, tor, 0, -0.175, 0); R.lensMesh.rotation.x = Math.PI / 2;
+  R.lensGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex([[0, 'rgba(255,245,220,1)'], [0.25, 'rgba(255,230,180,0.6)'], [1, 'rgba(255,220,160,0)']], 64), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  R.lensGlow.scale.setScalar(0.32); R.lensGlow.position.set(0, -0.19, 0); tor.add(R.lensGlow);
   R.shoulderSnow = mesh(new RoundedBoxGeometry(0.28, 0.03, 0.17, 2, 0.012), M.snow, R.torso, 0, 0.56, -0.03);
   R.fill = new THREE.PointLight(0xb8c8e0, 1.6, 3.2, 1.6);       // luce di riempimento: personaggio leggibile anche in ombra
   R.lantern = new THREE.PointLight(0xffa850, 0, 5.5, 1.7); R.lantern.position.set(0.3, 0.95, 0.15); g.add(R.lantern);   // la lanterna di Nina, quando ce l'hai
@@ -3370,11 +3377,13 @@ function updateTorch(dt, t) {
   torch.flick = lerp(torch.flick, k, damp(30, dt));
   const fx = Math.sin(hero.heading), fz = Math.cos(hero.heading);
   _tv.set(hero.x - fz * 0.25 + fx * 0.45, hero.y + 1.22, hero.z + fx * 0.25 + fz * 0.45);
+  if (DM.ready && hero.R.lensMesh && hero.R.lensMesh.parent) { hero.R.lensMesh.getWorldPosition(_tv2);      // la luce parte dalla lente della torcia, nella mano
+    if (Math.hypot(_tv2.x - hero.x, _tv2.z - hero.z) < 1.2 && Math.abs(_tv2.y - hero.y - 1.1) < 0.9) _tv.copy(_tv2).addScaledVector(new THREE.Vector3(fx, 0, fz), 0.03); }
   torch.spot.position.copy(_tv);
   torch.spot.target.position.set(hero.x + fx * 8, hero.y, hero.z + fz * 8);
   torch.spot.intensity = 70 * torch.flick;
   torch.cone.position.copy(_tv);
-  _tv2.set(hero.x + fx * 8, hero.y + 0.1, hero.z + fz * 8);
+  _tv2.set(hero.x + fx * 8, Math.min(_tv.y - 0.6, hero.y + 0.1), hero.z + fz * 8);
   torch.cone.lookAt(_tv2);
   if (torch.flick > 0.02) {                                       // il cono visibile si ferma al primo muro
     let w = 8; for (const da of [0, -0.22, 0.22]) { const c = Math.cos(da), s = Math.sin(da); w = Math.min(w, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 8) / (da ? Math.cos(da) : 1)); }
@@ -3383,7 +3392,7 @@ function updateTorch(dt, t) {
   }
   torch.mat.uniforms.uOpacity.value = 0.11 * torch.flick;
   torch.cone.visible = torch.flick > 0.02;
-  hero.R.lensMat.emissiveIntensity = 3 * torch.flick;
+  hero.R.lensMat.emissiveIntensity = 3 * torch.flick; hero.R.lensGlow.material.opacity = 0.9 * torch.flick;
 }
 /* distanza dal muro più vicino lungo una direzione (raggio 2D contro i box di collisione, mobili bassi esclusi) */
 function rayWall(ox, oz, dx, dz, maxD) {
