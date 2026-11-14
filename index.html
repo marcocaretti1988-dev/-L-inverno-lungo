@@ -573,6 +573,7 @@ function flushSnowTex(tex, cvs, ctx, key) {
 }
 const snowMat = new THREE.MeshStandardMaterial({ color: 0xdfe8f3, map: cTex, bumpMap: hTex, bumpScale: 5.5, roughnessMap: hTex, roughness: 1.0, metalness: 0 });
 const plainSnowMat = new THREE.MeshStandardMaterial({ color: 0xdde6f1, roughness: 0.82, metalness: 0 });
+snowMat.userData.noSnow = true; plainSnowMat.userData.noSnow = true;
 const shadowAll = o => o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
 
 /* ---------- A4. Terreno: area dettagliata + anello esterno perso nella nebbia ---------- */
@@ -693,8 +694,8 @@ const gradePass = new ShaderPass({
       // alone: le luci forti sbavano nel buio attorno a sé
       vec3 bl = vec3(0.0); vec2 bp = vec2(uRes.y/uRes.x, 1.0) * 0.034;
       for (int i = 0; i < 12; i++) { float a = float(i) * 2.39996 + 0.5, r = sqrt((float(i) + 0.5) / 12.0);
-        vec3 sc = texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * r * bp).rgb; bl += max(sc - 0.6, 0.0); }
-      col += bl / 12.0 * uBloom * vec3(3.6, 3.0, 2.2);
+        vec3 sc = texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * r * bp).rgb; bl += max(sc - 0.74, 0.0); }
+      col += bl / 12.0 * uBloom * vec3(2.6, 2.2, 1.7);
       // appannamento: più il corpo si raffredda, più l'immagine si sfoca
       if (uFrost > 0.02) {
         vec3 acc = col; float rr = uFrost * 0.0042;
@@ -1187,7 +1188,7 @@ function makeBlock(o) {
   const doorGlows = doorsLocal.map(cx => makeGlow(g.localToWorld(new THREE.Vector3(cx, 2.65, zf + 0.35)), 1.8, 0.75));
   const lit = new Float32Array(fac.windows.length);
   const e = fac.em.getContext('2d');
-  const B = { group: g, fac, lit, emTex, doorLampMat, doorGlows, BH,
+  const B = { group: g, fac, lit, emTex, doorLampMat, doorGlows, BH, L, D,
     redraw(t = 0) {
       e.fillStyle = '#000'; e.fillRect(0, 0, fac.W, fac.H);
       fac.windows.forEach((w, i) => {
@@ -1208,6 +1209,125 @@ function makeBlock(o) {
   };
   blocks.push(B);
   return B;
+}
+
+/* ---------- B1b. Inverno vero: neve sopra le cose, cumuli contro i muri, ghiaccio, luce dei lampioni nella nevicata, luce delle finestre sulla neve ---------- */
+const SNOWU = { uSnowCap: { value: 0 }, uSnowEx: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1e9, 1e9, -1e9, -1e9)) } };
+const SNOW_GLSL = `uniform float uSnowCap; uniform vec4 uSnowEx[4]; varying vec3 vSW; varying vec3 vSN; float gSK;
+  float sHash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+  float sNz(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(sHash(i),sHash(i+vec2(1,0)),f.x), mix(sHash(i+vec2(0,1)),sHash(i+vec2(1,1)),f.x), f.y); }`;
+function snowify(m) {
+  if (!m || !m.isMeshStandardMaterial || m.userData.snowy || m.userData.noSnow || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) return;
+  m.userData.snowy = true;
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uSnowCap = SNOWU.uSnowCap; sh.uniforms.uSnowEx = SNOWU.uSnowEx;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSW; varying vec3 vSN;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n vSW = (modelMatrix * vec4(transformed, 1.0)).xyz; vSN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + SNOW_GLSL)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        gSK = uSnowCap * smoothstep(0.3, 0.7, normalize(vSN).y);
+        float sn = sNz(vSW.xz * 2.7) * 0.55 + sNz(vSW.xz * 9.0) * 0.3 + sNz(vSW.xz * 31.0) * 0.15;
+        gSK *= smoothstep(0.2, 0.42, sn + gSK * 0.25);
+        for (int i = 0; i < 4; i++) { vec4 e = uSnowEx[i]; if (vSW.x > e.x && vSW.x < e.z && vSW.z > e.y && vSW.z < e.w) gSK = 0.0; }
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.98), gSK);`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.86, gSK);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= 1.0 - gSK;');
+  };
+  m.customProgramCacheKey = () => 'snowcap'; m.needsUpdate = true;
+}
+const iceMat = new THREE.MeshStandardMaterial({ color: 0xa8bccf, roughness: 0.06, metalness: 0.25, transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, envMapIntensity: 1.1 });
+iceMat.userData.noSnow = true;
+{ // riflesso finto per il ghiaccio: cielo scuro con qualche luce calda
+  const es = new THREE.Scene(), c = document.createElement('canvas'); c.width = 256; c.height = 128; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, '#55657a'); g.addColorStop(0.3, '#9aaabd'); g.addColorStop(0.5, '#6b7a8e'); g.addColorStop(1, '#0c0f14'); x.fillStyle = g; x.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 9; i++) { const rg = x.createRadialGradient(i * 29 + 10, 22 + (i % 3) * 8, 0, i * 29 + 10, 22 + (i % 3) * 8, 12); rg.addColorStop(0, 'rgba(255,200,130,1)'); rg.addColorStop(1, 'rgba(255,180,100,0)'); x.fillStyle = rg; x.fillRect(0, 0, 256, 128); }
+  const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace;
+  es.background = t; const pm = new THREE.PMREMGenerator(renderer); iceMat.envMap = pm.fromScene(es, 0.02).texture; pm.dispose();
+}
+const poolTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 128; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, 'rgba(255,190,110,1)'); g.addColorStop(0.35, 'rgba(255,170,90,0.45)'); g.addColorStop(1, 'rgba(255,150,80,0)');
+  x.fillStyle = g; x.beginPath(); x.moveTo(14, 0); x.lineTo(50, 0); x.lineTo(64, 128); x.lineTo(0, 128); x.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+let winterFX = null;
+function winterDress(C) {
+  const W = C.winter; winterFX = null; SNOWU.uSnowCap.value = 0;
+  if (!W) return;
+  const ex = W.ex || [];
+  SNOWU.uSnowEx.value.forEach((v, i) => { const r = ex[i]; if (r) v.set(r[0], r[2], r[1], r[3]); else v.set(1e9, 1e9, -1e9, -1e9); });
+  SNOWU.uSnowCap.value = W.cap ?? 1;
+  const skip = new Set(); hero.group.traverse(o => { if (o.material) [].concat(o.material).forEach(m => skip.add(m)); });
+  world.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh) { if (o.material && (o.isInstancedMesh || o.isSkinnedMesh)) [].concat(o.material).forEach(m => skip.add(m)); return; } });
+  world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.material) [].concat(o.material).forEach(m => { if (!skip.has(m)) snowify(m); }); });
+  const inEx = (x, z) => ex.some(r => x > r[0] && x < r[1] && z > r[2] && z < r[3]);
+  // cumuli contro ogni ostacolo: quattro lati di ogni scatola di collisione
+  if (W.drift !== false) {
+    const pos = [], idx = [], rr = mulberry32(911); let base = 0;
+    const strip = (ax, az, bx, bz, nx, nz) => {
+      const len = Math.hypot(bx - ax, bz - az); if (len < 0.4) return;
+      const mx = (ax + bx) / 2 + nx * 0.6, mz = (az + bz) / 2 + nz * 0.6;
+      if (inEx(mx, mz) || mx < BOUNDS[0] - 2 || mx > BOUNDS[1] + 2 || mz < BOUNDS[2] - 2 || mz > BOUNDS[3] + 2) return;
+      const H = 0.3 + rr() * 0.45, Wd = 0.8 + rr() * 0.9, NS = Math.max(2, Math.round(len / 0.35)), NV = 5, ph = rr() * 9;
+      for (let i = 0; i <= NS; i++) { const u = i / NS, x0 = lerp(ax, bx, u), z0 = lerp(az, bz, u);
+        const taper = Math.min(1, Math.min(u, 1 - u) * len / 0.7 + 0.15), wob = 0.75 + 0.25 * Math.sin(u * len * 2.1 + ph) + 0.15 * Math.sin(u * len * 5.3 + ph * 2);
+        for (let j = 0; j <= NV; j++) { const v = j / NV, w = Wd * wob * (0.6 + 0.4 * taper), x = x0 + nx * (v * w - 0.04), z = z0 + nz * (v * w - 0.04);
+          pos.push(x, groundH(x, z) - 0.03 + H * taper * wob * Math.pow(1 - v, 1.7) * (1 - 0.15 * v), z); } }
+      for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const a = base + i * (NV + 1) + j, b = a + NV + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+      base += (NS + 1) * (NV + 1);
+    };
+    for (const b of BOXES) {
+      if (b.hx > 30 || b.hz > 30 || (b.hx < 0.12 && b.hz < 0.12)) continue;
+      const P = (lx, lz) => [b.cx + lx * b.c - lz * b.s, b.cz + lx * b.s + lz * b.c], N = (lx, lz) => [lx * b.c - lz * b.s, lx * b.s + lz * b.c];
+      const sides = [[[-b.hx, b.hz], [b.hx, b.hz], [0, 1]], [[b.hx, -b.hz], [-b.hx, -b.hz], [0, -1]], [[b.hx, b.hz], [b.hx, -b.hz], [1, 0]], [[-b.hx, -b.hz], [-b.hx, b.hz], [-1, 0]]];
+      for (const [p0, p1, n] of sides) { if (rr() < 0.15) continue; const [ax, az] = P(...p0), [bx, bz] = P(...p1), [nx, nz] = N(...n); strip(ax, az, bx, bz, nx, nz); }
+    }
+    if (pos.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, plainSnowMat); m.receiveShadow = true; m.userData.noInk = true; world.add(m); }
+  }
+  // lastre di ghiaccio lucido
+  for (const [x, z, r] of W.ice || []) {
+    const sh = new THREE.Shape(), rr = mulberry32(Math.round(x * 31 + z * 17)); const n = 30, p1 = rr() * 6, p2 = rr() * 6;
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, R = r * (0.78 + 0.16 * Math.sin(a * 3 + p1) + 0.1 * Math.sin(a * 7 + p2) + rr() * 0.05); const px = Math.cos(a) * R * 1.4, pz = Math.sin(a) * R; i ? sh.lineTo(px, pz) : sh.moveTo(px, pz); }
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), iceMat); m.rotation.x = -Math.PI / 2; m.rotation.z = rr() * 3; m.position.set(x, groundH(x, z) + 0.035, z); m.receiveShadow = true; m.renderOrder = 1; world.add(m);
+  }
+  // fiocchi accesi sotto i lampioni
+  const lampSnow = [];
+  if (W.lampSnow !== false) for (const Lp of lamps) {
+    Lp.coneK = 0.3; const N = 200, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), d = [];
+    const hy = Lp.spot.position.y, tx = Lp.spot.target.position.x, tz = Lp.spot.target.position.z, cx = (Lp.x + tx) / 2, cz = (Lp.z + tz) / 2;
+    for (let i = 0; i < N; i++) d.push({ a: Math.random() * 6.28, r: Math.sqrt(Math.random()) * 2.5, y: Math.random() * hy, sp: 0.6 + Math.random() * 0.8, ph: Math.random() * 6.28 });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: flakeTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, size: 4.5 * DPR, sizeAttenuation: false }));
+    pts.frustumCulled = false; world.add(pts); lampSnow.push({ Lp, pts, pos, col, d, hy, cx, cz, gy: groundH(cx, cz) });
+  }
+  // la luce delle finestre che cade sulla neve
+  const pools = [];
+  if (W.winPools !== false) for (const B of blocks) {
+    const PX = B.fac.W / B.L;
+    B.fac.windows.forEach((w, i) => {
+      const lx = (w.X + w.Wp / 2) / PX - B.L / 2, ly = B.BH - (w.T + w.Hp / 2) / PX; if (ly > 10) return;
+      const len = 1.8 + ly * 0.45, wd = w.Wp / PX * 1.5;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(wd, len), new THREE.MeshBasicMaterial({ map: poolTex, color: 0xffb070, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m.rotation.x = -Math.PI / 2; const p = B.group.localToWorld(new THREE.Vector3(lx, 0, B.D / 2 + len / 2 + 0.1));
+      m.rotation.order = 'YXZ'; m.rotation.y = B.group.rotation.y; m.position.set(p.x, groundH(p.x, p.z) + 0.06, p.z); m.visible = false; m.renderOrder = 2; world.add(m);
+      pools.push({ m, B, i, k: 1.3 / (1 + ly * 0.2) });
+    });
+  }
+  if (W.lampShadow) for (const Lp of lamps) if (Lp.wantShadow) { Lp.spot.castShadow = true; Lp.spot.shadow.mapSize.set(512, 512); }
+  winterFX = { lampSnow, pools };
+}
+function updateWinter(dt, t) {
+  if (!winterFX) return;
+  for (const S of winterFX.lampSnow) {
+    const L = S.Lp.level, on = L > 0.04; S.pts.visible = on; if (!on) continue;
+    for (let i = 0; i < S.d.length; i++) { const q = S.d[i];
+      q.y -= q.sp * dt; if (q.y < S.gy) { q.y = S.hy - 0.2; q.a = Math.random() * 6.28; q.r = Math.sqrt(Math.random()) * 2.5; }
+      const x = S.cx + Math.cos(q.a) * q.r + Math.sin(t * 0.9 + q.ph) * 0.25, z = S.cz + Math.sin(q.a) * q.r + Math.cos(t * 0.7 + q.ph) * 0.2;
+      S.pos[i * 3] = x; S.pos[i * 3 + 1] = q.y; S.pos[i * 3 + 2] = z;
+      const k = L * (1 - q.r / 2.6) * Math.min(1, (S.hy - q.y) / 1.2) * 1.7;
+      S.col[i * 3] = k; S.col[i * 3 + 1] = k * 0.78; S.col[i * 3 + 2] = k * 0.52; }
+    S.pts.geometry.attributes.position.needsUpdate = true; S.pts.geometry.attributes.color.needsUpdate = true;
+  }
+  for (const P of winterFX.pools) { const v = P.B.lit[P.i]; P.m.visible = v > 0.08; if (P.m.visible) P.m.material.opacity = v * P.k; }
 }
 
 /* ---------- B2. Lampioni ---------- */
@@ -1235,7 +1355,7 @@ function makeLamp(x, z, dx, dz, castShadow, intensity = 85) {
   const cone = new THREE.Mesh(new THREE.ConeGeometry(2.7, H, 32, 1, true), cm);
   cone.position.copy(headPos).add(new THREE.Vector3(dx * 0.4, -H / 2 - 0.1, dz * 0.4)); world.add(cone);
   const Lp = { x: headPos.x, z: headPos.z, spot, wantShadow: castShadow, level: 0,
-    setLevel(l) { this.level = l; spot.intensity = intensity * l; bulbMat.emissiveIntensity = 4 * l; glow.material.opacity = 0.6 * l; cm.uniforms.uOpacity.value = 0.16 * l; } };
+    setLevel(l) { this.level = l; spot.intensity = intensity * l; bulbMat.emissiveIntensity = 4 * l; glow.material.opacity = 0.6 * l; cm.uniforms.uOpacity.value = (this.coneK || 0.16) * l; } };
   lamps.push(Lp);
   return Lp;
 }
@@ -2669,7 +2789,7 @@ const mistLayers = [0.4, 1.25].map((h, i) => {
 function updateMist(dt, t) {
   const on = state.started && !state.ended && ambProf() === 'city' ? 1 : 0;
   for (const pl of mistLayers) { const u = pl.material.uniforms;
-    u.uOp.value = lerp(u.uOp.value, on * (0.42 + dread * 0.2) * pl.userData.k, damp(1.5, dt)); pl.visible = u.uOp.value > 0.004;
+    u.uOp.value = lerp(u.uOp.value, on * (0.2 + dread * 0.18) * pl.userData.k, damp(1.5, dt)); pl.visible = u.uOp.value > 0.004;
     pl.position.set(camTarget.x, hero.y + pl.userData.h, camTarget.z); u.uC.value.copy(pl.position); u.uTime.value = t; }
 }
 function updateSpray(dt) {
@@ -4253,6 +4373,7 @@ const CH2 = {
     registro: 'Registro delle corse · 12.02.1991 · 23:40 · Маршрут 6 · filobus 0417 · «ВОРОНИН Д. А. — ПАССАЖИР»',
     armadietto: 'Documento 417 · «НОМЕР 417 — ВОСТРЕБОВАТЬ» · numero 417, da ritirare. Nessun nome, nessun edificio.' },
   start: { x: -26.5, z: -8.6, heading: Math.PI / 2 }, bounds: [-30.5, 30.5, -11.4, 10.6],
+  winter: { cap: 1, lampShadow: true, ex: [[-8.4, -2.6, -11.3, -8.6], [20.4, 25.6, -11.4, -7.5]], ice: [[-6.2, -5.6, 1.1], [-18.5, -3.4, 1.5], [3.5, -0.8, 1.3], [12.5, -4.2, 1.0], [-26, 0.5, 1.2], [-11, 3.6, 0.9]] },
   env() { setSun(16, -0.55, 0.83); scene.fog.density = 0.0125; hemi.intensity = 0.52; },
   shelter(x, z) { const S = L2.SHELTER; return x > S.x0 && x < S.x1 && z > S.z0 && z < S.z1 + 0.6; },
   snow() {
@@ -4438,6 +4559,7 @@ const CH2 = {
       const sn = new THREE.Mesh(pillow(0.85, 0.12, 0.42, 212, 8), plainSnowMat); sn.position.y = 1.42; g.add(sn);
       shadowAll(g); ink(g); world.add(g); addBox(L2.PANEL.x - 0.45, L2.PANEL.x + 0.45, L2.PANEL.z - 0.23, L2.PANEL.z + 0.23); }
     this.stopLamp = makeLamp(-5.5, -7.6, 0.2, -1, true, 70);
+    this.streetLamps = [makeLamp(-19, -7.3, 0.05, 1, false, 85), makeLamp(11, -7.3, -0.05, 1, false, 85)]; CIRCLES.push([-19, -7.3, 0.2], [11, -7.3, 0.2]);
     // il locale di servizio oltre i cavi: saracinesca bloccata, registro, telefono interno, armadietto
     { const R = L2.ROOM, wm = new THREE.MeshStandardMaterial({ color: 0x8d8a80, roughness: 0.95 });
       const H = 2.8, add = (x0, x1, z0, z1, y0 = 0, y1 = H, m = wm) => { const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); b.position.set((x0 + x1) / 2, groundH(R.x0, R.z0) + (y0 + y1) / 2, (z0 + z1) / 2); b.castShadow = b.receiveShadow = true; world.add(b); return b; };
@@ -4750,6 +4872,7 @@ const CH2 = {
     this.uazT -= dt; if (this.uazT <= 0) { this.uazT = 1.3 + Math.random(); const b = breath.find(b => b.life <= 0); if (b) { b.life = 1.6; b.s.visible = true; b.s.position.set(L2.UAZ.x - 2.1, groundH(L2.UAZ.x, L2.UAZ.z) + 0.45, L2.UAZ.z + 0.5); b.s.scale.setScalar(0.12); } }
     // la lampada della fermata (spenta se hai abbassato la leva sbagliata)
     this.stopLamp.setLevel(f.stopDark ? 0 : 0.85 + (Math.random() < 0.03 ? -0.6 : 0));
+    this.streetLamps.forEach((Lp, k) => Lp.setLevel(f.stopDark ? 0 : 0.6 + (Math.random() < 0.015 ? -0.45 : 0)));
     // il passeggero dell'ultima fila: sparisce sotto la torcia
     const Rf = this.rider;
     if (!this.riderShow && Rf.state === 'hidden') Rf.timer = 1e9;
@@ -8087,6 +8210,7 @@ function loadChapter(n, fromPrev = false) {
   Object.assign(hero.fall, { phase: 'none', k: 0, t: 0 }); windExtra = 0; if ($('filmOv')) $('filmOv').style.opacity = '0';
   if (!C._keys) C._keys = new Set(Object.keys(C)); else for (const k of Object.keys(C)) if (k !== '_keys' && !C._keys.has(k)) delete C[k];   // stato del capitolo pulito a ogni partenza
   C.build();
+  winterDress(C);
   interactables = C.items();
   addSparkles();
   world.add(hero.group, hero.R.fill, guide, torch.spot, torch.spot.target, torch.cone);
@@ -8312,7 +8436,7 @@ function updateHero(dt, t) {
   if (visFig) lookT = visFig;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateDmitri(dt); warmHandsIK(t, dt); updateSpray(dt); updateMist(dt, t);
+  updateDmitri(dt); warmHandsIK(t, dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
@@ -8441,7 +8565,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { iceMat, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
