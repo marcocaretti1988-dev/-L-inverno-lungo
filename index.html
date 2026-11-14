@@ -286,7 +286,7 @@
     <button class="vhs ch" data-ch="9">IX · I LABORATORI SOTTERRANEI<small>il ciclo termico</small></button>
     <button class="vhs ch" data-ch="10">X · LA VALVOLA<small>fine del ciclo</small></button>
   </div>
-  <div class="menu-row"><button class="vhs" id="contBtn" style="display:none">▶ CONTINUA</button><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
+  <div class="menu-row"><button class="vhs" id="contBtn" style="display:none">▶ CONTINUA</button><button class="vhs" id="storyBtn">LA STORIA</button><button class="vhs" id="qBtn">QUALITÀ: MEDIA</button><button class="vhs" id="musicBtn">♪ MUSICA: ON</button></div>
   <div class="credits">ЗАТО-42, Urali · consigliate le cuffie</div>
 </div>
 <div id="bag" class="screen hide"><div class="bag-panel">
@@ -294,7 +294,10 @@
   <div class="bag-grid" id="bagGrid"></div>
   <div class="bag-desc" id="bagDesc"></div>
   <div class="bag-docs"><div class="lbl">DOCUMENTI E INDIZI</div><div id="bagDocs"></div></div>
+  <div class="bag-docs"><div class="lbl">MAPPA DELLA ZONA</div><canvas id="bagMap" width="520" height="300" style="width:100%;height:auto;display:block;margin-top:6px"></canvas></div>
+  <div class="bag-docs"><div class="lbl">DIARIO DI DMITRI</div><div id="bagDiary" style="font:13px/1.55 monospace;opacity:.88"></div></div>
 </div></div>
+<label id="hapL" style="position:fixed;left:-99px;top:-99px;opacity:0"><input type="checkbox" switch id="hapI"></label>
 <div id="tp" class="screen hide"><div class="bag-panel">
   <div class="bag-head"><span id="tpTitle">ТП-4 · ЩИТ</span><button class="vhs" id="tpClose" aria-label="Chiudi il quadro">✕</button></div>
   <canvas id="tpSchema" width="560" height="230"></canvas>
@@ -784,7 +787,7 @@ const Sound = {
     this.windF.frequency.setTargetAtTime(330 + 170 * Math.sin(t * 0.11) + 90 * Math.sin(t * 0.37) + windBoost * 200, now, 0.4);
     const playing = typeof state !== 'undefined' && state.started && !state.ended;
     const P = this.prof = playing ? ambProf() : 'city', AM = AMB[P] || AMB.city;
-    this.windG.gain.setTargetAtTime((0.09 + 0.05 * Math.sin(t * 0.23) + windBoost * 0.08) * AM.wind, now, 0.6);
+    this.windG.gain.setTargetAtTime((0.09 + 0.05 * Math.sin(t * 0.23) + windBoost * 0.08) * AM.wind * (P === 'city' && typeof windOpen === 'number' ? 0.45 + 0.9 * windOpen : 1), now, 0.6);
     this.ambG.gain.setTargetAtTime(playing ? AM.hum : 0, now, 1.5);
     this.droneG.gain.setTargetAtTime(playing ? 0.05 + dread * 0.16 : 0, now, 1.5);
     // rumori lontani, a caso: più spesso quando la paura sale
@@ -865,7 +868,10 @@ const Sound = {
     const g = c.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + attack); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
     o.connect(g).connect(this.master); o.start(t0); o.stop(t0 + dur + 0.05);
   },
-  step() { this.burst(1000 + Math.random() * 600, 0.8, 0.14, 0.16); this.burst(220, 1, 0.1, 0.12, 'lowpass'); },
+  step(k = 'snow') {
+    if (k === 'hard') { this.burst(2400 + Math.random() * 500, 1.6, 0.06, 0.12, 'bandpass'); this.tone(140 + Math.random() * 30, 0.06, 0.05, 'triangle'); return; }   // cemento, piastrelle
+    if (k === 'ice') { this.burst(3800 + Math.random() * 800, 2.2, 0.05, 0.1, 'highpass'); this.tone(900 + Math.random() * 300, 0.04, 0.025, 'sine'); return; }        // ghiaccio che scricchiola
+    this.burst(1000 + Math.random() * 600, 0.8, 0.14, 0.16); this.burst(220, 1, 0.1, 0.12, 'lowpass'); },
   radio(dur = 3) { for (let i = 0; i < dur * 8; i++) this.burst(1500 + Math.random() * 900, 3.5, 0.12 + Math.random() * 0.1, 0.06 + Math.random() * 0.1, 'bandpass', i / 8); this.tone(880, 0.25, 0.04, 'square', 0.2); },
   tape() { this.tone(180, 0.08, 0.1, 'square'); for (let i = 0; i < 30; i++) this.burst(3000, 1, 0.1, 0.025, 'highpass', i / 10); },
   clunk() { this.tone(70, 0.6, 0.35, 'sine'); this.burst(300, 1, 0.3, 0.35, 'lowpass'); },
@@ -1352,6 +1358,7 @@ function winterDress(C) {
     const ok = (x, z) => x > AR[0] + 1 && x < AR[1] - 1 && z > AR[2] + 1 && z < AR[3] - 1 && !inEx(x, z) && !inBox(x, z);
     for (const Lp of lamps) { const x = Lp.spot.target.position.x + (rr() - 0.5) * 2, z = Lp.spot.target.position.z + (rr() - 0.5) * 2; if (ok(x, z)) iceList.push([x, z, 0.9 + rr() * 0.6]); }
     for (let k = 0, tries = 0; k < 5 && tries < 80; tries++) { const x = lerp(AR[0], AR[1], rr()), z = lerp(AR[2], AR[3], rr()); if (ok(x, z)) { iceList.push([x, z, 0.8 + rr() * 0.7]); k++; } } }
+  const iceStore = iceList.slice();
   for (const [x, z, r] of iceList) {
     const sh = new THREE.Shape(), rr = mulberry32(Math.round(x * 31 + z * 17)); const n = 30, p1 = rr() * 6, p2 = rr() * 6;
     for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, R = r * (0.78 + 0.16 * Math.sin(a * 3 + p1) + 0.1 * Math.sin(a * 7 + p2) + rr() * 0.05); const px = Math.cos(a) * R * 1.4, pz = Math.sin(a) * R; i ? sh.lineTo(px, pz) : sh.moveTo(px, pz); }
@@ -1360,7 +1367,7 @@ function winterDress(C) {
   }
   // fiocchi accesi sotto i lampioni
   const lampSnow = [];
-  if (W.lampSnow !== false) for (const Lp of lamps) { if (inEx(Lp.x, Lp.z)) continue;
+  if (W.lampSnow !== false && QUAL[QK].lampSnow) for (const Lp of lamps) { if (inEx(Lp.x, Lp.z)) continue;
     Lp.coneK = 0.3; const N = 200, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), d = [];
     const hy = Lp.spot.position.y, tx = Lp.spot.target.position.x, tz = Lp.spot.target.position.z, cx = (Lp.x + tx) / 2, cz = (Lp.z + tz) / 2;
     for (let i = 0; i < N; i++) d.push({ a: Math.random() * 6.28, r: Math.sqrt(Math.random()) * 2.5, y: Math.random() * hy, sp: 0.6 + Math.random() * 0.8, ph: Math.random() * 6.28 });
@@ -1382,7 +1389,7 @@ function winterDress(C) {
     });
   }
   
-  winterFX = { lampSnow, pools };
+  winterFX = { lampSnow, pools, ice: iceStore };
 }
 const motes = (() => { const N = 90, pos = new Float32Array(N * 3), d = [];
   for (let i = 0; i < N; i++) d.push({ x: (Math.random() - 0.5) * 9, y: Math.random() * 2.6, z: (Math.random() - 0.5) * 9, p: Math.random() * 6.3, s: 0.05 + Math.random() * 0.1 });
@@ -1468,7 +1475,7 @@ function closeKeypad() { $('kp').classList.add('hide'); state.paused = false; kp
   $('kpClose').addEventListener('pointerdown', e => { e.preventDefault(); closeKeypad(); }); }
 function kpTry() {
   const sf = kpSafe; if (!sf) return; const D = $('kpDisp');
-  if (kpBuf === sf.def.code) { D.className = 'ok'; Sound.clunk && Sound.clunk(); sf.open = true; sf.lid.rotation.x = -1.9;
+  if (kpBuf === sf.def.code) { D.className = 'ok'; buzz(30); Sound.clunk && Sound.clunk(); sf.open = true; sf.lid.rotation.x = -1.9;
     setTimeout(() => { closeKeypad(); state.cans += 1; state.battery = Math.min(100, state.battery + 30); say([sf.def.lore, 'Prendo anche una scatoletta e una pila di ricambio.']); refreshObjective(); }, 600); }
   else { D.className = ''; void D.offsetWidth; D.className = 'bad'; Sound.tone(110, 0.25, 0.2, 'square'); kpBuf = ''; setTimeout(kpShow, 350); }
 }
@@ -1502,7 +1509,7 @@ function tensionEvent() {
   let k; do { k = Math.floor(Math.random() * 4); } while (k === TENSION.last); TENSION.last = k;
   const far = (d) => ({ x: hero.x + Math.sin(back) * d, z: hero.z + Math.cos(back) * d });
   if (k === 0) { TENSION.dimT = 1.6; Sound.glitch(); }                                                           // le luci calano tutte insieme
-  else if (k === 1) { const p = far(5 + Math.random() * 3); TENSION.alert = p; TENSION.alertT = 2.8; Sound.knock(0.1); shake = Math.max(shake, 0.15); }   // tre colpi alle spalle: Dmitri si gira
+  else if (k === 1) { const p = far(5 + Math.random() * 3); TENSION.alert = p; TENSION.alertT = 2.8; Sound.knock(0.1); buzz(40); shake = Math.max(shake, 0.15); }   // tre colpi alle spalle: Dmitri si gira
   else if (k === 2) { const p = far(5); TENSION.alert = p; TENSION.alertT = 2.4; for (let i = 0; i < 4; i++) setTimeout(() => Sound.step(), 200 + i * 430); }   // passi che non sono i miei
   else {                                                                                                         // qualcuno in fondo, per un attimo
     const p = far(out ? 13 : 7); if (!TENSION.sil) { TENSION.sil = new THREE.Sprite(new THREE.SpriteMaterial({ map: silTex, transparent: true, depthWrite: false, opacity: 0 })); TENSION.sil.scale.set(0.75, 1.9, 1); }
@@ -1524,6 +1531,106 @@ function updateTension(dt) {
   TENSION.alertT = Math.max(0, TENSION.alertT - dt); if (!TENSION.alertT) TENSION.alert = null;
   if (TENSION.sil) { TENSION.silT = Math.max(0, TENSION.silT - dt); const k = TENSION.silT; TENSION.sil.material.opacity = k > 1.6 ? (2.2 - k) / 0.6 * 0.85 : k > 0.5 ? 0.85 : k / 0.5 * 0.85; TENSION.sil.visible = k > 0;
     if (k > 0 && Math.hypot(hero.x - TENSION.sil.position.x, hero.z - TENSION.sil.position.z) < 5) TENSION.silT = Math.min(TENSION.silT, 0.3); }
+}
+
+/* ---------- Qualità grafica: la sceglie il giocatore ---------- */
+const QUAL = { alta: { pr: 1.75, bloom: 1, grime: 1, shadow: 2048, lampSnow: true, label: 'ALTA' }, media: { pr: 1.35, bloom: 1, grime: 1, shadow: 1024, lampSnow: true, label: 'MEDIA' },
+  bassa: { pr: 1.0, bloom: 0, grime: 0, shadow: 1024, lampSnow: false, label: 'BASSA' } };
+let QK = (() => { try { return localStorage.getItem('zima_q') || 'media'; } catch (e) { return 'media'; } })(); if (!QUAL[QK]) QK = 'media';
+function applyQuality() {
+  const Q = QUAL[QK], pr = Math.min(DPR, Q.pr);
+  if (typeof RES !== 'undefined') RES.pr = pr;
+  renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); gradePass.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr);
+  gradePass.uniforms.uBloom.value = Q.bloom; SNOWU.uGrime.value = Q.grime;
+  if (sun.shadow.mapSize.x !== Q.shadow) { sun.shadow.mapSize.set(Q.shadow, Q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  const b = document.getElementById('qBtn'); if (b) b.textContent = 'QUALITÀ: ' + Q.label;
+}
+document.getElementById('qBtn').addEventListener('click', () => { QK = QK === 'media' ? 'bassa' : QK === 'bassa' ? 'alta' : 'media'; try { localStorage.setItem('zima_q', QK); } catch (e) {} applyQuality(); });
+
+/* ---------- Vibrazione: su Android vibra; sull'iPhone si usa il piccolo colpo dell'interruttore di Safari, quando c'è ---------- */
+function buzz(ms = 30) {
+  try { if (navigator.vibrate) { navigator.vibrate(ms); return; } } catch (e) {}
+  try { document.getElementById('hapL').click(); } catch (e) {}
+}
+
+/* ---------- Diario di Dmitri: cosa ho capito, capitolo per capitolo ---------- */
+const DIARY = {
+  1: 'Mi sono svegliato in un appartamento sbarrato dall\'interno. Nel cortile c\'erano impronte dei miei stivali, ma io non ero ancora uscito. Il foglio nel garage è firmato con il mio nome.',
+  2: 'Il filobus 0417 porta il mio numero. Sul registro delle corse risulto già salito, alle 23:40. La vecchia alla fermata sapeva chi ero.',
+  3: 'Al posto di blocco sono passato tre volte, sempre alle 23:40. Semënov aveva il tesserino 0418, il numero dopo il mio. Qualcuno mi osserva da molto prima di stanotte.',
+  4: 'Nel cinema la pellicola gira da sola: giro 14. Sul biglietto, fila 4, posto 17. Le impronte nel gesso sono le mie, e qualcosa le segue.',
+  5: 'In ospedale i pazienti spariscono alle 23:40 e lasciano solo impronte. La cartella 0417 dice: terza esposizione, memoria azzerata. Il paziente sono io.',
+  6: 'Sulla 142.8 tre voci uguali si chiamano Volk-0417. Le figure nella nebbia siamo noi, da altri giri dello stesso inverno.',
+  7: 'Trecentododici tacche sul muro del collettore. Le ho incise io. Il protocollo d\'emergenza parla di una valvola da aprire a forza.',
+  8: 'Alle 23:15 la Brigata 3 ha dato tutta la potenza al circuito «Ciclo». Nella scatola nera c\'è la mia voce: ancora un giro di valvola e torna tutto come prima.',
+  9: 'Il tempo si azzera ogni giorno. Il Direttore dice che mi sono rifiutato di evacuare. Il diario del reattore è scritto con la mia calligrafia.',
+  10: 'Ho scelto. ЗАТО-42 era solo il reattore pilota. Dietro la prima porta ce n\'è un\'altra.',
+};
+function renderDiary() {
+  let done = []; try { done = JSON.parse(localStorage.getItem('zima_done') || '[]'); } catch (e) {}
+  const rows = Object.keys(DIARY).map(Number).filter(n => done.includes(n) && n !== C.id).sort((a, b) => a - b).map(n => `<p><b style="color:#ffcf8a">${CHAPTERS[n].roman} · ${CHAPTERS[n].name}</b><br>${DIARY[n]}</p>`);
+  rows.push(`<p><b style="color:#ffcf8a">${C.roman} · ${C.name}</b><br>` + (state.ended ? DIARY[C.id] : `Ancora non capisco. Indizi trovati: ${state.clues.size}/${C.clueCount}.`) + '</p>');
+  $('bagDiary').innerHTML = rows.join('');
+}
+
+/* ---------- Mappa: lo schizzo della zona, con quello che ho già visto ---------- */
+function renderMap() {
+  const cv = $('bagMap'), x = cv.getContext('2d'), [x0, x1, z0, z1] = BOUNDS, W = cv.width, sc = Math.min(W / (x1 - x0 + 4), 440 / (z1 - z0 + 4));
+  const H = Math.round((z1 - z0 + 4) * sc); cv.height = H; const P = (px, pz) => [(px - x0 + 2) * sc, (pz - z0 + 2) * sc];
+  x.fillStyle = '#d9d2bf'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(80,60,40,0.5)'; x.setLineDash([4, 4]); x.strokeRect(2 * sc, 2 * sc, (x1 - x0) * sc, (z1 - z0) * sc); x.setLineDash([]);
+  x.fillStyle = 'rgba(60,52,44,0.75)';
+  for (const b of BOXES) { if (b.hx > 40 || b.hz > 40) continue; x.save(); const [cx, cz] = P(b.cx, b.cz); x.translate(cx, cz); x.rotate(Math.atan2(b.s, b.c)); x.fillRect(-b.hx * sc, -b.hz * sc, b.hx * 2 * sc, b.hz * 2 * sc); x.restore(); }
+  x.fillStyle = 'rgba(70,90,140,0.55)'; for (let i = 0; i < hero.trail.length; i += 2) { const [px, pz] = P(hero.trail[i].x, hero.trail[i].z); x.fillRect(px - 1, pz - 1, 2, 2); }
+  for (const f of fires) { if (f.lantern) continue; const [px, pz] = P(f.x, f.z); x.fillStyle = f.lit && !f.out ? '#e0701c' : '#7a5a40'; x.beginPath(); x.arc(px, pz, 5, 0, 7); x.fill(); }
+  for (const it of interactables) { if (it.gone && it.gone()) continue; const done = it.done ? it.done() : (it.clue && state.clues.has(it.id)); const [px, pz] = P(it.x, it.z);
+    x.strokeStyle = done ? 'rgba(60,60,60,0.5)' : '#a3300f'; x.lineWidth = 2; x.beginPath(); if (done) { x.moveTo(px - 4, pz - 4); x.lineTo(px + 4, pz + 4); x.moveTo(px + 4, pz - 4); x.lineTo(px - 4, pz + 4); } else x.arc(px, pz, 4, 0, 7); x.stroke(); }
+  { const [px, pz] = P(hero.x, hero.z), a = hero.heading; x.fillStyle = '#1a2a6a'; x.beginPath(); x.moveTo(px + Math.sin(a) * 9, pz + Math.cos(a) * 9); x.lineTo(px + Math.sin(a + 2.5) * 6, pz + Math.cos(a + 2.5) * 6); x.lineTo(px + Math.sin(a - 2.5) * 6, pz + Math.cos(a - 2.5) * 6); x.fill(); }
+  x.fillStyle = 'rgba(40,30,20,0.8)'; x.font = '12px monospace'; x.fillText('○ da vedere   × già visto   ● fuoco   ▲ io', 8, H - 8);
+}
+
+/* ---------- Fuochi che si consumano, legnetti per ravvivarli ---------- */
+const FIRE_LIFE = 210;
+function addSticks() {
+  const rr = mulberry32(C.id * 313 + 7), AB = (C.winter && C.winter.area) || BOUNDS, st = C.start; let n = 0;
+  const free = (x, z) => x > AB[0] + 1 && x < AB[1] - 1 && z > AB[2] + 1 && z < AB[3] - 1 &&
+    !BOXES.some(b => { const dx = x - b.cx, dz = z - b.cz, lx = dx * b.c + dz * b.s, lz = -dx * b.s + dz * b.c; return Math.abs(lx) < b.hx + 0.5 && Math.abs(lz) < b.hz + 0.5; }) &&
+    !interactables.some(it => Math.hypot(x - it.x, z - it.z) < 2);
+  if (!fires.some(f => !f.lantern && f.flames)) return;
+  for (let tries = 0; tries < 200 && n < 3; tries++) {
+    const x = lerp(AB[0], AB[1], rr()), z = lerp(AB[2], AB[3], rr()); if (!free(x, z) || Math.hypot(x - st.x, z - st.z) < 4) continue;
+    const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: 0x5b3e28, roughness: 0.9 });
+    for (let k = 0; k < 5; k++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.5 + rr() * 0.2, 5), wood); m.rotation.z = Math.PI / 2; m.rotation.y = rr() * 3; m.position.y = 0.03 + k * 0.02; g.add(m); }
+    g.position.set(x, groundH(x, z), z); world.add(g); n++;
+    const pile = { taken: false };
+    interactables.push({ id: 'sticks' + n, x, z, r: 1.2, my: 0.4, pick: true, label: 'Legnetti secchi', done: () => pile.taken, gone: () => pile.taken,
+      use() { pile.taken = true; g.visible = false; state.sticks = (state.sticks || 0) + 1; showMsg(`Legnetti secchi · ne ho ${state.sticks}`, 2); } });
+  }
+  for (const f of fires) if (!f.lantern && f.flames) {
+    interactables.push({ id: 'relight', x: f.x, z: f.z + 0.01, r: 1.8, my: 1.2, marker: false, prio: 1, label: 'Ravviva il fuoco', gone: () => !(f.lit && f.out),
+      use() { if (state.sticks > 0) { state.sticks--; f.out = false; f.fuel = FIRE_LIFE; Sound.ignite(); buzz(25); say('Spezzo i legnetti e li butto nel bidone. La fiamma riprende.'); }
+        else say('Le braci sono quasi spente. Mi servono dei legnetti: ne ho visti in giro, nella neve.'); } });
+  }
+}
+function updateFires(dt) {
+  if (!state.started || state.ended || state.paused) return;
+  for (const f of fires) { if (f.lantern || !f.flames || !f.lit) continue;
+    if (f.fuel === undefined) f.fuel = FIRE_LIFE;
+    if (!f.out) { f.fuel -= dt; if (f.fuel <= 0) { f.out = true; tell('fireout' + C.id, 'Il fuoco si sta spegnendo. Restano le braci. Servono legnetti per ravvivarlo.'); }
+      else if (f.fuel < 30 && Math.hypot(f.x - hero.x, f.z - hero.z) < 6) tell('firelow' + C.id, 'La fiamma si abbassa. Tra poco resteranno solo le braci.'); } }
+}
+
+/* ---------- Vento: più forte negli spazi aperti, coperto tra i palazzi ---------- */
+let windOpen = 0.5, windT = 0;
+function updateWindOpen(dt) {
+  windT -= dt; if (windT > 0) return; windT = 0.3;
+  let dm = 12; for (const b of BOXES) { if (b.hx > 40 || b.hz > 40) continue; const dx = Math.abs(hero.x - b.cx) - b.hx, dz = Math.abs(hero.z - b.cz) - b.hz, d = Math.hypot(Math.max(dx, 0), Math.max(dz, 0)); if (d < dm) dm = d; }
+  windOpen = lerp(windOpen, clamp((dm - 0.8) / 6, 0, 1), 0.35);
+}
+function stepSurface() {
+  if (ambProf() !== 'city') return 'hard';
+  if (winterFX && winterFX.ice && winterFX.ice.some(([x, z, r]) => Math.hypot(hero.x - x, (hero.z - z) * 1.3) < r)) return 'ice';
+  return 'snow';
 }
 
 /* ---------- B2. Lampioni ---------- */
@@ -1930,7 +2037,7 @@ function makeFireBarrel(x, z) {
   const glow = makeGlow(new THREE.Vector3(x, y0 + 1.1, z), 3.4, 0.5);
   const F = { x, z, lit: false, light, flames, glow, emberMat,
     update(t, dt) {
-      const on = this.lit ? 1 : 0;
+      const on = this.lit ? (this.out ? 0.14 : 1) : 0;
       light.intensity = on * (14 + Math.sin(t * 13) * 2.5 + Math.sin(t * 29) * 1.5);
       rimLight.intensity = on * (4 + Math.sin(t * 17) * 1);
       emberMat.emissiveIntensity = on * (2 + Math.sin(t * 7) * 0.5);
@@ -3262,7 +3369,7 @@ function updateInteract(t) {
       it.sprite.material.rotation = t * 0.35 + it.ph + f * 0.3;
       it.sprite.position.y = groundH(it.x, it.z) + (it.my || 1.0);
     }
-    if (d < it.r && d < best) { best = d; nearest = it; }
+    if (d < it.r && d - (it.prio || 0) < best) { best = d - (it.prio || 0); nearest = it; }
   }
   const live = state.started && !state.ended && !state.gap;
   const show = nearest && !reading() && live;
@@ -3299,6 +3406,7 @@ let busy = false;
 const ITEM_ICON = { fiammiferi: 'i_fiammiferi', mappa: 'i_mappa', chiave: 'i_chiave', asta: null };
 function gainToast(was, had, cans, bat) {
   const out = [];
+  if ([...state.clues].some(id => !was.has(id))) buzz(35);
   for (const id of state.clues) if (!was.has(id) && C.docs[id]) out.push({ t: C.docs[id].split(' · ')[0], sub: 'documenti', icon: null });
   for (const id of state.items) if (!had.has(id) && ITEMS[id]) out.push({ t: typeof ITEMS[id].name === 'function' ? ITEMS[id].name() : ITEMS[id].name, sub: 'zaino', icon: ITEM_ICON[id] ? ART[ITEM_ICON[id]] : ITEMS[id].img });
   if (state.cans > cans) out.push({ t: `Scatolette ×${state.cans - cans}`, sub: 'zaino', icon: ART.i_scatoletta });
@@ -3323,14 +3431,14 @@ function toggleTorch(force) {
   state.torch = want; Sound.click();
   $('torchBtn').classList.toggle('on', state.torch);
 }
-function nearFire(x, z, r) { for (const f of fires) if (f.lit && Math.hypot(f.x - x, f.z - z) < r) return f; return null; }
+function nearFire(x, z, r) { for (const f of fires) if (f.lit && !f.out && Math.hypot(f.x - x, f.z - z) < r) return f; return null; }
 function updateSurvival(dt, t) {
   if (!state.started || state.ended || state.gap || state.paused) return;
   // il freddo: più veloce da fermi, più lento correndo, quasi nullo leggendo; vicino al fuoco ci si scalda
   const k = hero.speed > 2.5 ? 0.55 : hero.speed > 0.15 ? 1 : 1.5;
   let drain = C.cold * k * (reading() ? 0.25 : 1) * (C.shelter && C.shelter(hero.x, hero.z) ? 0.4 : 1) * (state.gear.has('cappotto') ? 0.6 : 1) * (state.gear.has('lanterna') ? 0.9 : 1) * (state.gear.has('guanti') ? 0.92 : 1) * (state.gear.has('colbacco') ? 0.9 : 1);
   let warm = 0;
-  for (const f of fires) if (f.lit) { const d = Math.hypot(f.x - hero.x, f.z - hero.z); if (d < 3.4) warm += 10 * (1 - d / 3.4) + 2; }
+  for (const f of fires) if (f.lit) { const d = Math.hypot(f.x - hero.x, f.z - hero.z); if (d < 3.4) warm += (10 * (1 - d / 3.4) + 2) * (f.out ? 0.2 : 1); }
   if (state.foodWarm > 0) { state.foodWarm -= dt; warm += 2.5; }
   state.heat = clamp(state.heat + (warm - drain) * dt, 0, 100);
   if (warm > 3 && Math.random() < dt * 6) Sound.crackle(0.05);
@@ -3514,7 +3622,7 @@ function renderBag() {
   const docs = [...state.clues].map(id => C.docs[id]).filter(Boolean);
   $('bagDocs').innerHTML = docs.length ? docs.map(d => `<div>· ${d}</div>`).join('') : '<div style="color:var(--dim)">Ancora niente.</div>';
 }
-function openBag() { if (!state.started || state.ended || state.gap) return; renderBag(); $('bag').classList.remove('hide'); state.paused = true; keys.clear(); }
+function openBag() { if (!state.started || state.ended || state.gap) return; renderBag(); try { renderMap(); renderDiary(); } catch (e) { console.warn(e); } $('bag').classList.remove('hide'); state.paused = true; keys.clear(); }
 function closeBag() { $('bag').classList.add('hide'); state.paused = false; }
 function toggleBag() { bagOpen() ? closeBag() : openBag(); }
 
@@ -3583,7 +3691,7 @@ function electrocute(pushX, pushZ) {
 /* ---------- C6. Vuoto di memoria: ti risvegli all'ultimo fuoco, dentro un cerchio di impronte ---------- */
 function memoryGap(reason) {
   if (state.gap || state.ended) return;
-  state.gap = true; state.gapReason = reason; toggleTorch(false);
+  state.gap = true; state.gapReason = reason; toggleTorch(false); buzz(120);
   if (reason === 'freddo') { hero.kneelT = 0.9; setTimeout(() => knockDown(1, Infinity, 0.75), 700); }   // in ginocchio, poi faccia nella neve
   else knockDown(-1, Infinity, 1.4);
   Sound.sting();
@@ -3619,7 +3727,7 @@ function onFootstep(px, pz, t) {
   if (!C.attention) return;
   const key = Math.floor(px / 1.1) + ',' + Math.floor(pz / 1.1);
   const last = stepCells.get(key);
-  if (last !== undefined && t - last > 10) state.attention += 4.5;
+  if (last !== undefined && t - last > 10) state.attention += 4.5 * (1 + 0.35 * (state.spectreLvl || 0));
   stepCells.set(key, t);
   if (state.attention > 55) tell('attn', 'Sto ripassando sui miei passi. Ho la netta sensazione che qualcosa li stia seguendo.');
 }
@@ -3673,7 +3781,7 @@ function updateFigures(dt, t) {
       F.cool = Math.max(0, F.cool - dt);
       if (F.state === 'hidden') {
         if (state.attention >= 100 && F.cool <= 0 && !state.gap && state.started && !state.ended) {
-          if (spawnStalker(F)) { state.attention = 0; tell('stalk', 'Dietro di me. Sulle mie impronte. Si muove solo quando non lo guardo… la torcia.'); }
+          if (spawnStalker(F)) { state.attention = 0; state.spectreLvl = (state.spectreLvl || 0) + 1; buzz(60); if (state.spectreLvl === 3) tell('learn' + C.id, 'Arriva sempre prima. Ha imparato la strada delle mie impronte.'); tell('stalk', 'Dietro di me. Sulle mie impronte. Si muove solo quando non lo guardo… la torcia.'); }
         }
       } else if (F.state === 'hunt') {
         F.op = Math.min(1, F.op + dt * 0.9);
@@ -3682,7 +3790,7 @@ function updateFigures(dt, t) {
         if (lit) { F.burn += dt; if (F.burn > 0.9) { F.state = 'vanish'; Sound.glitch(); } }
         else F.burn = Math.max(0, F.burn - dt * 0.5);
         if (!lit && !safe) {
-          const sp = onScreen(F) ? 1.1 : 2.6;
+          const sp = (onScreen(F) ? 1.1 : 2.6) * Math.min(1.5, 1 + 0.12 * (state.spectreLvl || 0));
           const tr = hero.trail;
           let tx = hero.x, tz = hero.z;
           if (F.idx < tr.length - 2) { tx = tr[F.idx + 1].x; tz = tr[F.idx + 1].z; }
@@ -3693,7 +3801,7 @@ function updateFigures(dt, t) {
         if (d < 1.3 && !state.gap) { F.state = 'vanish'; memoryGap('figura'); }
       } else if (F.state === 'vanish') {
         F.op = Math.max(0, F.op - dt * 2.5);
-        if (F.op <= 0) { F.state = 'hidden'; F.cool = 35; state.attention = 0; }
+        if (F.op <= 0) { F.state = 'hidden'; F.cool = Math.max(14, 35 * Math.pow(0.8, state.spectreLvl || 0)); state.attention = 0; }
       }
     }
     F.group.visible = F.op > 0.01;
@@ -8481,11 +8589,11 @@ function loadChapter(n, fromPrev = false) {
   C.build();
   winterDress(C);
   interactables = C.items();
-  addSafe();
+  addSafe(); addSticks();
   addSparkles();
   world.add(hero.group, hero.R.fill, guide, torch.spot, torch.spot.target, torch.cone);
   breath.forEach(b => { b.life = 0; b.s.visible = false; world.add(b.s); }); spray.forEach(b => { b.life = 0; b.s.visible = false; });
-  Sound.quiet(); state.faints = 0; state.chT0 = typeof playTime === 'number' ? playTime : 0;
+  Sound.quiet(); state.faints = 0; state.sticks = 0; state.spectreLvl = 0; state.chT0 = typeof playTime === 'number' ? playTime : 0;
   // stato del capitolo
   Object.assign(state, { ended: false, gap: false, clues: new Set(), flags: {}, attention: 0, told: {}, foodWarm: 0, heat: 100 });
   state.items = new Set(n === 1 ? [] : ['fiammiferi', 'mappa']);      // fiammiferi e mappa si trovano nel cortile
@@ -8707,7 +8815,7 @@ function updateHero(dt, t) {
   else if (TENSION.alert) lookT = TENSION.alert;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateTension(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
+  updateTension(dt); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
@@ -8720,7 +8828,7 @@ function updateHero(dt, t) {
     const side = hero.foot ? 1 : -1, fx = Math.sin(hero.heading), fz = Math.cos(hero.heading);
     const px = hero.x + fz * 0.11 * side - fx * 0.05, pz = hero.z - fx * 0.11 * side - fz * 0.05;
     if (canPrint) { footprint(px, pz, Math.atan2(fz, fx), 0.95, true); onFootstep(px, pz, t); }
-    Sound.step();
+    Sound.step(stepSurface());
   }
   hero.y = lerp(hero.y, groundH(hero.x, hero.z), damp(20, dt));
   const fk = hero.fall.k, fe = fk < 1 ? 1 - Math.pow(1 - fk, 2) : 1;
@@ -8811,13 +8919,14 @@ try { refreshMenu(); } catch (e) {}
 
 loadChapter(1);
 
-const RES = { pr: DPR, acc: 0, n: 0, cool: 3 };
+const RES = { pr: Math.min(DPR, QUAL[QK].pr), acc: 0, n: 0, cool: 3 };
 function adaptRes(dt) {
   if (!state.started || state.paused) return; RES.acc += dt; RES.n++; RES.cool -= dt;
   if (RES.acc < 1.5) return; const fps = RES.n / RES.acc; RES.acc = 0; RES.n = 0; if (RES.cool > 0) return;
-  let pr = RES.pr; if (fps < 46) pr = Math.max(0.9, pr - 0.15); else if (fps > 57) pr = Math.min(DPR, pr + 0.1);
+  let pr = RES.pr; if (fps < 46) pr = Math.max(0.9, pr - 0.15); else if (fps > 57) pr = Math.min(DPR, QUAL[QK].pr, pr + 0.1);
   if (Math.abs(pr - RES.pr) > 0.01) { RES.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); gradePass.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr); RES.cool = 2; }
 }
+applyQuality();
 const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
@@ -8838,7 +8947,8 @@ function loop() {
   updateHUD(dt);
   flushSnowTex(hTex, hCanvas, hCtx, 'h');
   flushSnowTex(cTex, cCanvas, cCtx, 'c');
-  const frostT = state.gapReason === 'freddo' ? 0.85 : (state.started && !state.ended ? 0.65 * smooth01((35 - state.heat) / 35) : 0);
+  const frostT = state.gapReason === 'freddo' ? 0.95 : (state.started && !state.ended ? 0.85 * smooth01((45 - state.heat) / 45) : 0);
+  if (state.started && !state.ended && !state.gap && state.heat < 20) shake = Math.max(shake, 0.07 * (1 - state.heat / 20));   // il corpo trema
   gradePass.uniforms.uFrost.value = lerp(gradePass.uniforms.uFrost.value, frostT, damp(state.gapReason === 'freddo' ? 1.2 : 2, dt));
   flash = Math.max(0, flash - dt * 3.5); gradePass.uniforms.uFlash.value = flash * flash * 0.9;
   gradePass.uniforms.uTime.value = t;
@@ -8849,7 +8959,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { iceMat, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
