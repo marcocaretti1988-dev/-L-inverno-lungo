@@ -974,6 +974,22 @@ function makeFacade(L, cols, o) {
     const g = m.createLinearGradient(0, y0, 0, y0 + len); g.addColorStop(0, 'rgba(50,44,38,0.22)'); g.addColorStop(1, 'rgba(50,44,38,0)');
     m.fillStyle = g; m.fillRect(x, y0, (0.15 + r() * 0.5) * PX, len);
   }
+  if (o.rich) {                                                          // intonaco scrostato: sotto, il mattone; attorno, il bordo chiaro e la crepa
+    for (let i = 0; i < cols * o.floors * 0.7; i++) {
+      const cx = r() * W, cy = Y(PL * 0.3 + r() * (BH - PL)), R0 = (0.25 + r() * 0.9) * PX, n = 11, pts = [];
+      for (let k = 0; k < n; k++) { const a = k / n * 6.283, rr = R0 * (0.55 + r() * 0.6); pts.push([cx + Math.cos(a) * rr * 1.3, cy + Math.sin(a) * rr]); }
+      m.beginPath(); pts.forEach(([x, y], k) => k ? m.lineTo(x, y) : m.moveTo(x, y)); m.closePath();
+      m.fillStyle = 'rgba(230,228,220,0.35)'; m.save(); m.translate(1.5, 1.5); m.fill(); m.restore();
+      m.fillStyle = r() < 0.6 ? `rgb(${120 + r() * 20},${74 + r() * 14},${58 + r() * 10})` : `rgb(${92 + r() * 14},${90 + r() * 12},${86 + r() * 10})`; m.fill();
+      m.save(); m.clip(); m.strokeStyle = 'rgba(60,40,32,0.5)'; m.lineWidth = 1;
+      for (let yy = cy - R0; yy < cy + R0; yy += 5) { m.beginPath(); m.moveTo(cx - R0 * 1.4, yy); m.lineTo(cx + R0 * 1.4, yy); m.stroke(); }
+      m.restore(); m.strokeStyle = 'rgba(40,36,32,0.55)'; m.stroke();
+    }
+    m.strokeStyle = 'rgba(34,32,30,0.6)'; m.lineWidth = 1;
+    for (let i = 0; i < cols * 3; i++) { let x = r() * W, y = Y(r() * BH); m.beginPath(); m.moveTo(x, y);
+      for (let k = 0; k < 7; k++) { x += (r() - 0.5) * 14; y += 4 + r() * 9; m.lineTo(x, y); } m.stroke(); }
+    for (let c = 0; c < cols; c++) { const g = m.createLinearGradient(0, Y(0.9), 0, Y(0)); g.addColorStop(0, 'rgba(40,36,30,0)'); g.addColorStop(1, 'rgba(40,36,30,0.45)'); m.fillStyle = g; m.fillRect(c * colW * PX, Y(0.9), colW * PX, 0.9 * PX); }   // sporco di neve sciolta alla base
+  }
   m.strokeStyle = 'rgba(38,36,34,0.55)'; m.lineWidth = 1.5;
   for (const [y0] of rows) { m.beginPath(); m.moveTo(0, Y(y0)); m.lineTo(W, Y(y0)); m.stroke(); }
   for (let c = 0; c <= cols; c++) { m.beginPath(); m.moveTo(c * colW * PX, 0); m.lineTo(c * colW * PX, Y(PL)); m.stroke(); }
@@ -1053,7 +1069,8 @@ function blockUV(geo, L, D, BH) {
 }
 function makeBlock(o) {
   const { L, D, cols, floors = 5, entrances, balconyCols = [], tunnelCol = -1, shopCols = null, brokenCol = -1, seed, pos, rotY = 0, tone } = o;
-  const fac = makeFacade(L, cols, { floors, entrances, balconyCols, tunnelCol, shopCols, brokenCol, seed, tone });
+  const rich = !!(C && C.winter && C.winter.facade);
+  const fac = makeFacade(L, cols, { floors, entrances, balconyCols, tunnelCol, shopCols, brokenCol, seed, tone, rich });
   const BH = fac.BH;
   const mapTex = new THREE.CanvasTexture(fac.map); mapTex.colorSpace = THREE.SRGBColorSpace; mapTex.anisotropy = maxAniso;
   const emTex = new THREE.CanvasTexture(fac.em); emTex.colorSpace = THREE.SRGBColorSpace;
@@ -1168,8 +1185,17 @@ function makeBlock(o) {
     cyl(iron, 0.004, 0.004, Math.hypot(az - zf, 2.4), 3, ax, BH + 1.2, (az + zf) / 2, Math.atan2(zf - az, 2.4));   // cavo dell'antenna giù per la facciata
   }
   const balconyMat = new THREE.MeshStandardMaterial({ color: 0x8b877d, roughness: 0.95 });
+  const trim = [];
+  if (rich) { const PXf = fac.W / L;
+    for (const w of fac.windows) {
+      const ww = w.Wp / PXf, wh = w.Hp / PXf, lx = w.X / PXf - L / 2 + ww / 2, ly = BH - w.T / PXf - wh / 2, t = 0.07, dz = zf + 0.035;
+      box(trim, ww + 2 * t, t, 0.07, lx, ly + wh / 2 + t / 2, dz); box(trim, t, wh, 0.07, lx - ww / 2 - t / 2, ly, dz); box(trim, t, wh, 0.07, lx + ww / 2 + t / 2, ly, dz);
+      if (w.kind !== 'bdoor') { box(trim, ww + 0.26, 0.06, 0.22, lx, ly - wh / 2 - 0.03, zf + 0.1);
+        const sp = pillow(ww + 0.18, 0.07 + r() * 0.05, 0.19, seed + Math.round(lx * 7 + ly * 13), 8); sp.translate(lx, ly - wh / 2 + 0.02, zf + 0.11); snow.push(sp);
+        if (r() < 0.5) for (let k = 0; k < 3; k++) if (r() < 0.6) icicle(lx - ww / 2 + r() * ww, ly - wh / 2 - 0.06, zf + 0.2, 0.05 + r() * 0.22); }
+    } }
   const junkMat = new THREE.MeshStandardMaterial({ color: 0x3a3c40, roughness: 0.8, metalness: 0.3 });
-  for (const [arr, mat, ns] of [[conc, balconyMat], [snow, plainSnowMat, 1], [metal, junkMat], [tin, BLK.tin], [frame, BLK.frame], [ice, CARM.ice, 1], [gas, BLK.gas],
+  for (const [arr, mat, ns] of [[conc, balconyMat], [trim, BLK.trim || (BLK.trim = new THREE.MeshStandardMaterial({ color: 0xa9a49a, roughness: 0.9 }))], [snow, plainSnowMat, 1], [metal, junkMat], [tin, BLK.tin], [frame, BLK.frame], [ice, CARM.ice, 1], [gas, BLK.gas],
     [iron, BLK.iron], [wood, BLK.wood], [pane, BLK.pane, 1], [clothA, BLK.clothA], [clothB, BLK.clothB]]) {
     if (!arr.length) continue;
     const mm = new THREE.Mesh(mergeGeometries(arr), mat); mm.castShadow = mat !== CARM.ice && mat !== BLK.pane; mm.receiveShadow = true; if (ns) mm.userData.noInk = true; g.add(mm);
@@ -1195,6 +1221,14 @@ function makeBlock(o) {
         let v = lit[i]; if (v <= 0.01) return;
         if (w.flick && v > 0.5) v *= (Math.sin(t * 23 + i) > 0.6 ? 0.25 : 1);
         e.globalAlpha = v; e.fillStyle = w.tv ? '#8fb0d8' : w.color; e.fillRect(w.X, w.T, w.Wp, w.Hp);
+        { const ix = w.Wp * 0.22, iy = w.Hp * 0.2, X0 = w.X, Y0 = w.T, X1 = w.X + w.Wp, Y1 = w.T + w.Hp;        // la stanza: pareti, pavimento, soffitto in prospettiva
+          const q = (pts, c) => { e.fillStyle = c; e.beginPath(); pts.forEach(([x, y], k) => k ? e.lineTo(x, y) : e.moveTo(x, y)); e.fill(); };
+          q([[X0, Y0], [X1, Y0], [X1 - ix, Y0 + iy], [X0 + ix, Y0 + iy]], 'rgba(0,0,0,0.42)');
+          q([[X0, Y1], [X1, Y1], [X1 - ix, Y1 - iy * 1.2], [X0 + ix, Y1 - iy * 1.2]], 'rgba(40,20,8,0.5)');
+          q([[X0, Y0], [X0 + ix, Y0 + iy], [X0 + ix, Y1 - iy * 1.2], [X0, Y1]], 'rgba(0,0,0,0.28)');
+          q([[X1, Y0], [X1 - ix, Y0 + iy], [X1 - ix, Y1 - iy * 1.2], [X1, Y1]], 'rgba(0,0,0,0.18)');
+          const hg = e.createRadialGradient(X0 + w.Wp * 0.55, Y0 + iy * 1.4, 0, X0 + w.Wp * 0.55, Y0 + iy * 1.4, w.Wp * 0.6); hg.addColorStop(0, 'rgba(255,240,200,0.55)'); hg.addColorStop(1, 'rgba(255,240,200,0)');
+          e.fillStyle = hg; e.fillRect(X0, Y0, w.Wp, w.Hp); }
         if (w.curtain) { e.fillStyle = 'rgba(70,40,25,0.55)'; e.fillRect(w.X, w.T, w.Wp * 0.28, w.Hp); e.fillRect(w.X + w.Wp * 0.72, w.T, w.Wp * 0.28, w.Hp); }
         e.fillStyle = 'rgba(0,0,0,0.7)';
         if (w.deco === 1) { const cx = w.X + w.Wp * 0.55; e.beginPath(); e.moveTo(cx - 5, w.T + 2); e.lineTo(cx + 5, w.T + 2); e.lineTo(cx + 9, w.T + 10); e.lineTo(cx - 9, w.T + 10); e.fill(); }      // paralume
@@ -1328,6 +1362,27 @@ function updateWinter(dt, t) {
     S.pts.geometry.attributes.position.needsUpdate = true; S.pts.geometry.attributes.color.needsUpdate = true;
   }
   for (const P of winterFX.pools) { const v = P.B.lit[P.i]; P.m.visible = v > 0.08; if (P.m.visible) P.m.material.opacity = v * P.k; }
+}
+
+function roomWallTex() {                    // muro di servizio: zoccolo verde a olio, sopra la calce, crepe e scrostature
+  const c = document.createElement('canvas'); c.width = 128; c.height = 360; const x = c.getContext('2d'), r = mulberry32(55), split = 360 - 1.45 / 2.8 * 360;
+  x.fillStyle = '#c9c4b4'; x.fillRect(0, 0, 128, split); x.fillStyle = '#3e5a4a'; x.fillRect(0, split, 128, 360 - split);
+  x.fillStyle = '#2c4236'; x.fillRect(0, split - 3, 128, 5);
+  for (let i = 0; i < 700; i++) { const v = r(); x.fillStyle = `rgba(${v < 0.5 ? '0,0,0' : '255,255,255'},${0.04 + r() * 0.05})`; x.fillRect(r() * 128, r() * 360, 2, 2); }
+  for (let i = 0; i < 3; i++) { const cx = r() * 128, cy = split - 10 - r() * 120, rr = 8 + r() * 12; x.beginPath(); for (let k = 0; k < 12; k++) { const an = k / 12 * 6.283, q = rr * (0.5 + r() * 0.7); k ? x.lineTo(cx + Math.cos(an) * q * 1.4, cy + Math.sin(an) * q) : x.moveTo(cx + Math.cos(an) * q * 1.4, cy + Math.sin(an) * q); } x.closePath(); x.fillStyle = 'rgba(150,135,118,0.55)'; x.fill(); x.strokeStyle = 'rgba(90,80,70,0.35)'; x.stroke(); }
+  for (let i = 0; i < 3; i++) { const cx = r() * 128, cy = split + 8 + r() * 60; x.fillStyle = 'rgba(170,166,150,0.45)'; x.beginPath(); for (let k = 0; k < 10; k++) { const an = k / 10 * 6.283, q = (4 + r() * 6); k ? x.lineTo(cx + Math.cos(an) * q * 1.5, cy + Math.sin(an) * q) : x.moveTo(cx + Math.cos(an) * q * 1.5, cy + Math.sin(an) * q); } x.fill(); }
+  x.strokeStyle = 'rgba(40,36,30,0.6)'; x.lineWidth = 1;
+  for (let i = 0; i < 4; i++) { let px = r() * 128, py = r() * 200; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 9; k++) { px += (r() - 0.5) * 12; py += 6 + r() * 10; x.lineTo(px, py); } x.stroke(); }
+  const g = x.createLinearGradient(0, 300, 0, 360); g.addColorStop(0, 'rgba(30,26,20,0)'); g.addColorStop(1, 'rgba(30,26,20,0.5)'); x.fillStyle = g; x.fillRect(0, 300, 128, 60);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t;
+}
+function roomFloorTex() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256; const x = c.getContext('2d'), r = mulberry32(66);
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { const v = 120 + r() * 30, a = (i + j) % 2; x.fillStyle = a ? `rgb(${v + 20},${v + 8},${v - 20})` : `rgb(${v - 30},${v - 36},${v - 40})`; x.fillRect(i * 32, j * 32, 32, 32); }
+  x.strokeStyle = 'rgba(20,18,16,0.5)'; for (let i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(i * 32, 0); x.lineTo(i * 32, 256); x.moveTo(0, i * 32); x.lineTo(256, i * 32); x.stroke(); }
+  for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(30,24,18,${r() * 0.15})`; x.fillRect(r() * 256, r() * 256, 3, 3); }
+  const g = x.createRadialGradient(128, 128, 20, 128, 128, 180); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(20,16,12,0.45)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 /* ---------- B2. Lampioni ---------- */
@@ -4373,7 +4428,7 @@ const CH2 = {
     registro: 'Registro delle corse · 12.02.1991 · 23:40 · Маршрут 6 · filobus 0417 · «ВОРОНИН Д. А. — ПАССАЖИР»',
     armadietto: 'Documento 417 · «НОМЕР 417 — ВОСТРЕБОВАТЬ» · numero 417, da ritirare. Nessun nome, nessun edificio.' },
   start: { x: -26.5, z: -8.6, heading: Math.PI / 2 }, bounds: [-30.5, 30.5, -11.4, 10.6],
-  winter: { cap: 1, lampShadow: true, ex: [[-8.4, -2.6, -11.3, -8.6], [20.4, 25.6, -11.4, -7.5]], ice: [[-6.2, -5.6, 1.1], [-18.5, -3.4, 1.5], [3.5, -0.8, 1.3], [12.5, -4.2, 1.0], [-26, 0.5, 1.2], [-11, 3.6, 0.9]] },
+  winter: { cap: 1, lampShadow: true, facade: true, ex: [[-8.4, -2.6, -11.3, -8.6], [20.4, 25.6, -11.4, -7.5]], ice: [[-6.2, -5.6, 1.1], [-18.5, -3.4, 1.5], [3.5, -0.8, 1.3], [12.5, -4.2, 1.0], [-26, 0.5, 1.2], [-11, 3.6, 0.9]] },
   env() { setSun(16, -0.55, 0.83); scene.fog.density = 0.0125; hemi.intensity = 0.52; },
   shelter(x, z) { const S = L2.SHELTER; return x > S.x0 && x < S.x1 && z > S.z0 && z < S.z1 + 0.6; },
   snow() {
@@ -4403,7 +4458,7 @@ const CH2 = {
     const N = makeBlock({ L: 40, D: 12, cols: 13, floors: 9, entrances: [1, 9, 12], balconyCols: [3, 7, 10], shopCols: [4, 5, 6], brokenCol: 5, seed: 303,
       pos: new THREE.Vector3(-10, 0, -18), tone: 132 });
     const NE = makeBlock({ L: 18, D: 11, cols: 6, floors: 5, entrances: [2], balconyCols: [0, 4], seed: 404, pos: new THREE.Vector3(23, 0, -18.5) });
-    N.candles([30, 77, 93]); NE.candles([11]);
+    N.candles([30, 77, 93, 4, 17]); NE.candles([11, 2]);
     addBox(-30, 10, -24, -12); addBox(14, 32, -24, -13); addBox(10, 14, -24, -11);
     const gs = textTex(['ГАСТРОНОМ'], 1024, 128, '#20262c', '#d23a2a', 'bold 96px monospace');
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.1), new THREE.MeshStandardMaterial({ map: gs, roughness: 0.6, emissive: 0x2a0503 }));
@@ -4561,11 +4616,12 @@ const CH2 = {
     this.stopLamp = makeLamp(-5.5, -7.6, 0.2, -1, true, 70);
     this.streetLamps = [makeLamp(-19, -7.3, 0.05, 1, false, 85), makeLamp(11, -7.3, -0.05, 1, false, 85)]; CIRCLES.push([-19, -7.3, 0.2], [11, -7.3, 0.2]);
     // il locale di servizio oltre i cavi: saracinesca bloccata, registro, telefono interno, armadietto
-    { const R = L2.ROOM, wm = new THREE.MeshStandardMaterial({ color: 0x8d8a80, roughness: 0.95 });
-      const H = 2.8, add = (x0, x1, z0, z1, y0 = 0, y1 = H, m = wm) => { const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); b.position.set((x0 + x1) / 2, groundH(R.x0, R.z0) + (y0 + y1) / 2, (z0 + z1) / 2); b.castShadow = b.receiveShadow = true; world.add(b); return b; };
+    { const R = L2.ROOM, wallTex = roomWallTex(), wm = new THREE.MeshStandardMaterial({ map: wallTex, bumpMap: wallTex, bumpScale: 1.2, roughness: 0.92 });
+      const tiled = (m, len, isWall) => { if (!isWall || !m.map) return m; const k = m.clone(); k.map = m.map.clone(); k.map.repeat.set(Math.max(1, Math.round(len)), 1); k.map.wrapS = THREE.RepeatWrapping; k.map.needsUpdate = true; k.bumpMap = k.map; return k; };
+      const H = 2.8, add = (x0, x1, z0, z1, y0 = 0, y1 = H, m = wm) => { if (y1 - y0 > 2 && m === wm) m = tiled(m, Math.max(x1 - x0, z1 - z0), true); const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); b.position.set((x0 + x1) / 2, groundH(R.x0, R.z0) + (y0 + y1) / 2, (z0 + z1) / 2); b.castShadow = b.receiveShadow = true; world.add(b); return b; };
       add(R.x0, R.x1, R.z0, R.z0 + 0.15); addBox(R.x0, R.x1, R.z0, R.z0 + 0.15);
       add(R.x0, R.x0 + 0.15, R.z0, R.z1); addBox(R.x0, R.x0 + 0.15, R.z0, R.z1); add(R.x1 - 0.15, R.x1, R.z0, R.z1); addBox(R.x1 - 0.15, R.x1, R.z0, R.z1);
-      this.roomFront = new THREE.MeshStandardMaterial({ color: 0x8d8a80, roughness: 0.95, transparent: true });
+      this.roomFront = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95, transparent: true });
       add(R.x0, R.x0 + 1.0, R.z1 - 0.15, R.z1, 0, H, this.roomFront); add(R.x1 - 1.0, R.x1, R.z1 - 0.15, R.z1, 0, H, this.roomFront); add(R.x0 + 1.0, R.x1 - 1.0, R.z1 - 0.15, R.z1, 2.3, H, this.roomFront);
       addBox(R.x0, R.x0 + 1.0, R.z1 - 0.15, R.z1); addBox(R.x1 - 1.0, R.x1, R.z1 - 0.15, R.z1);
       this.roomRoof = new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9, transparent: true }); this.roomRoofS = new THREE.MeshStandardMaterial({ color: 0xe6ecf2, roughness: 0.95, transparent: true });
@@ -4579,7 +4635,35 @@ const CH2 = {
       add(R.x0 + 0.16, R.x0 + 0.22, R.z0 + 1.6, R.z0 + 1.9, 1.2, 1.55, mt(0x2a2c2e));                      // telefono a muro
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.9), new THREE.MeshStandardMaterial({ map: textTex(['СХЕМА МАРШРУТОВ', '— 1 — 3 — 6 —', '          ·  ·  ·'], 256, 160, '#d8d0b8', '#2a3a6a', 'bold 20px monospace') }));
       pl.position.set((R.x0 + R.x1) / 2 + 0.5, groundH(R.x0, R.z0) + 1.6, R.z0 + 0.16); world.add(pl);
-      this.roomLight = new THREE.PointLight(0xffc070, 0, 6, 1.6); this.roomLight.position.set((R.x0 + R.x1) / 2, groundH(R.x0, R.z0) + 2.3, (R.z0 + R.z1) / 2); world.add(this.roomLight); }
+      this.roomLight = new THREE.PointLight(0xffc070, 0, 6, 1.6); this.roomLight.position.set((R.x0 + R.x1) / 2, groundH(R.x0, R.z0) + 2.3, (R.z0 + R.z1) / 2); world.add(this.roomLight);
+      const gy = groundH(R.x0, R.z0), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
+      // pavimento a piastrelle consumate
+      const fl = new THREE.Mesh(new THREE.PlaneGeometry(R.x1 - R.x0 - 0.3, R.z1 - R.z0 - 0.3), new THREE.MeshStandardMaterial({ map: roomFloorTex(), roughness: 0.8 }));
+      fl.rotation.x = -Math.PI / 2; fl.position.set(cx, gy + 0.02, cz); fl.receiveShadow = true; fl.material.userData.noSnow = true; world.add(fl);
+      // lampadina nuda appesa al filo
+      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.5, 4), mt(0x111111)); cord.position.set(cx, gy + H - 0.25, cz); world.add(cord);
+      this.bulbMat = new THREE.MeshStandardMaterial({ color: 0x554433, emissive: 0xffd08a, emissiveIntensity: 0 });
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.bulbMat); bulb.position.set(cx, gy + H - 0.53, cz); world.add(bulb);
+      this.bulbGlow = makeGlow(new THREE.Vector3(cx, gy + H - 0.53, cz), 1.6, 0.8);
+      // sedia, bollitore, calendario fermo a febbraio, orologio fermo
+      { const ch = new THREE.Group(), wd = mt(0x4a3626), leg = (x, z) => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.45, 0.04), wd); l.position.set(x, 0.225, z); ch.add(l); };
+        leg(-0.18, -0.18); leg(0.18, -0.18); leg(-0.18, 0.18); leg(0.18, 0.18);
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.42), wd); seat.position.y = 0.46; ch.add(seat);
+        const bk = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), wd); bk.position.set(0, 0.7, 0.2); ch.add(bk);
+        ch.position.set(R.x0 + 1.2, gy, R.z0 + 1.35); ch.rotation.y = 2.6; shadowAll(ch); world.add(ch); }
+      { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.16, 12), mt(0x7a8a8e, { metalness: 0.6, roughness: 0.4 })); k.position.set(R.x0 + 1.7, gy + 0.88, R.z0 + 0.55); world.add(k); }
+      { const cal = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.6), new THREE.MeshStandardMaterial({ map: textTex(['ФЕВРАЛЬ', '1991', '', '12'], 128, 180, '#e8e2d0', '#8a2a20', 'bold 22px monospace'), roughness: 0.9 }));
+        cal.position.set(R.x0 + 2.6, gy + 1.55, R.z0 + 0.16); world.add(cal);
+        const ck = new THREE.Mesh(new THREE.CircleGeometry(0.16, 20), new THREE.MeshStandardMaterial({ map: textTex(['23:40'], 96, 96, '#efe9da', '#1a1a1a', 'bold 22px monospace'), roughness: 0.6 }));
+        ck.position.set(R.x0 + 0.16, gy + 2.15, R.z0 + 2.6); ck.rotation.y = Math.PI / 2; world.add(ck); }
+      // polvere che gira nella luce, e luce che esce dalla porta sulla neve
+      { const N = 70, pos = new Float32Array(N * 3), d = [];
+        for (let i = 0; i < N; i++) d.push({ x: R.x0 + 0.3 + Math.random() * (R.x1 - R.x0 - 0.6), y: gy + 0.3 + Math.random() * 2.2, z: R.z0 + 0.3 + Math.random() * (R.z1 - R.z0 - 0.6), p: Math.random() * 6.3 });
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        this.dust = new THREE.Points(g, new THREE.PointsMaterial({ map: flakeTex, color: 0xffd9a0, size: 2.2 * DPR, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: false }));
+        this.dust.frustumCulled = false; this.dust.userData.d = d; world.add(this.dust); }
+      this.doorSpill = new THREE.Mesh(new THREE.PlaneGeometry(R.x1 - R.x0 - 2.0, 3.2), new THREE.MeshBasicMaterial({ map: poolTex, color: 0xffb070, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      this.doorSpill.rotation.x = -Math.PI / 2; this.doorSpill.position.set(cx, groundH(cx, R.z1 + 1.6) + 0.06, R.z1 + 1.65); this.doorSpill.renderOrder = 2; world.add(this.doorSpill); }
     // il passeggero dell'ultima fila (quando sbagli circuito)
     this.rider = makeFigure('watcher', { x: L2.TROLL.x - 4.6, z: L2.TROLL.z + 0.4, yOff: groundH(2, -2.2) + 0.55, timer: 1e9 });
     this.ticketMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.01, 0.06), new THREE.MeshStandardMaterial({ color: 0xe8e0c0, emissive: 0x302a10 })); this.ticketMesh.visible = false; world.add(this.ticketMesh);
@@ -4884,6 +4968,9 @@ const CH2 = {
     const R = L2.ROOM, inRoom = hero.x > R.x0 && hero.x < R.x1 && hero.z > R.z0 && hero.z < R.z1 + 0.3;
     for (const m of [this.roomRoof, this.roomRoofS, this.roomFront, this.roomSign]) { m.opacity = lerp(m.opacity, inRoom ? 0.08 : 1, damp(6, dt)); m.depthWrite = m.opacity > 0.9; }
     this.roomLight.intensity = f.shutter ? 2.2 + Math.sin(t * 13) * 0.2 : 0;
+    { const k = this.roomLight.intensity / 2.2; this.bulbMat.emissiveIntensity = 3 * k; this.bulbGlow.material.opacity = 0.7 * k; this.doorSpill.material.opacity = 0.5 * k * smooth01(this.shutT || 0);
+      this.dust.material.opacity = 0.55 * k; if (k > 0.05) { const P = this.dust.geometry.attributes.position, d = this.dust.userData.d;
+        for (let i = 0; i < d.length; i++) { const q = d[i]; P.setXYZ(i, q.x + Math.sin(t * 0.3 + q.p) * 0.25, q.y + Math.sin(t * 0.21 + q.p * 2) * 0.18, q.z + Math.cos(t * 0.27 + q.p) * 0.25); } P.needsUpdate = true; } }
     // uscendo dal locale, il tabellone è cambiato e il filobus ha le porte aperte
     if (this.phase() === 9 && !f.finale && !inRoom && !reading()) { f.finale = true; this.drawBoard(true); Sound.tone(880, 0.2, 0.05, 'triangle'); this.bus.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x10151c) { o.material = o.material.clone(); o.material.emissive.setHex(0x6a5a30); o.material.emissiveIntensity = 1.2; } });
       say(['Quando esco dal locale, la fermata è cambiata.', 'Il tabellone ora dice: ' + Q('«МАРШРУТ 6 — ДОМ КУЛЬТУРЫ»') + '. E dentro il filobus si è accesa la luce.']); }
