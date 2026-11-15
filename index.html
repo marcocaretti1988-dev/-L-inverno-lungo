@@ -653,34 +653,50 @@ const coneMat = (color) => new THREE.ShaderMaterial({ uniforms: { uColor: { valu
 const flakeTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,0.75)'], [1, 'rgba(255,255,255,0)']], 64);
 const SNOW_AX = 34, SNOW_AY = 26, SNOW_AZ = 34;
 const _focus = new THREE.Vector3();
+/* la neve cade tutta nella scheda video: il processore passa solo il tempo, il centro e lo spostamento del vento */
+const snowVS = `uniform float uTime, uSize; uniform vec3 uCenter; uniform vec2 uWind; uniform vec3 uBox;
+  attribute float aPh; attribute float aSp;
+  #include <fog_pars_vertex>
+  void main() {
+    vec3 b = position;
+    float y = uCenter.y - 2.0 + mod(b.y - aSp * uTime, uBox.y);
+    float x = b.x + uWind.x + sin(uTime * 0.8 + aPh) * 0.7, z = b.z + uWind.y + cos(uTime * 0.6 + aPh * 1.3) * 0.65;
+    x = uCenter.x + mod(x - uCenter.x + uBox.x, 2.0 * uBox.x) - uBox.x;
+    z = uCenter.z + mod(z - uCenter.z + uBox.z, 2.0 * uBox.z) - uBox.z;
+    vec4 mvPosition = viewMatrix * vec4(x, y, z, 1.0);
+    gl_Position = projectionMatrix * mvPosition; gl_PointSize = uSize;
+    #include <fog_vertex>
+  }`;
+const snowFS = `uniform sampler2D uMap; uniform vec3 uColor; uniform float uOp;
+  #include <fog_pars_fragment>
+  void main() { vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(uColor, t.a * uOp); if (gl_FragColor.a < 0.01) discard;
+    #include <fog_fragment>
+  }`;
 function makeSnow(count, size, fall, opacity) {
   const pos = new Float32Array(count * 3), ph = new Float32Array(count), sp = new Float32Array(count);
   for (let i = 0; i < count; i++) {
-    pos[i * 3] = (rand() * 2 - 1) * SNOW_AX; pos[i * 3 + 1] = rand() * SNOW_AY - 2; pos[i * 3 + 2] = (rand() * 2 - 1) * SNOW_AZ;
+    pos[i * 3] = (rand() * 2 - 1) * SNOW_AX; pos[i * 3 + 1] = rand() * SNOW_AY; pos[i * 3 + 2] = (rand() * 2 - 1) * SNOW_AZ;
     ph[i] = rand() * Math.PI * 2; sp[i] = fall * (0.7 + rand() * 0.6);
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: size * DPR, map: flakeTex, color: 0xe6edf5, transparent: true, opacity, depthWrite: false, sizeAttenuation: false }));
-  pts.frustumCulled = false; scene.add(pts);
-  return { pts, pos, ph, sp, count };
+  geo.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); geo.setAttribute('aSp', new THREE.BufferAttribute(sp, 1));
+  const mat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uSize: { value: size * DPR }, uCenter: { value: new THREE.Vector3() },
+      uWind: { value: new THREE.Vector2() }, uBox: { value: new THREE.Vector3(SNOW_AX, SNOW_AY, SNOW_AZ) }, uMap: { value: null }, uColor: { value: new THREE.Color(0xe6edf5) }, uOp: { value: opacity } }]),
+    vertexShader: snowVS, fragmentShader: snowFS, transparent: true, depthWrite: false, fog: true });
+  mat.uniforms.uMap.value = flakeTex; mat.opacity = opacity;
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
+  return { pts, count };
 }
 const snowLayers = [makeSnow(2400, 2.6, 1.3, 0.75), makeSnow(550, 4.6, 1.9, 0.9)];
-let windBoost = 0, windExtra = 0;
+let windBoost = 0, windExtra = 0, snowDensity = 1;
+const snowWind = new THREE.Vector2();
 function updateSnow(dt, t) {
   const windX = 0.9 + 0.6 * Math.sin(t * 0.13) + windBoost + windExtra, windZ = -0.35 + 0.25 * Math.sin(t * 0.07 + 1);
+  snowWind.x = (snowWind.x + windX * dt) % 6800; snowWind.y = (snowWind.y + windZ * dt) % 6800;
   for (const L of snowLayers) {
-    const p = L.pos;
-    for (let i = 0; i < L.count; i++) {
-      const k = i * 3;
-      p[k + 1] -= L.sp[i] * dt;
-      p[k] += (Math.sin(t * 0.8 + L.ph[i]) * 0.55 + windX) * dt;
-      p[k + 2] += (Math.cos(t * 0.6 + L.ph[i] * 1.3) * 0.4 + windZ) * dt;
-      if (p[k + 1] < _focus.y - 2) p[k + 1] += SNOW_AY;
-      const dx = p[k] - _focus.x, dz = p[k + 2] - _focus.z;
-      if (dx > SNOW_AX) p[k] -= 2 * SNOW_AX; else if (dx < -SNOW_AX) p[k] += 2 * SNOW_AX;
-      if (dz > SNOW_AZ) p[k + 2] -= 2 * SNOW_AZ; else if (dz < -SNOW_AZ) p[k + 2] += 2 * SNOW_AZ;
-    }
-    L.pts.geometry.attributes.position.needsUpdate = true;
+    const U = L.pts.material.uniforms;
+    U.uTime.value = t; U.uCenter.value.copy(_focus); U.uWind.value.copy(snowWind); U.uOp.value = L.pts.material.opacity;
+    L.pts.geometry.setDrawRange(0, Math.round(L.count * snowDensity));
   }
 }
 
@@ -1534,14 +1550,14 @@ function updateTension(dt) {
 }
 
 /* ---------- Qualità grafica: la sceglie il giocatore ---------- */
-const QUAL = { alta: { pr: 1.75, bloom: 1, grime: 1, shadow: 2048, lampSnow: true, label: 'ALTA' }, media: { pr: 1.35, bloom: 1, grime: 1, shadow: 1024, lampSnow: true, label: 'MEDIA' },
-  bassa: { pr: 1.0, bloom: 0, grime: 0, shadow: 1024, lampSnow: false, label: 'BASSA' } };
+const QUAL = { alta: { pr: 1.75, bloom: 1, grime: 1, shadow: 2048, lampSnow: true, snow: 1, label: 'ALTA' }, media: { pr: 1.35, bloom: 1, grime: 1, shadow: 1024, lampSnow: true, snow: 0.75, label: 'MEDIA' },
+  bassa: { pr: 1.0, bloom: 0, grime: 0, shadow: 1024, lampSnow: false, snow: 0.45, label: 'BASSA' } };
 let QK = (() => { try { return localStorage.getItem('zima_q') || 'media'; } catch (e) { return 'media'; } })(); if (!QUAL[QK]) QK = 'media';
 function applyQuality() {
   const Q = QUAL[QK], pr = Math.min(DPR, Q.pr);
   if (typeof RES !== 'undefined') RES.pr = pr;
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); gradePass.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr);
-  gradePass.uniforms.uBloom.value = Q.bloom; SNOWU.uGrime.value = Q.grime;
+  gradePass.uniforms.uBloom.value = Q.bloom; SNOWU.uGrime.value = Q.grime; snowDensity = Q.snow;
   if (sun.shadow.mapSize.x !== Q.shadow) { sun.shadow.mapSize.set(Q.shadow, Q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   const b = document.getElementById('qBtn'); if (b) b.textContent = 'QUALITÀ: ' + Q.label;
 }
@@ -3115,6 +3131,24 @@ function updateMist(dt, t) {
   for (const pl of mistLayers) { const u = pl.material.uniforms;
     u.uOp.value = lerp(u.uOp.value, on * (0.2 + dread * 0.18) * pl.userData.k, damp(1.5, dt)); pl.visible = u.uOp.value > 0.004;
     pl.position.set(camTarget.x, hero.y + pl.userData.h, camTarget.z); u.uC.value.copy(pl.position); u.uTime.value = t; }
+}
+/* i palazzi tra la camera e Dmitri diventano trasparenti, così ruotando la camera non si finisce dietro un muro */
+const _oa = new THREE.Vector3(), _ob = new THREE.Vector3();
+function segBox(a, b, mn, mx) { let t0 = 0, t1 = 1; for (const k of ['x', 'y', 'z']) { const d = b[k] - a[k];
+    if (Math.abs(d) < 1e-6) { if (a[k] < mn[k] || a[k] > mx[k]) return false; continue; }
+    let u = (mn[k] - a[k]) / d, v = (mx[k] - a[k]) / d; if (u > v) [u, v] = [v, u]; t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) return false; } return true; }
+function updateOcclusion(dt) {
+  if (!state.started) return;
+  for (const B of blocks) {
+    if (!B.group.parent) continue;
+    B.group.updateMatrixWorld(); _oa.copy(camera.position); _ob.set(hero.x, hero.y + 1.0, hero.z); B.group.worldToLocal(_oa); B.group.worldToLocal(_ob);
+    const hit = segBox(_oa, _ob, { x: -B.L / 2, y: 0.4, z: -B.D / 2 }, { x: B.L / 2, y: B.BH + 2, z: B.D / 2 });
+    const want = hit ? 0.18 : 1; B.occ = lerp(B.occ ?? 1, want, damp(hit ? 6 : 3, dt));
+    if (B.occ > 0.995 && !B.occMats) continue;
+    if (!B.occMats) { B.occMats = []; const cl = m => { if (m === B.doorLampMat) return m; const c = m.clone(); c.onBeforeCompile = m.onBeforeCompile; c.customProgramCacheKey = m.customProgramCacheKey; return c; };
+      B.group.traverse(o => { if (o.material && !o.isSprite) { o.material = Array.isArray(o.material) ? o.material.map(cl) : cl(o.material); [].concat(o.material).forEach(m => { if (m === B.doorLampMat) return; m.userData.op0 = m.opacity; m.userData.tr0 = m.transparent; B.occMats.push(m); }); } }); }
+    for (const m of B.occMats) { const o = m.userData.op0 * B.occ, tr = B.occ < 0.99 || m.userData.tr0; if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; } m.opacity = o; m.depthWrite = B.occ > 0.6; }
+  }
 }
 function updateSpray(dt) {
   for (const b of spray) {
@@ -8757,6 +8791,13 @@ const joyEnd = () => { joy.active = false; joy.x = joy.y = 0; knob.style.transfo
 joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
 const hold = (el, v) => { el.addEventListener('pointerdown', () => rotHold = v); ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => rotHold = 0)); };
 hold($('rotL'), -1); hold($('rotR'), 1);
+{ // trascinare il dito sulla metà destra dello schermo ruota la camera
+  let sw = null;
+  canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || reading() || !state.started || state.paused || e.clientX < innerWidth * 0.5) return; sw = { id: e.pointerId, x: e.clientX, moved: 0 }; });
+  canvas.addEventListener('pointermove', e => { if (!sw || e.pointerId !== sw.id) return; const dx = e.clientX - sw.x; sw.x = e.clientX; sw.moved += Math.abs(dx); camAzTarget -= dx * 0.008; });
+  const end = e => { if (sw && e.pointerId === sw.id) sw = null; };
+  canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+}
 function inputAxes() {
   if (!state.started || state.ended || state.gap || state.paused || downed()) return { x: 0, y: 0 };
   let x = 0, y = 0;
@@ -8777,7 +8818,7 @@ function updateHero(dt, t) {
   const fwdX = -Math.sin(camAz), fwdZ = -Math.cos(camAz), rgtX = Math.cos(camAz), rgtZ = -Math.sin(camAz);
   let mx = fwdX * inp.y + rgtX * inp.x, mz = fwdZ * inp.y + rgtZ * inp.x;
   const mag = Math.hypot(mx, mz);
-  const coldK = state.heat < 20 ? 0.72 : 1;
+  const coldK = 1 - 0.32 * smooth01((35 - state.heat) / 35);   // sotto il 35% le gambe si irrigidiscono, sempre di più
   hero.speed = lerp(hero.speed, mag > 0.05 ? (run ? 3.8 : 2.0) * Math.min(1, mag) * coldK : 0, damp(8, dt));
   if (mag > 0.05) { mx /= mag; mz /= mag; let dh = Math.atan2(mx, mz) - hero.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); hero.heading += dh * damp(12, dt); }
   const ox = hero.x, oz = hero.z;
@@ -8815,7 +8856,7 @@ function updateHero(dt, t) {
   else if (TENSION.alert) lookT = TENSION.alert;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateTension(dt); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateWinter(dt, t);
+  updateTension(dt); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateOcclusion(dt); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
@@ -8870,6 +8911,7 @@ function updateCamera(dt, t) {
   if (!state.started) _tmp.x += Math.sin(t * 0.1) * 2;
   camTarget.lerp(_tmp, damp(3.2, dt));
   camAzTarget += ((keys.has('KeyX') ? 1 : 0) - (keys.has('KeyZ') ? 1 : 0) + rotHold) * 0.9 * dt;
+  camAzTarget = clamp(camAzTarget, Math.PI / 4 - 0.45, Math.PI / 4 + 0.8);   // oltre questi angoli si finisce dietro i muri esterni
   camAz = lerp(camAz, camAzTarget + (state.started ? 0 : Math.sin(t * 0.07) * 0.1), damp(6, dt));
   zoom = lerp(zoom, zoomTarget, damp(8, dt));
   const portrait = innerHeight > innerWidth * 1.15;
@@ -8959,7 +9001,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
