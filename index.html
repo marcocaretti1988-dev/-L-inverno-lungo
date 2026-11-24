@@ -3704,7 +3704,7 @@ function addSparkles() {
   interactables.forEach(it => {
     if (it.marker === false) return;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glintTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: false }));
-    s.scale.set(0.6, 0.6, 1); s.position.set(it.x, groundH(it.x, it.z) + (it.my || 1.0), it.z); world.add(s); it.sprite = s; it.ph = Math.random() * 6.28; it.ph2 = Math.random() * 6.28;
+    s.scale.set(0.42, 0.42, 1); s.position.set(it.x, groundH(it.x, it.z) + (it.my || 1.0), it.z); world.add(s); it.sprite = s; it.ph = Math.random() * 6.28; it.ph2 = Math.random() * 6.28;
   });
 }
 function updateInteract(t) {
@@ -3719,7 +3719,8 @@ function updateInteract(t) {
       // un luccichio come il sole su un vetro: quasi spento, poi un lampo breve; ogni tanto un doppio lampo
       const f = Math.pow(Math.max(0, Math.sin(t * 2.1 + it.ph)), 22) + 0.7 * Math.pow(Math.max(0, Math.sin(t * 3.7 + it.ph2)), 40);
       it.vis = lerp(it.vis || 0, vis, 0.08);
-      it.sprite.material.opacity = it.vis * clamp(0.3 + 0.9 * f, 0, 1);
+      it.sprite.material.opacity = it.vis * clamp(0.1 + 0.75 * f, 0, 1);
+      { const k = d > 1e-3 ? Math.min(0.35, d) / d : 0; it.sprite.position.x = it.x + (hero.x - it.x) * k; it.sprite.position.z = it.z + (hero.z - it.z) * k; }   // staccato dal muro, verso di me: niente mezzo disco tagliato
       if (!it.ring) { it.ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 40), new THREE.MeshBasicMaterial({ color: 0xffe2b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); it.ring.rotation.x = -Math.PI / 2; it.ring.renderOrder = 3; world.add(it.ring); }
       const mem = LOOP.n > 0 && LOOP.seen.has(it.id) && !done, near = done ? 0 : mem ? Math.max(0.55, clamp((3.2 - d) / 1.5, 0, 1)) : clamp((3.2 - d) / 1.5, 0, 1); it.ringV = lerp(it.ringV || 0, near, 0.1);
       it.ring.material.color.setHex(mem ? 0x9fd0ff : 0xffe2b0);
@@ -3850,20 +3851,23 @@ function updateTorch(dt, t) {
     if (Math.hypot(_tv2.x - hero.x, _tv2.z - hero.z) < 1.2 && Math.abs(_tv2.y - hero.y - 1.1) < 0.9) _tv.copy(_tv2).addScaledVector(new THREE.Vector3(fx, 0, fz), 0.03); }
   torch.spot.position.copy(_tv);
   torch.spot.target.position.set(hero.x + fx * 8, hero.y, hero.z + fz * 8);
-  torch.spot.intensity = 70 * torch.flick;
+  torch.spot.intensity = 70 * torch.flick * (torch.near ?? 1);
   torch.cone.position.copy(_tv);
   _tv2.set(hero.x + fx * 8, Math.min(_tv.y - 0.6, hero.y + 0.1), hero.z + fz * 8);
   torch.cone.lookAt(_tv2);
-  if (torch.flick > 0.02) {                                       // il cono visibile si ferma al primo muro
-    let w = 8; for (const da of [0, -0.22, 0.22]) { const c = Math.cos(da), s = Math.sin(da); w = Math.min(w, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 8) / (da ? Math.cos(da) : 1)); }
-    torch.reach = lerp(torch.reach || 8, clamp(w / 8, 0.08, 1), damp(20, dt));
-    torch.cone.scale.setScalar(torch.reach);
-    // anche la luce vera si ferma poco oltre il primo muro: niente chiazze accese fuori o nella stanza accanto
-    { let wl = 18; for (const da of [0, -0.35, 0.35]) { const c = Math.cos(da), s = Math.sin(da); wl = Math.min(wl, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 18)); }
-      torch.dist = lerp(torch.dist || 18, clamp(wl + 0.9, 2.2, 18), damp(12, dt)); torch.spot.distance = torch.dist; }
+  if (torch.flick > 0.02) {                                       // il cono visibile si ferma al primo muro, misurato dalla lente (non dal corpo)
+    const lensOff = Math.max(0, (_tv.x - hero.x) * fx + (_tv.z - hero.z) * fz);
+    let w = 8; for (const da of [0, -0.3, 0.3, -0.15, 0.15]) { const c = Math.cos(da), s = Math.sin(da); w = Math.min(w, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 9) * c); }
+    const fw = Math.max(0, w - lensOff - 0.35);
+    torch.reach = lerp(torch.reach ?? 1, clamp(fw / 8, 0, 1), damp(25, dt));
+    torch.cone.scale.setScalar(Math.max(0.001, torch.reach)); torch.coneOn = torch.reach > 0.04;
+    // la luce vera si ferma al muro; e se il muro è vicinissimo si abbassa, niente disco bianco accecante
+    let wl = 18; for (const da of [0, -0.35, 0.35]) { const c = Math.cos(da), s = Math.sin(da); wl = Math.min(wl, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 18)); }
+    torch.dist = lerp(torch.dist || 18, clamp(wl + 0.5, 1.6, 18), damp(14, dt)); torch.spot.distance = torch.dist;
+    torch.near = lerp(torch.near ?? 1, clamp((wl - 0.4) / 2.2, 0.3, 1), damp(10, dt));
   }
   torch.mat.uniforms.uOpacity.value = 0.11 * torch.flick;
-  torch.cone.visible = torch.flick > 0.02;
+  torch.cone.visible = torch.flick > 0.02 && torch.coneOn !== false;
   hero.R.lensMat.emissiveIntensity = 3 * torch.flick; hero.R.lensGlow.material.opacity = 0;
 }
 /* distanza dal muro più vicino lungo una direzione (raggio 2D contro i box di collisione, mobili bassi esclusi) */
