@@ -629,6 +629,15 @@ function flushSnowTex(tex, cvs, ctx, key) {
 const snowMat = new THREE.MeshStandardMaterial({ color: 0xdfe8f3, map: cTex, bumpMap: hTex, bumpScale: 5.5, roughnessMap: hTex, roughness: 1.0, metalness: 0 });
 const plainSnowMat = new THREE.MeshStandardMaterial({ color: 0xdde6f1, roughness: 0.82, metalness: 0 });
 snowMat.userData.noSnow = true; plainSnowMat.userData.noSnow = true;
+/* la neve attorno agli interni (oltre x = 40) non riceve le luci delle stanze né la torcia: lì dentro ci sono muri, fuori non deve accendersi niente */
+snowMat.onBeforeCompile = sh => {
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWX;').replace('#include <project_vertex>', '#include <project_vertex>\n vWX = (modelMatrix * vec4(transformed, 1.0)).x;');
+  const L = THREE.ShaderChunk.lights_fragment_begin
+    .replace(/getPointLightInfo\( pointLight, geometryPosition, directLight \);/g, 'getPointLightInfo( pointLight, geometryPosition, directLight ); directLight.color *= gLocal;')
+    .replace(/getSpotLightInfo\( spotLight, geometryPosition, directLight \);/g, 'getSpotLightInfo( spotLight, geometryPosition, directLight ); directLight.color *= gLocal;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWX;').replace('#include <lights_fragment_begin>', 'float gLocal = vWX > 40.0 ? 0.0 : 1.0;\n' + L);
+};
+snowMat.customProgramCacheKey = () => 'snowLocal';
 const shadowAll = o => o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
 
 /* ---------- A4. Terreno: area dettagliata + anello esterno perso nella nebbia ---------- */
@@ -1397,7 +1406,10 @@ function winterDress(C) {
     const bb = new THREE.Box3(), sz = new THREE.Vector3();
     world.traverse(o => { if (!o.isMesh || o.isSkinnedMesh || o.castShadow || !o.visible || (o.material && (o.material.transparent && o.material.opacity < 0.5 || o.material.blending === THREE.AdditiveBlending))) return;
       bb.setFromObject(o); bb.getSize(sz); const thin = Math.min(sz.x, sz.z), long = Math.max(sz.x, sz.z);
-      if (sz.y > 1.8 && thin < 0.6 && long > 0.8) { o.castShadow = true; if (thin < 0.03) [].concat(o.material).forEach(m => { m.shadowSide = THREE.DoubleSide; }); } }); }
+      if (sz.y > 1.8 && thin < 0.6 && long > 0.8) o.castShadow = true; });
+    // un piano fa ombra solo dal lato giusto: per i muri fatti di un solo foglio la luce passava dall'altro lato
+    world.traverse(o => { if (!o.isMesh || !o.castShadow) return; const g = o.geometry; if (!g) return; if (!g.boundingBox) g.computeBoundingBox(); g.boundingBox.getSize(sz);
+      if (Math.min(sz.x, sz.y, sz.z) < 0.03) [].concat(o.material).forEach(m => { if (m) m.shadowSide = THREE.DoubleSide; }); }); }
   { const skip = new Set(); hero.group.traverse(o => { if (o.material) [].concat(o.material).forEach(m => skip.add(m)); });
     world.traverse(o => { if (o.material && (o.isInstancedMesh || o.isSkinnedMesh)) [].concat(o.material).forEach(m => skip.add(m)); });
     world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.material) [].concat(o.material).forEach(m => { if (!skip.has(m)) snowify(m); }); }); }
@@ -3846,6 +3858,9 @@ function updateTorch(dt, t) {
     let w = 8; for (const da of [0, -0.22, 0.22]) { const c = Math.cos(da), s = Math.sin(da); w = Math.min(w, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 8) / (da ? Math.cos(da) : 1)); }
     torch.reach = lerp(torch.reach || 8, clamp(w / 8, 0.08, 1), damp(20, dt));
     torch.cone.scale.setScalar(torch.reach);
+    // anche la luce vera si ferma poco oltre il primo muro: niente chiazze accese fuori o nella stanza accanto
+    { let wl = 18; for (const da of [0, -0.35, 0.35]) { const c = Math.cos(da), s = Math.sin(da); wl = Math.min(wl, rayWall(hero.x, hero.z, fx * c + fz * s, fz * c - fx * s, 18)); }
+      torch.dist = lerp(torch.dist || 18, clamp(wl + 0.9, 2.2, 18), damp(12, dt)); torch.spot.distance = torch.dist; }
   }
   torch.mat.uniforms.uOpacity.value = 0.11 * torch.flick;
   torch.cone.visible = torch.flick > 0.02;
