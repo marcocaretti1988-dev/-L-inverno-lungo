@@ -164,6 +164,18 @@
   #bag.hide{opacity:0}
   #tp{background:rgba(5,7,10,.72);z-index:12;transition:opacity .25s;padding:16px}
   #kp{background:rgba(5,7,10,.72);z-index:12;padding:16px;transition:opacity .2s}
+  #clk{font:700 22px/1.1 monospace;letter-spacing:.12em;color:#e8d6b0;margin:2px 0 6px;text-shadow:0 0 6px rgba(0,0,0,.7)}
+  #clk.late{color:#ff9a5a}
+  #clk.last{color:#ff4a3a;animation:clkP 1s infinite}
+  @keyframes clkP{50%{opacity:.35}}
+  #clk small{font-size:12px;letter-spacing:.05em;opacity:.7;margin-left:6px}
+  .qrow{margin:8px 0;padding-left:10px;border-left:2px solid rgba(255,255,255,.15)}
+  .qrow.ok{border-left-color:#ffcf8a}
+  .qrow .q{font-weight:700}
+  .qrow .a{opacity:.85;margin-top:2px}
+  .qrow .t{opacity:.5;font-size:12px}
+  #flash{position:fixed;inset:0;background:#dfe9f5;opacity:0;pointer-events:none;z-index:11;transition:opacity 1.4s}
+  #flash.on{opacity:.9;transition:opacity .15s}
   #kp.hide{opacity:0}
   button.ch.locked{opacity:.42;filter:grayscale(1)}
   button.ch.nope{animation:kpShake .35s}
@@ -227,7 +239,7 @@
 
 <div id="hud" class="off">
   <div class="corner tl">
-    <button class="vhs" id="menuBtn" aria-label="Torna alla selezione dei capitoli">☰ CAPITOLI</button><div id="tc">00:00:00</div>
+    <button class="vhs" id="menuBtn" aria-label="Torna alla selezione dei capitoli">☰ CAPITOLI</button><div id="tc">00:00:00</div><div id="clk">23:00</div>
     <div class="bars">
       <div>CALORE <span class="v" id="heatBar"></span></div>
       <div>TORCIA <span class="v" id="batBar"></span></div>
@@ -294,6 +306,7 @@
   <div class="bag-grid" id="bagGrid"></div>
   <div class="bag-desc" id="bagDesc"></div>
   <div class="bag-docs"><div class="lbl">DOCUMENTI E INDIZI</div><div id="bagDocs"></div></div>
+  <div class="bag-docs"><div class="lbl">LE DOMANDE</div><div id="bagQs" style="font:13px/1.5 monospace"></div></div>
   <div class="bag-docs"><div class="lbl">MAPPA DELLA ZONA</div><canvas id="bagMap" width="520" height="300" style="width:100%;height:auto;display:block;margin-top:6px"></canvas></div>
   <div class="bag-docs"><div class="lbl">DIARIO DI DMITRI</div><div id="bagDiary" style="font:13px/1.55 monospace;opacity:.88"></div></div>
 </div></div>
@@ -310,6 +323,7 @@
   <div id="kpDisp">_ _ _ _</div><div class="bag-desc" id="kpHint"></div>
   <div id="kpKeys"></div>
 </div></div>
+<div id="flash"></div>
 <div id="card" class="hide"><img id="cardImg" alt=""><div class="cardVhs"></div><div class="cardStamp tl">PLAY ▶<br><span id="cardClock">11:40 PM</span></div><div class="cardStamp bl">FEB 12 1991</div><div class="cardStamp tr">● REC</div>
   <div class="cardTitle"><small id="cardNum"></small><b id="cardName"></b><em id="cardSub"></em></div><div class="cardSkip">tocca per continuare</div></div>
 <div id="fade"></div>
@@ -1497,7 +1511,7 @@ const SAFES = {
 };
 let kpSafe = null, kpBuf = '';
 function kpShow() { $('kpDisp').textContent = (kpBuf + '____').slice(0, 4).split('').join(' '); }
-function openKeypad(sf) { kpSafe = sf; kpBuf = ''; kpShow(); $('kpDisp').className = ''; $('kpHint').textContent = sf.def.hint; state.paused = true; keys.clear(); $('kp').classList.remove('hide'); }
+function openKeypad(sf) { kpSafe = sf; kpBuf = ''; kpShow(); $('kpDisp').className = ''; $('kpHint').textContent = sf.def.hint + (LOOP.code ? `  ·  Lo ricordo: ${sf.def.code}` : ''); state.paused = true; keys.clear(); $('kp').classList.remove('hide'); }
 function closeKeypad() { $('kp').classList.add('hide'); state.paused = false; kpSafe = null; }
 { const K = $('kpKeys'); ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK'].forEach(k => { const b = document.createElement('button'); b.className = 'vhs'; b.textContent = k; K.appendChild(b);
     b.addEventListener('pointerdown', e => { e.preventDefault(); if (!kpSafe) return; Sound.click && Sound.click();
@@ -1506,7 +1520,7 @@ function closeKeypad() { $('kp').classList.add('hide'); state.paused = false; kp
   $('kpClose').addEventListener('pointerdown', e => { e.preventDefault(); closeKeypad(); }); }
 function kpTry() {
   const sf = kpSafe; if (!sf) return; const D = $('kpDisp');
-  if (kpBuf === sf.def.code) { D.className = 'ok'; buzz(30); Sound.clunk && Sound.clunk(); sf.open = true; sf.lid.rotation.x = -1.9;
+  if (kpBuf === sf.def.code) { D.className = 'ok'; buzz(30); LOOP.code = true; { const S = getSet('zima_safes'); S.add(C.id); putSet('zima_safes', S); } Sound.clunk && Sound.clunk(); sf.open = true; sf.lid.rotation.x = -1.9;
     setTimeout(() => { closeKeypad(); state.cans += 1; state.battery = Math.min(100, state.battery + 30); say([sf.def.lore, 'Prendo anche una scatoletta e una pila di ricambio.']); refreshObjective(); }, 600); }
   else { D.className = ''; void D.offsetWidth; D.className = 'bad'; Sound.tone(110, 0.25, 0.2, 'square'); kpBuf = ''; setTimeout(kpShow, 350); }
 }
@@ -1665,6 +1679,67 @@ function stepSurface() {
   if (winterFX && winterFX.ice && winterFX.ice.some(([x, z, r]) => Math.hypot(hero.x - x, (hero.z - z) * 1.3) < r)) return 'ice';
   return 'snow';
 }
+
+/* ---------- Il ciclo: ogni capitolo è una notte che corre verso le 23:40. Allo scoccare si ricomincia, ma Dmitri ricorda ---------- */
+const CLOCK = { len: 40, realSec: 1080 };          // 40 minuti di notte in 18 minuti veri; fermo mentre leggi o sei in pausa
+let LOOP = { ch: 0, n: 0, seen: new Set(), code: false };
+function clockText(m) { const mm = Math.min(40, Math.floor(m)); return `23:${String(mm).padStart(2, '0')}`; }
+function updateClock(dt) {
+  const el = $('clk'); if (!state.started || state.ended) return;
+  const run = !state.gap && !state.paused && !reading() && !state.loopBusy && !C.noClock;
+  if (run) state.clockMin = (state.clockMin || 0) + dt * CLOCK.len / CLOCK.realSec;
+  const m = state.clockMin || 0;
+  const txt = clockText(m) + (LOOP.n ? `<small>giro ${LOOP.n + 1}</small>` : '');
+  if (el.innerHTML !== txt) el.innerHTML = txt;
+  el.className = m >= 38 ? 'last' : m >= 32 ? 'late' : '';
+  if (m >= 30 && !state.clk30) { state.clk30 = true; tell('clk30' + LOOP.n, 'Le 23:30. Sento il filobus da qualche parte, lontano. Non mi resta molto.'); }
+  if (m >= 38 && !state.clk38) { state.clk38 = true; buzz(60); Sound.knock(0.12); tell('clk38' + LOOP.n, 'Le 23:38. Il ghiaccio sui vetri si muove. Sta per ricominciare.'); }
+  if (m >= CLOCK.len && !state.loopBusy) loopReset();
+}
+function loopReset() {
+  state.loopBusy = true; toggleTorch(false); buzz(200); Sound.glitch(); shake = Math.max(shake, 0.6);
+  $('flash').classList.add('on'); setTimeout(() => { $('flash').classList.remove('on'); $('fade').classList.add('on'); }, 350);
+  setTimeout(() => {
+    LOOP.n++; const n = C.id; loadChapter(n); state.started = true; state.loopBusy = false;
+    $('fade').classList.remove('on'); refreshObjective();
+    const L = ['23:40.', 'Il rumore di un filobus che frena. Poi niente.', 'Sono di nuovo qui. Stessa neve, stesso freddo.'];
+    L.push(LOOP.n === 1 ? 'Ma questa volta ricordo. I posti dove sono già stato mi tornano in mente: li vedo ancora, appena accennati.' : `È il giro ${LOOP.n + 1}. Ricordo tutto quello che ho visto.`);
+    if (LOOP.code) L.push('E ricordo il numero della cassetta.');
+    say(L);
+  }, 2600);
+}
+
+/* ---------- Le domande: ogni indizio, in qualunque capitolo, può rispondere a qualcosa ---------- */
+const QUESTIONS = [
+  { q: 'Chi scrive i messaggi firmati «В.»?', need: ['1:foglio', '6:tabella'], a: 'Io. Voronin. Lascio messaggi a me stesso, da un giro all\'altro.' },
+  { q: 'Perché tutto torna sempre alle 23:40?', need: ['2:registro', '8:registro', '9:rapporto'], a: 'Alle 23:40 ho girato la valvola principale. Da allora il tempo si azzera ogni notte. Solo io ricordo.' },
+  { q: 'Chi è 0418?', need: ['3:operaio', '8:registro'], a: 'Semënov, della mia brigata. È sceso con me nel pozzo della valvola.' },
+  { q: 'Chi mi sorveglia, e perché non devo ricordare?', need: ['3:ordine', '9:direttore'], a: 'La direzione dello ЗАТО-42. Il sistema è legato alla mia coscienza: se ricordo, posso spezzarlo.' },
+  { q: 'Chi sono le figure nella nebbia?', need: ['6:nastro', '7:diario'], a: 'Siamo noi. I giri che sono morti di freddo prima di finire.' },
+  { q: 'Quante volte ho già vissuto questa notte?', need: ['4:proiettore', '5:cella', '7:tacche'], a: 'Più di trecento. Il proiettore dice giro 14, la cartella dice terza esposizione. Nessuno tiene il conto giusto.' },
+  { q: 'Cos\'è davvero questa neve?', need: ['5:bancone', '5:schedario'], a: 'Memoria solidificata del ciclo. Ogni fiocco è un pezzo di notte che torna.' },
+  { q: 'Perché le finestre di casa erano inchiodate?', need: ['1:quaderno', '10:nota'], a: 'Le ho inchiodate io, per non uscire e non ricominciare il giro.' },
+  { q: 'Cosa c\'è oltre lo ЗАТО-42?', need: ['10:canale', '10:protocollo'], a: 'Era solo il reattore pilota. Oltre il perimetro ce ne sono altri.' },
+];
+const SECRET_Q = { q: 'Cosa c\'è nelle dieci cassette?', a: 'Un pezzo di ogni mio giro. Messe in fila, sono la mappa di tutti i miei inverni.' };
+const getSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch (e) { return new Set(); } };
+const putSet = (k, S) => { try { localStorage.setItem(k, JSON.stringify([...S])); } catch (e) {} };
+let clueStore = getSet('zima_clues'), clueSyncT = 0;
+function syncClues(force) {
+  if (!force && (clueSyncT += 1) % 30) return; let ch = false; if (force) clueStore = getSet('zima_clues');
+  for (const k of state.clues) { const id = C.id + ':' + k; if (!clueStore.has(id)) { clueStore.add(id); ch = true;
+      const Q = QUESTIONS.find(q => q.need.includes(id) && q.need.every(n => clueStore.has(n)));
+      if (Q) setTimeout(() => { buzz(40); showMsg('Una risposta: ' + Q.q, 3.5); }, 900); } }
+  if (ch) putSet('zima_clues', clueStore);
+}
+function renderQs() {
+  const safes = getSet('zima_safes'), rows = QUESTIONS.map(Q => { const got = Q.need.filter(n => clueStore.has(n)).length, ok = got === Q.need.length;
+    return `<div class="qrow${ok ? ' ok' : ''}"><div class="q">${ok ? '✓' : '?'} ${Q.q}</div>` + (ok ? `<div class="a">${Q.a}</div>` : `<div class="t">tracce ${got}/${Q.need.length}</div>`) + '</div>'; });
+  const sOk = safes.size >= 10;
+  rows.push(`<div class="qrow${sOk ? ' ok' : ''}"><div class="q">${sOk ? '✓ ' + SECRET_Q.q : '? ???'}</div>` + (sOk ? `<div class="a">${SECRET_Q.a}</div>` : `<div class="t">cassette aperte ${safes.size}/10</div>`) + '</div>');
+  $('bagQs').innerHTML = rows.join('');
+}
+const SECRET_END = '<br><br><i>Metto le dieci cassette in fila sulla neve. Dentro ognuna c\'è qualcosa di mio, da un giro diverso: una foto, un biglietto, un guanto, un gessetto… Insieme fanno un disegno solo: la mappa di tutti i miei inverni. Sull\'ultima, a matita, una scritta che non ho ancora fatto: «ЗАТО-43 · 12.02.1991 · 23:40». Il prossimo giro non sarà qui.</i>';
 
 /* ---------- B2. Lampioni ---------- */
 let lamps = [];
@@ -3413,7 +3488,8 @@ function updateInteract(t) {
       it.vis = lerp(it.vis || 0, vis, 0.08);
       it.sprite.material.opacity = it.vis * clamp(0.3 + 0.9 * f, 0, 1);
       if (!it.ring) { it.ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 40), new THREE.MeshBasicMaterial({ color: 0xffe2b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); it.ring.rotation.x = -Math.PI / 2; it.ring.renderOrder = 3; world.add(it.ring); }
-      const near = done ? 0 : clamp((3.2 - d) / 1.5, 0, 1); it.ringV = lerp(it.ringV || 0, near, 0.1);
+      const mem = LOOP.n > 0 && LOOP.seen.has(it.id) && !done, near = done ? 0 : mem ? Math.max(0.55, clamp((3.2 - d) / 1.5, 0, 1)) : clamp((3.2 - d) / 1.5, 0, 1); it.ringV = lerp(it.ringV || 0, near, 0.1);
+      it.ring.material.color.setHex(mem ? 0x9fd0ff : 0xffe2b0);
       it.ring.visible = it.ringV > 0.01; if (it.ring.visible) { const pu = 0.5 + 0.5 * Math.sin(t * 3 + it.ph); it.ring.material.opacity = it.ringV * (0.18 + 0.22 * pu); it.ring.scale.setScalar(0.9 + 0.15 * pu); it.ring.position.set(it.x, groundH(it.x, it.z) + 0.05, it.z); }
       const sc = 0.32 + 0.75 * Math.min(1, f);
       it.sprite.scale.set(sc, sc, 1);
@@ -3445,7 +3521,9 @@ function interact() {
   const run = () => {
     const was = new Set(state.clues), had = new Set(state.items), cans = state.cans, bat = state.battery;
     if (it.clue && !state.clues.has(it.id) && !(it.needs && !it.needs())) state.clues.add(it.id);
+    LOOP.seen.add(it.id);
     it.use();
+    syncClues(true);
     gainToast(was, had, cans, bat);
     refreshObjective();
   };
@@ -3673,7 +3751,7 @@ function renderBag() {
   const docs = [...state.clues].map(id => C.docs[id]).filter(Boolean);
   $('bagDocs').innerHTML = docs.length ? docs.map(d => `<div>· ${d}</div>`).join('') : '<div style="color:var(--dim)">Ancora niente.</div>';
 }
-function openBag() { if (!state.started || state.ended || state.gap) return; renderBag(); try { renderMap(); renderDiary(); } catch (e) { console.warn(e); } $('bag').classList.remove('hide'); state.paused = true; keys.clear(); }
+function openBag() { if (!state.started || state.ended || state.gap) return; renderBag(); try { syncClues(true); renderQs(); renderMap(); renderDiary(); } catch (e) { console.warn(e); } $('bag').classList.remove('hide'); state.paused = true; keys.clear(); }
 function closeBag() { $('bag').classList.add('hide'); state.paused = false; }
 function toggleBag() { bagOpen() ? closeBag() : openBag(); }
 
@@ -3750,7 +3828,7 @@ function memoryGap(reason) {
   setTimeout(() => {
     const cp = state.checkpoint;
     hero.x = cp.x; hero.z = cp.z; hero.speed = 0; hero.trail.length = 0; hero.y = groundH(cp.x, cp.z);
-    state.heat = Math.max(state.heat, 45); state.attention = 0; state.faints = (state.faints || 0) + 1;
+    state.heat = Math.max(state.heat, 45); state.attention = 0; state.faints = (state.faints || 0) + 1; state.clockMin = (state.clockMin || 0) + 4;
     let lost = null;                                     // il risveglio costa qualcosa
     if (state.cans > 0) { state.cans--; lost = 'Lo zaino è aperto. Manca una scatoletta.'; }
     else if (state.battery > 15) { state.battery = Math.max(10, state.battery - 25); lost = 'La torcia è rimasta accesa nella neve. La pila è quasi andata.'; }
@@ -3886,8 +3964,8 @@ function endChapter() {
   { const secs = Math.floor(playTime - (state.chT0 || 0)), mm = Math.floor(secs / 60), ss = secs % 60;
     const docs = [...state.clues].map(k => C.docs && C.docs[k]).filter(d => typeof d === 'string').map(d => d.split(' · ')[0]);
     const safe = interactables.find(i => i.id === 'safe');
-    $('endLine').innerHTML = E.text + `<div class="recap">Indizi: <b>${state.clues.size}/${C.clueCount}</b>` + (docs.length ? ` · ${docs.join(' · ')}` : '') +
-      `<br>Tempo: <b>${mm}:${String(ss).padStart(2, '0')}</b> · Svenimenti: <b>${state.faints || 0}</b>` + (safe ? ` · Cassetta: <b>${safe.done() ? 'aperta' : 'chiusa'}</b>` : '') + `</div>`; }
+    $('endLine').innerHTML = E.text + (C.id === 10 && getSet('zima_safes').size >= 10 ? SECRET_END : '') + `<div class="recap">Indizi: <b>${state.clues.size}/${C.clueCount}</b>` + (docs.length ? ` · ${docs.join(' · ')}` : '') +
+      `<br>Tempo: <b>${mm}:${String(ss).padStart(2, '0')}</b> · Svenimenti: <b>${state.faints || 0}</b> · Giri: <b>${LOOP.n + 1}</b> · Ora: <b>${clockText(state.clockMin || 0)}</b>` + (safe ? ` · Cassetta: <b>${safe.done() ? 'aperta' : 'chiusa'}</b>` : '') + `</div>`; }
   $('endNext').textContent = E.next ? `PROSSIMO · ${E.nextLabel}` : E.nextLabel;
   $('endGo').style.display = E.next ? '' : 'none';
   $('endGo').textContent = E.next ? 'CONTINUA' : '';
@@ -8644,7 +8722,8 @@ function loadChapter(n, fromPrev = false) {
   addSparkles();
   world.add(hero.group, hero.R.fill, guide, torch.spot, torch.spot.target, torch.cone);
   breath.forEach(b => { b.life = 0; b.s.visible = false; world.add(b.s); }); spray.forEach(b => { b.life = 0; b.s.visible = false; });
-  Sound.quiet(); state.faints = 0; state.sticks = 0; state.spectreLvl = 0; state.chT0 = typeof playTime === 'number' ? playTime : 0;
+  Sound.quiet(); state.faints = 0; state.sticks = 0; state.spectreLvl = 0; state.clockMin = 0; state.clk30 = state.clk38 = false;
+  if (LOOP.ch !== n) LOOP = { ch: n, n: 0, seen: new Set(), code: false }; state.chT0 = typeof playTime === 'number' ? playTime : 0;
   // stato del capitolo
   Object.assign(state, { ended: false, gap: false, clues: new Set(), flags: {}, attention: 0, told: {}, foodWarm: 0, heat: 100 });
   state.items = new Set(n === 1 ? [] : ['fiammiferi', 'mappa']);      // fiammiferi e mappa si trovano nel cortile
@@ -8663,7 +8742,7 @@ function loadChapter(n, fromPrev = false) {
   refreshObjective();
 }
 function startChapter(n, fromPrev = false) {
-  Sound.init(); Music.stop(2.5);
+  Sound.init(); Music.stop(2.5); LOOP.ch = 0;
   phase = 'game';
   const card = showCard(n);                                          // la scheda copre subito tutto lo schermo, opaca
   setTimeout(() => {
@@ -8873,7 +8952,7 @@ function updateHero(dt, t) {
   else if (TENSION.alert) lookT = TENSION.alert;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateTension(dt); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateOcclusion(dt); updateWinter(dt, t);
+  updateTension(dt); updateClock(dt); syncClues(); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateOcclusion(dt); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
@@ -9018,7 +9097,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { LCULL, scene, renderer, composer, nightRender, rt, rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { get LOOP() { return LOOP; }, getSet, LCULL, scene, renderer, composer, nightRender, rt, rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
