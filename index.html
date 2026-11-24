@@ -171,6 +171,10 @@
   #rdMeter i{display:block;height:100%;width:0;background:#9ef0c8;transition:width .1s}
   #rdDial{width:100%;height:44px;accent-color:#9ef0c8}
   #rdAsk button{flex:1;padding:12px 4px;font-size:14px}
+  #tip{position:fixed;left:50%;top:54%;transform:translate(-50%,-10px);width:min(360px,88vw);padding:10px 14px;background:rgba(8,12,18,.88);border:1px solid rgba(255,207,138,.55);font:13px/1.45 monospace;color:#eae2cf;z-index:9;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s}
+  #tip.on{opacity:1;transform:translate(-50%,0)}
+  #tip b{display:block;color:#ffcf8a;font-size:11px;letter-spacing:.2em;margin-bottom:3px}
+  #clk.off{display:none}
   #clk{font:700 22px/1.1 monospace;letter-spacing:.12em;color:#e8d6b0;margin:2px 0 6px;text-shadow:0 0 6px rgba(0,0,0,.7)}
   #clk.late{color:#ff9a5a}
   #clk.last{color:#ff4a3a;animation:clkP 1s infinite}
@@ -331,6 +335,7 @@
   <div id="kpKeys"></div>
 </div></div>
 <div id="flash"></div>
+<div id="tip"><b>SUGGERIMENTO</b><span></span></div>
 <div id="rd" class="screen hide"><div class="bag-panel kp-panel">
   <div class="bag-head"><span>РАДИОПРИЁМНИК · Р-105</span><button class="vhs" id="rdClose" aria-label="Chiudi">✕</button></div>
   <div id="rdFreq">140.0 MHz</div>
@@ -1516,16 +1521,30 @@ function roomFloorTex() {
 const NIGHT = { hemi: 0.4, sun: 0.95, warm: 1.5, torch: 1.15 };
 let nightLights = [], nightKey = null;
 /* solo le luci vicine a Dmitri entrano nel disegno: ognuna in più costa su ogni pixel dello schermo. Si spengono solo per il disegno, poi tornano come le vuole il capitolo */
-const LCULL = { all: [], key: null, t: 0, keep: new Set(), max: 5 };
+const LCULL = { all: [], key: null, t: 0, keep: new Set(), max: 5, scaled: [] };
+function losTo(lx, lz) {                // la lampada vede Dmitri? tre raggi (centro e fianchi), così un mobile non spegne la stanza
+  for (const o of [0, 0.5, -0.5]) { const tx = hero.x + Math.cos(hero.heading) * o, tz = hero.z - Math.sin(hero.heading) * o, dx = tx - lx, dz = tz - lz, d = Math.hypot(dx, dz);
+    if (d < 1e-3 || rayWall(lx, lz, dx / d, dz / d, d) >= d - 0.15) return true; }
+  return false;
+}
 const _lv = new THREE.Vector3();
 function cullLights() {
   if (LCULL.key !== C) { LCULL.key = C; LCULL.all = []; scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== torch.spot) LCULL.all.push(o); }); LCULL.t = 0; }
   const now = performance.now();
   if (now - LCULL.t > 250) { LCULL.t = now;
     const c = []; for (const l of LCULL.all) { if (!l.visible || l.intensity <= 0.001 || !l.parent) continue; l.getWorldPosition(_lv);
-      const d = Math.hypot(_lv.x - hero.x, _lv.z - hero.z), reach = l.distance > 0 ? l.distance + 4 : 16; if (d < reach) c.push([d, l]); }
+      const d = Math.hypot(_lv.x - hero.x, _lv.z - hero.z), reach = l.distance > 0 ? l.distance + 4 : 16; if (d >= reach) continue;
+      // al chiuso la luce non passa i muri: se tra la lampada e Dmitri c'è una parete, quella stanza non è la sua
+      const indoor = _lv.x > 40 || C.id === 7 || C.id === 9 || (C.id === 10 && !C.outside);
+      if (indoor && d > 1.4 && !losTo(_lv.x, _lv.z)) continue;
+      c.push([d, l]); }
     c.sort((a, b) => a[0] - b[0]); LCULL.keep = new Set(c.slice(0, LCULL.max).map(x => x[1])); }
-  const hid = []; for (const l of LCULL.all) if (l.visible && !LCULL.keep.has(l)) { l.visible = false; hid.push(l); }
+  const hid = [], dt = Math.min(0.1, (now - (LCULL.tf || now)) / 1000); LCULL.tf = now;
+  for (const l of LCULL.all) {
+    const k = LCULL.keep.has(l) ? 1 : 0; l.userData.lk = lerp(l.userData.lk ?? k, k, Math.min(1, dt * 5));
+    if (!l.visible) continue;
+    if (l.userData.lk < 0.02) { l.visible = false; hid.push(l); } else if (l.userData.lk < 0.999) { l.userData.i0 = l.intensity; l.intensity *= l.userData.lk; LCULL.scaled.push(l); }
+  }
   return hid;
 }
 function nightRender() {
@@ -1536,6 +1555,7 @@ function nightRender() {
   const hid = cullLights();
   composer.render();
   for (const l of hid) l.visible = true;
+  for (const l of LCULL.scaled) l.intensity = l.userData.i0; LCULL.scaled.length = 0;
   hemi.intensity = h0; sun.intensity = s0; torch.spot.intensity = t0; nightLights.forEach((l, i) => l.intensity = w0[i]);
 }
 
@@ -1723,12 +1743,44 @@ function stepSurface() {
   return 'snow';
 }
 
+/* ---------- Suggerimenti: ogni meccanica si presenta una volta sola, quando la incontri ---------- */
+const TIPS = {
+  cold: 'Il freddo ti consuma. Quando la barra CALORE scende, cerca un fuoco acceso e restaci vicino.',
+  fire: 'Accanto al fuoco ti scaldi e il gioco salva. Il fuoco però si consuma: raccogli legnetti nella neve per ravvivarlo.',
+  torch: 'La torcia consuma la pila. Accendila solo quando serve: anche le scatolette di pile si trovano in giro.',
+  clock: 'Ogni notte finisce alle 23:40. Se non chiudi il capitolo in tempo, ricomincia da capo, ma Dmitri ricorda: i posti già visti restano segnati in azzurro.',
+  safe: 'Le cassette si aprono con un codice di 4 cifre, scritto in un documento dello stesso capitolo. Aprile tutte e dieci.',
+  radio: 'Una radio da campo. Aprila e gira la manopola finché la barra si riempie, sui 142.8.',
+  spectre: 'Qualcosa ti segue. Non farti raggiungere: puntagli contro la torcia e si dissolve.',
+  ghost: 'Quello azzurro sei tu, nel giro di prima. Rifà la strada che hai fatto: seguilo, se hai dimenticato dove andare.',
+  bag: 'Nello zaino trovi documenti, mappa, diario e LE DOMANDE: ogni indizio risponde a qualcosa, anche in altri capitoli.',
+};
+const tipSeen = (() => { try { return new Set(JSON.parse(localStorage.getItem('zima_tips') || '[]')); } catch (e) { return new Set(); } })(), tipQ = []; let tipT = 0;
+function tip(k) { if (tipSeen.has(k) || tipQ.includes(k)) return; tipQ.push(k); }
+function updateTips(dt) {
+  const el = $('tip'); if (tipT > 0) { tipT -= dt; if (tipT <= 0) el.classList.remove('on'); return; }
+  if (!tipQ.length || !state.started || state.ended || state.paused || state.gap) return;
+  const k = tipQ.shift(); tipSeen.add(k); putSet('zima_tips', tipSeen); el.querySelector('span').textContent = TIPS[k]; el.classList.add('on'); tipT = 7.5;
+  if (!state.tipBag && k !== 'bag') { state.tipBag = true; }
+}
+function watchTips() {
+  if (!state.started || state.ended) return;
+  if (state.heat < 70) tip('cold');
+  if (fires.some(f => f.lit && !f.lantern && Math.hypot(f.x - hero.x, f.z - hero.z) < 4)) tip('fire');
+  if (state.torch) tip('torch');
+  if (C.id > 1) tip('clock');
+  for (const it of interactables) { if (Math.hypot(it.x - hero.x, it.z - hero.z) > 4) continue; if (it.id === 'safe') tip('safe'); if (it.id === 'radio') tip('radio'); }
+  if (figures.some(f => f.op > 0.4 && f.mode === 'stalker')) tip('spectre');
+  if (ghost && ghost.op > 0.4) tip('ghost');
+  if (state.clues.size >= 2) tip('bag');
+}
+
 /* ---------- Il ciclo: ogni capitolo è una notte che corre verso le 23:40. Allo scoccare si ricomincia, ma Dmitri ricorda ---------- */
 const CLOCK = { len: 40, realSec: 1080 };          // 40 minuti di notte in 18 minuti veri; fermo mentre leggi o sei in pausa
 let LOOP = { ch: 0, n: 0, seen: new Set(), code: false };
 function clockText(m) { const mm = Math.min(40, Math.floor(m)); return `23:${String(mm).padStart(2, '0')}`; }
 function updateClock(dt) {
-  const el = $('clk'); if (!state.started || state.ended) return;
+  const el = $('clk'); el.classList.toggle('off', C.id === 1); if (!state.started || state.ended || C.id === 1) return;
   const run = !state.gap && !state.paused && !reading() && !state.loopBusy && !C.noClock;
   if (run) state.clockMin = (state.clockMin || 0) + dt * CLOCK.len / CLOCK.realSec;
   const m = state.clockMin || 0;
@@ -1882,7 +1934,7 @@ function radioChoose(reply) {
   $('rdClose').addEventListener('pointerdown', e => { e.preventDefault(); closeRadio(); });
   $('rdYes').addEventListener('click', () => radioChoose(true)); $('rdNo').addEventListener('click', () => radioChoose(false)); }
 function addRadio() {
-  if (!RADIO[C.id]) return;
+  if (!RADIO[C.id] || C.id === 1) return;
   const rr = mulberry32(C.id * 733 + LOOP.n * 17), AB = (C.winter && C.winter.area) || BOUNDS, st = SAFES[C.id] && SAFES[C.id].at ? SAFES[C.id].at() : C.start;
   const free = (x, z) => x > AB[0] + 0.8 && x < AB[1] - 0.8 && z > AB[2] + 0.8 && z < AB[3] - 0.8 &&
     !BOXES.some(b => { const dx = x - b.cx, dz = z - b.cz, lx = dx * b.c + dz * b.s, lz = -dx * b.s + dz * b.c; return Math.abs(lx) < b.hx + 0.5 && Math.abs(lz) < b.hz + 0.5; }) &&
@@ -5412,7 +5464,7 @@ const CH2 = {
   },
   board() {
     const S = state; S.flags.boarded = true; Sound.clunk(); hero.group.visible = false; hero.speed = 0; S.paused = true; interactables = [];
-    this.busGo = 0.001;
+    this.busGo = 0.001; this.rideBeat = 0;
     say(['Salgo. Le porte si chiudono da sole, con un sibilo.', 'Il filobus parte piano, senza conducente. Fuori, la neve sembra cadere verso l\'alto.']);
     act(() => Sound.radio(1.6)); say('«Volk… non guardare il conducente.»', 'RADIO');
     this.endPending = true;
@@ -5492,6 +5544,19 @@ const CH2 = {
     say('«Perché?»', 'DMITRI');
     say(['Perché il conducente non ama essere osservato.', 'Il tuo cappotto è ancora al guardaroba. Numero 417. Non andare a cercarlo senza il biglietto.'], 'NINA PETROVNA');
   },
+  rideScene(dt, t) {                       // il viaggio: luci che tremano, Nina sul ciglio della strada, e un altro me alla fermata
+    const B = this.bus.position, g = this.busGo;
+    if (this.rideBeat === 0 && g > 3 && !reading()) { this.rideBeat = 1; TENSION.dimT = 1.6; Sound.glitch(); buzz(40);
+      say(['Dentro, le luci tremano. I sedili sono vuoti, ma sono tutti tiepidi.', 'Come se qualcuno si fosse appena alzato.']); }
+    if (this.rideBeat === 1 && g > 5 && !reading()) { this.rideBeat = 2; const N = this.nina;
+      N.x = B.x + 7; N.z = B.z - 2.6; N.heading = -Math.PI / 2; N.pose = null; N.group.visible = true; this.ninaState = 'ride'; this.ninaFire.lit = true;
+      say('Sul ciglio della strada, sotto un lampione, Nina Petrovna. Alza la lanterna mentre passiamo.'); say('«Sali sempre su questo, Dimočka. Ogni volta. E ogni volta scendi troppo tardi.»', 'NINA PETROVNA'); }
+    if (this.rideBeat === 2 && g > 7.5 && !reading()) { this.rideBeat = 3;
+      const G = new THREE.Group(); world.add(G); const F = { group: G, x: B.x + 6, z: B.z - 3.4, op: 0.8, mode: 'still' };
+      G.position.set(F.x, groundH(F.x, F.z), F.z); G.rotation.y = Math.PI; whenDM(() => attachSpectre(F)); this.rideGhost = F;
+      say(['Più avanti, alla fermata successiva, c\'è un uomo che aspetta il filobus.', 'Ha il mio cappotto. Il mio colbacco. Mi guarda passare.', 'Non alza la mano.']); }
+    if (this.rideGhost && this.rideGhost.spec) { this.rideGhost.op = 0.8; animSpectre(this.rideGhost, dt, t); }
+  },
   burstAt(x, z, n) {                       // scintille addosso al personaggio
     const p = new THREE.Vector3(x, groundH(x, z) + 1.0, z); let k = 0;
     this.sparkLight.position.copy(p); this.sparkLight.intensity = 40;
@@ -5553,8 +5618,8 @@ const CH2 = {
     if (this.phase() === 9 && !f.finale && !inRoom && !reading()) { f.finale = true; this.drawBoard(true); Sound.tone(880, 0.2, 0.05, 'triangle'); this.bus.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x10151c) { o.material = o.material.clone(); o.material.emissive.setHex(0x6a5a30); o.material.emissiveIntensity = 1.2; } });
       say(['Quando esco dal locale, la fermata è cambiata.', 'Il tabellone ora dice: ' + Q('«МАРШРУТ 6 — ДОМ КУЛЬТУРЫ»') + '. E dentro il filobus si è accesa la luce.']); }
     // il filobus riparte
-    if (this.busGo > 0) { this.busGo += dt; this.busBox.off = true; const sp = Math.min(6, this.busGo * 1.2); busFX(this.bus, sp, dt, this.busGo); Sound.setBus(Math.min(0.05, this.busGo * 0.03), sp); this.bus.position.x += Math.cos(L2.TROLL.r) * sp * dt; this.bus.position.z -= Math.sin(L2.TROLL.r) * sp * dt; hero.x = this.bus.position.x; hero.z = this.bus.position.z + 1.6; }
-    if (this.endPending && !reading() && this.busGo > 2.5) { this.endPending = false; this.endT = 1.5; }
+    if (this.busGo > 0) { this.busGo += dt; this.busBox.off = true; const sp = Math.min(3.2, this.busGo * 1.2); busFX(this.bus, sp, dt, this.busGo); this.rideScene(dt, t); Sound.setBus(Math.min(0.05, this.busGo * 0.03), sp); this.bus.position.x += Math.cos(L2.TROLL.r) * sp * dt; this.bus.position.z -= Math.sin(L2.TROLL.r) * sp * dt; hero.x = this.bus.position.x; hero.z = this.bus.position.z + 1.6; }
+    if (this.endPending && !reading() && this.busGo > 10.5 && this.rideBeat >= 3) { this.endPending = false; this.endT = 2.2; }
     if (this.endT > 0 && !reading()) { this.endT -= dt; if (this.endT <= 0) { this.endT = -1; S.paused = false; endChapter(); } }
     const live = !f.powerOff;
     // scintille
@@ -9117,7 +9182,7 @@ function updateHero(dt, t) {
   else if (TENSION.alert) lookT = TENSION.alert;
   else { let bd = 6; for (const it of interactables) { const d = Math.hypot(hero.x - it.x, hero.z - it.z); if (d < bd && d > 0.6) { bd = d; lookT = it; } } }
   animateHero(dt, t, lookT);
-  updateTension(dt); updateTheme(dt); updateClock(dt); recordLoop(dt); updateGhost(dt, t); syncClues(); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateOcclusion(dt); updateWinter(dt, t);
+  updateTension(dt); updateTheme(dt); updateClock(dt); watchTips(); updateTips(dt); recordLoop(dt); updateGhost(dt, t); syncClues(); updateFires(dt); updateWindOpen(dt); updateDmitri(dt); warmHandsIK(t, dt); reachIK(dt); updateSpray(dt); updateMist(dt, t); updateOcclusion(dt); updateWinter(dt, t);
   // sicurezza: fuori da una caduta il corpo resta in piedi
   if (DM.ready && hero.fall.phase === 'none' && (hero.fall.k || 0) < 0.01) {
     hero.group.quaternion.setFromAxisAngle(_yAxis, hero.heading);
