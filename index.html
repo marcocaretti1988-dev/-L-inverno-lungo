@@ -1458,12 +1458,27 @@ function roomFloorTex() {
 /* notte più nera: la luna e il cielo si abbassano, le luci calde salgono; si applica solo durante il disegno, così i capitoli restano com'erano scritti */
 const NIGHT = { hemi: 0.4, sun: 0.95, warm: 1.5, torch: 1.15 };
 let nightLights = [], nightKey = null;
+/* solo le luci vicine a Dmitri entrano nel disegno: ognuna in più costa su ogni pixel dello schermo. Si spengono solo per il disegno, poi tornano come le vuole il capitolo */
+const LCULL = { all: [], key: null, t: 0, keep: new Set(), max: 5 };
+const _lv = new THREE.Vector3();
+function cullLights() {
+  if (LCULL.key !== C) { LCULL.key = C; LCULL.all = []; scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== torch.spot) LCULL.all.push(o); }); LCULL.t = 0; }
+  const now = performance.now();
+  if (now - LCULL.t > 250) { LCULL.t = now;
+    const c = []; for (const l of LCULL.all) { if (!l.visible || l.intensity <= 0.001 || !l.parent) continue; l.getWorldPosition(_lv);
+      const d = Math.hypot(_lv.x - hero.x, _lv.z - hero.z), reach = l.distance > 0 ? l.distance + 4 : 16; if (d < reach) c.push([d, l]); }
+    c.sort((a, b) => a[0] - b[0]); LCULL.keep = new Set(c.slice(0, LCULL.max).map(x => x[1])); }
+  const hid = []; for (const l of LCULL.all) if (l.visible && !LCULL.keep.has(l)) { l.visible = false; hid.push(l); }
+  return hid;
+}
 function nightRender() {
   if (nightKey !== C) { nightKey = C; nightLights = []; scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== torch.spot) { const c = o.color; if (c.r > c.b * 1.15) nightLights.push(o); } }); }
   const on = state.started && !state.ended, h0 = hemi.intensity, s0 = sun.intensity, t0 = torch.spot.intensity, w0 = nightLights.map(l => l.intensity);
   if (on) { const out = ambProf() === 'city'; hemi.intensity *= out ? NIGHT.hemi : 0.85; sun.intensity *= NIGHT.sun; torch.spot.intensity *= NIGHT.torch; nightLights.forEach(l => l.intensity *= NIGHT.warm * TENSION.dim); hemi.intensity *= 0.6 + 0.4 * TENSION.dim; }
   gradePass.uniforms.uNight.value = on ? 1 : 0;
+  const hid = cullLights();
   composer.render();
+  for (const l of hid) l.visible = true;
   hemi.intensity = h0; sun.intensity = s0; torch.spot.intensity = t0; nightLights.forEach((l, i) => l.intensity = w0[i]);
 }
 
@@ -1550,14 +1565,16 @@ function updateTension(dt) {
 }
 
 /* ---------- Qualità grafica: la sceglie il giocatore ---------- */
-const QUAL = { alta: { pr: 1.75, bloom: 1, grime: 1, shadow: 2048, lampSnow: true, snow: 1, label: 'ALTA' }, media: { pr: 1.35, bloom: 1, grime: 1, shadow: 1024, lampSnow: true, snow: 0.75, label: 'MEDIA' },
-  bassa: { pr: 1.0, bloom: 0, grime: 0, shadow: 1024, lampSnow: false, snow: 0.45, label: 'BASSA' } };
+const QUAL = { alta: { pr: 1.75, bloom: 1, grime: 1, shadow: 2048, lampSnow: true, snow: 1, msaa: 4, soft: true, lights: 6, label: 'ALTA' }, media: { pr: 1.25, bloom: 1, grime: 1, shadow: 1024, lampSnow: true, snow: 0.6, msaa: 2, soft: false, lights: 4, label: 'MEDIA' },
+  bassa: { pr: 1.0, bloom: 0, grime: 0, shadow: 512, lampSnow: false, snow: 0.35, msaa: 0, soft: false, lights: 3, label: 'BASSA' } };
 let QK = (() => { try { return localStorage.getItem('zima_q') || 'media'; } catch (e) { return 'media'; } })(); if (!QUAL[QK]) QK = 'media';
 function applyQuality() {
   const Q = QUAL[QK], pr = Math.min(DPR, Q.pr);
   if (typeof RES !== 'undefined') RES.pr = pr;
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); gradePass.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr);
-  gradePass.uniforms.uBloom.value = Q.bloom; SNOWU.uGrime.value = Q.grime; snowDensity = Q.snow;
+  gradePass.uniforms.uBloom.value = Q.bloom; SNOWU.uGrime.value = Q.grime; snowDensity = Q.snow; LCULL.max = Q.lights;
+  for (const T of [composer.renderTarget1, composer.renderTarget2]) if (T && T.samples !== Q.msaa) { T.samples = Q.msaa; T.dispose(); }
+  const st = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; if (renderer.shadowMap.type !== st) { renderer.shadowMap.type = st; scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); }
   if (sun.shadow.mapSize.x !== Q.shadow) { sun.shadow.mapSize.set(Q.shadow, Q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   const b = document.getElementById('qBtn'); if (b) b.textContent = 'QUALITÀ: ' + Q.label;
 }
@@ -9001,7 +9018,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { LCULL, scene, renderer, composer, nightRender, rt, rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
