@@ -1393,6 +1393,11 @@ const poolTex = (() => { const c = document.createElement('canvas'); c.width = 6
 let winterFX = null;
 function winterDress(C) {
   const W = C.winter; winterFX = null; SNOWU.uSnowCap.value = 0; nightKey = null;
+  { // ogni parete alta e sottile ferma la luce della torcia (facciate e pannelli non facevano ombra: la luce usciva fuori)
+    const bb = new THREE.Box3(), sz = new THREE.Vector3();
+    world.traverse(o => { if (!o.isMesh || o.isSkinnedMesh || o.castShadow || !o.visible || (o.material && (o.material.transparent && o.material.opacity < 0.5 || o.material.blending === THREE.AdditiveBlending))) return;
+      bb.setFromObject(o); bb.getSize(sz); const thin = Math.min(sz.x, sz.z), long = Math.max(sz.x, sz.z);
+      if (sz.y > 1.8 && thin < 0.6 && long > 0.8) { o.castShadow = true; if (thin < 0.03) [].concat(o.material).forEach(m => { m.shadowSide = THREE.DoubleSide; }); } }); }
   { const skip = new Set(); hero.group.traverse(o => { if (o.material) [].concat(o.material).forEach(m => skip.add(m)); });
     world.traverse(o => { if (o.material && (o.isInstancedMesh || o.isSkinnedMesh)) [].concat(o.material).forEach(m => skip.add(m)); });
     world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.material) [].concat(o.material).forEach(m => { if (!skip.has(m)) snowify(m); }); }); }
@@ -3844,7 +3849,7 @@ function updateTorch(dt, t) {
   }
   torch.mat.uniforms.uOpacity.value = 0.11 * torch.flick;
   torch.cone.visible = torch.flick > 0.02;
-  hero.R.lensMat.emissiveIntensity = 3 * torch.flick; hero.R.lensGlow.material.opacity = 0.9 * torch.flick;
+  hero.R.lensMat.emissiveIntensity = 3 * torch.flick; hero.R.lensGlow.material.opacity = 0;
 }
 /* distanza dal muro più vicino lungo una direzione (raggio 2D contro i box di collisione, mobili bassi esclusi) */
 function rayWall(ox, oz, dx, dz, maxD) {
@@ -9327,7 +9332,7 @@ function loop() {
 loop();
 
 // hook di debug per i test automatici (non usato dal gioco)
-window.__zima = { get ghost() { return ghost; }, RD, RCH, Theme, get LOOP() { return LOOP; }, getSet, LCULL, scene, renderer, composer, nightRender, rt, rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
+window.__zima = { rayWall, torch, world, get ghost() { return ghost; }, RD, RCH, Theme, get LOOP() { return LOOP; }, getSet, LCULL, scene, renderer, composer, nightRender, rt, rotCam: d => { camAzTarget += d; }, iceMat, renderMap, renderDiary, fires: () => fires, get QK() { return QK; }, interact, TENSION, tensionEvent, get winterFX() { return winterFX; }, SNOWU, lamps: () => lamps, gradePass, mistLayers, HANDS, THREE, DMB: () => DM.B, DM, warmHandsIK, get joy() { return joy; }, get C() { return C; }, NINA, refreshMenu, snapCam() { hero.group.getWorldPosition(camTarget); camTarget.y += 0.8; }, Music, DM, knockDown, world, setAim, applyPose, POSE, makeCar, makeBlock, makeFireBarrel, makeKamaz, makeBench, makeSwing, makeCart, makeDumpster, makeTree, get phase() { return phase; }, state, hero, help, figures: () => figures, interactables: () => interactables, startChapter, loadChapter, endChapter, memoryGap,
   setZoom(z) { zoomTarget = z; }, openBag, closeBag, get C() { return C; }, boxEl, queue, toggleTorch, skip() { queue.length = 0; nextLine(); } };
 </script>
 </body>
